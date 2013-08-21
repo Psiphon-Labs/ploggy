@@ -26,27 +26,36 @@ import java.util.HashMap;
 public class Data {
 
     public static class Preferences {
-        
-    }
-    
-    public static class PublicIdentity {
-        
-    }
-    
-    public static class PrivateIdentity {
-        
+        // TODO:
+        // - geofencing
+        // - time limits
+        // - network preferences
     }
     
     public static class Self {
-        
+        public String mNickname;
+        public String mIdenticon; // cached
+        public String mTransportPublicKey;
+        public String mTransportPrivateKey;
+        public String mHiddenServiceHostname;
+        public String mHiddenServicePrivateKey;
     }
     
     public static class Friend {
-        
+        public String mNickname;
+        public String mIdenticon; // cached
+        public String mTransportPublicKey;
+        public String mHiddenServiceHostname;
     }
     
     public static class LocationPackage {
-        
+        public String mLongitude;
+        public String mLatitude;
+        public String mStreetAddress;
+        public String mTimestamp;
+        public String mStatusMessage;
+        public ArrayList<String> mMapTileIds;
+        public String mPhotoId;        
     }
 
     // ---- Singleton ----
