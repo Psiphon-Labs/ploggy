@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
-public class MapTileManager {
+import android.app.Application;
+
+public class AndroidApplication extends Application {
 
 }

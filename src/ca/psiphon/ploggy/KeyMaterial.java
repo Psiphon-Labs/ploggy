@@ -19,6 +19,23 @@
 
 package ca.psiphon.ploggy;
 
-public class MapTileManager {
+public class KeyMaterial {
+    
+    public static class TransportKeyPair {
+        public String mPublicKey;
+        public String mPrivateKey;
+    }
+    
+    public static class HiddenServiceIdentity {
+        public String mHostname;
+        public String mPrivateKey;
+    }
+    
+    public static TransportKeyPair generateTransportKeyPair() {
+        return null;
+    }
 
+    public static HiddenServiceIdentity generateHiddenServiceIdentity() {
+        return null;
+    }
 }
