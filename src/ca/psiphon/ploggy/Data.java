@@ -26,10 +26,14 @@ import java.util.HashMap;
 public class Data {
 
     public static class Preferences {
+        public int mLocationUpdatePeriodInSeconds = 600;
+        public int mLocationFixPeriodInSeconds = 60;
+        public boolean mAllowUseNetworkLocationProvider = true;
+        public boolean mAllowUseGeoCoder = true;
+        public boolean mAllowUseMobileNetwork = true;
         // TODO:
         // - geofencing
-        // - time limits
-        // - network preferences
+        // - time-of-day limits
     }
     
     public static class Self {

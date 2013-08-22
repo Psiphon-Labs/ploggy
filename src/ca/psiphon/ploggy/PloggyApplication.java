@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
-public class LocationListener {
+import android.app.Application;
+
+public class PloggyApplication extends Application {
 
 }

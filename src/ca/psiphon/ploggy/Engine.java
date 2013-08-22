@@ -19,6 +19,10 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import ca.psiphon.ploggy.KeyMaterial.HiddenServiceIdentity;
 import ca.psiphon.ploggy.KeyMaterial.TransportKeyPair;
 
@@ -44,12 +48,37 @@ public class Engine {
     }
     // -------------------
     
-    private Thread mGenerateSelfThread;
+    private ExecutorService mTaskThreadPool;
+    private LocationMonitor mLocationMonitor;
 
     private Engine() {
         new LinuxSecureRandom();
+    }    
+
+    public synchronized void start(Context context) {
+        Events.bus.register(this);        
+        mTaskThreadPool = Executors.newCachedThreadPool();
+        mLocationMonitor = new LocationMonitor(context);
+        mLocationMonitor.start();        
     }
-    
+
+    public synchronized void stop() {
+        Events.bus.unregister(this);
+        mLocationMonitor.stop();        
+        try
+        {
+            mTaskThreadPool.shutdown();
+            if (!mTaskThreadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+                mTaskThreadPool.shutdownNow();
+                mTaskThreadPool.awaitTermination(100, TimeUnit.MILLISECONDS);                
+            }
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+        }        
+    }
+
     @Subscribe
     public synchronized void handleRequestUpdatePreferences(
             Events.RequestUpdatePreferences requestUpdatePreferences) {
@@ -59,13 +88,9 @@ public class Engine {
     public synchronized void handleRequestGenerateSelf(
             Events.RequestGenerateSelf requestGenerateSelf) {
 
-        if (mGenerateSelfThread != null) {
-            // TODO: error - busy
-            // TODO: clear mGenerateSelfThread when complete
-            // TODO: generic async worker
-        }
-        mGenerateSelfThread = new Thread(
-            new Runnable() {
+        // TODO: check if already in progress
+
+        Runnable task = new Runnable() {
                 public void run() {
                     // TODO: cancellable
                     // TODO: catch errors
@@ -75,8 +100,8 @@ public class Engine {
                     Data.getInstance().updateSelf(new Data.Self());
                     Events.bus.post(new Events.GeneratedSelf());
                     }
-            });
-        mGenerateSelfThread.start();
+            };
+        mTaskThreadPool.submit(task);
     }
     
     @Produce
@@ -131,18 +156,4 @@ public class Engine {
         return null;
     }
     */
-
-    public synchronized void start(Context context) {
-        
-        // LocationListener.start(context);
-        
-        Events.bus.register(this);
-    }
-
-    public synchronized void stop() {
-        Events.bus.unregister(this);
-        
-        // cancel mGenerateSelfThread
-        // LocationListener.stop();
-    }
 }
