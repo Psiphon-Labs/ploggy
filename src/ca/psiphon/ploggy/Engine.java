@@ -79,6 +79,10 @@ public class Engine {
         }        
     }
 
+    public synchronized void submitTask(Runnable task) {
+    	mTaskThreadPool.submit(task);
+    }
+    
     @Subscribe
     public synchronized void handleRequestUpdatePreferences(
             Events.RequestUpdatePreferences requestUpdatePreferences) {

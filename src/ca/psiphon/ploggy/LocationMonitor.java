@@ -19,13 +19,20 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import android.content.Context;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+
+import ca.psiphon.ploggy.KeyMaterial.HiddenServiceIdentity;
+import ca.psiphon.ploggy.KeyMaterial.TransportKeyPair;
 
 import com.squareup.otto.Subscribe;
 
@@ -41,7 +48,8 @@ public class LocationMonitor implements android.location.LocationListener {
     Context mContext;
     Timer mLocationUpdateTimer;
     Timer mLocationFixTimer;
-    Location mLocation;
+    Location mLastReportedLocation;
+    Location mCurrentLocation;
     
     LocationMonitor(Context context) {
         mContext = context;
@@ -86,21 +94,25 @@ public class LocationMonitor implements android.location.LocationListener {
     public void startLocationListeners() {
         LocationManager locationManager = (LocationManager)mContext.getSystemService(Context.LOCATION_SERVICE);
         
+        for (String provider: locationManager.getAllProviders()) {
+        	updateCurrentLocation(locationManager.getLastKnownLocation(provider));
+        }
+
         // TODO: min time, min distance
+        // TODO: requestSingleUpdate (API 9)
+        
+        // requesting updates: explicit
         
         if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-            updateLocation(locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER));
             locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);    
         }
         
         if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-            updateLocation(locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER));
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);    
         }
         
         if (Data.getInstance().getPreferences().mAllowUseNetworkLocationProvider
                 && locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            updateLocation(locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);    
         }
         
@@ -111,7 +123,7 @@ public class LocationMonitor implements android.location.LocationListener {
             new TimerTask() {          
                 @Override
                 public void run() {
-                    reportBestLocation();
+                    reportLocation();
                     stopLocationListeners();
                 }
             },
@@ -124,17 +136,47 @@ public class LocationMonitor implements android.location.LocationListener {
         locationManager.removeUpdates(this);        
     }
         
-    public void reportBestLocation() {
-        // TODO: initiate geocoder --> background thread
-        // if (allowGeoCoder) {
-        //    Geocoder geocoder = new Geocoder(mContext);
-        //    List<Address> addresses = geocoder.getFromLocation(lat, long, 1);
-        // }
+    public void reportLocation() {
+    	if (mCurrentLocation == null) {
+    		return;
+    	}
+
+    	if (mLastReportedLocation != null &&
+    		mLastReportedLocation.distanceTo(mCurrentLocation)
+    			<= Data.getInstance().getPreferences().mLocationReportThresholdInMeters) {
+    		return;
+    	}
+
+		mLastReportedLocation = mCurrentLocation;
+
+    	if (Data.getInstance().getPreferences().mAllowUseGeoCoder) {
+            Runnable task = new Runnable() {
+                public void run() {
+                    Geocoder geocoder = new Geocoder(mContext);
+                    List<Address> addresses = null;
+					try {
+						// TODO: https://code.google.com/p/osmbonuspack/wiki/Overview#Geocoding_and_Reverse_Geocoding
+						addresses = geocoder.getFromLocation(
+								mLastReportedLocation.getLatitude(),
+								mLastReportedLocation.getLongitude(),
+								1);
+					} catch (IOException e) {
+						// TODO: report error
+                    }
+					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
+					Events.bus.post(new Events.NewCurrentLocation(mLastReportedLocation, address));
+                }
+            };
+            Engine.getInstance().submitTask(task);
+    		
+    	} else {
+    		Events.bus.post(new Events.NewCurrentLocation(mLastReportedLocation, null));
+    	}
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        updateLocation(location);
+        updateCurrentLocation(location);
     }
 
     @Override
@@ -149,11 +191,12 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
+        restart();
     }
 
-    protected void updateLocation(Location location) {
-        if (isBetterLocation(location, mLocation)) {
-            mLocation = location;
+    protected void updateCurrentLocation(Location location) {
+        if (isBetterLocation(location, mCurrentLocation)) {
+        	mCurrentLocation = location;
         }
     }
     
