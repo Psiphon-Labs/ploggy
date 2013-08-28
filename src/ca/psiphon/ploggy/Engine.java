@@ -23,8 +23,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import ca.psiphon.ploggy.KeyMaterial.HiddenServiceIdentity;
-import ca.psiphon.ploggy.KeyMaterial.TransportKeyPair;
+import ca.psiphon.ploggy.TransportSecurity.HiddenServiceIdentity;
+import ca.psiphon.ploggy.TransportSecurity.TransportKeyPair;
 
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
@@ -95,8 +95,8 @@ public class Engine {
                     // TODO: cancellable
                     // TODO: catch errors
                     // TODO: Self
-                    TransportKeyPair transportKeyPair = KeyMaterial.generateTransportKeyPair();
-                    HiddenServiceIdentity hiddenServiceIdentity = KeyMaterial.generateHiddenServiceIdentity();
+                    TransportKeyPair transportKeyPair = TransportSecurity.generateTransportKeyPair();
+                    HiddenServiceIdentity hiddenServiceIdentity = TransportSecurity.generateHiddenServiceIdentity();
                     Data.getInstance().updateSelf(new Data.Self());
                     Events.bus.post(new Events.GeneratedSelf());
                     }
