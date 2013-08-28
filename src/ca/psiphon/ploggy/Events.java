@@ -19,6 +19,9 @@
 
 package ca.psiphon.ploggy;
 
+import android.location.Address;
+import android.location.Location;
+
 import com.squareup.otto.Bus;
 import com.squareup.otto.ThreadEnforcer;
 
@@ -88,7 +91,13 @@ public class Events {
     }
     // subs: UI, pusher
 
-    public static class DetectedNewLocation {
+    public static class NewCurrentLocation {
+    	final Location mLocation;
+    	final Address mAddress;
+    	public NewCurrentLocation(Location location, Address address) {
+    		mLocation = location;
+    		mAddress = address;
+    	}
     }
     // subs: ...
 

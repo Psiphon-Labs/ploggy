@@ -28,10 +28,12 @@ public class Data {
     public static class Preferences {
         public int mLocationUpdatePeriodInSeconds = 600;
         public int mLocationFixPeriodInSeconds = 60;
+        public int mLocationReportThresholdInMeters = 10;
         public boolean mAllowUseNetworkLocationProvider = true;
         public boolean mAllowUseGeoCoder = true;
         public boolean mAllowUseMobileNetwork = true;
         // TODO:
+        // - location reporting granularity
         // - geofencing
         // - time-of-day limits
     }
@@ -52,13 +54,13 @@ public class Data {
         public String mHiddenServiceHostname;
     }
     
-    public static class LocationPackage {
+    public static class Status {
+        public String mTimestamp;
         public String mLongitude;
         public String mLatitude;
         public String mStreetAddress;
-        public String mTimestamp;
-        public String mStatusMessage;
         public ArrayList<String> mMapTileIds;
+        public String mMessage;
         public String mPhotoId;        
     }
 
@@ -77,9 +79,9 @@ public class Data {
 
     Preferences mPreferences;
     Self mSelf;
-    LocationPackage mSelfLocationPackage;
+    Status mSelfStatus;
     ArrayList<Friend> mFriends;
-    HashMap<String, LocationPackage> mFriendLocationPackages;
+    HashMap<String, Status> mFriendStatuses;
     
     public synchronized Data.Preferences getPreferences() {
         return null;
@@ -99,11 +101,11 @@ public class Data {
     public synchronized void updateSelf(Data.Self self) {
     }
 
-    public synchronized Data.LocationPackage getSelfLocationPackage() {
+    public synchronized Data.Status getSelfStatus() {
         return null;
     }
 
-    public synchronized void getSelfLocationPackage(Data.LocationPackage locationPackage) {
+    public synchronized void setSelfStatus(Data.Status status) {
     }
 
     public synchronized ArrayList<Data.Friend> getFriends() {
@@ -116,11 +118,11 @@ public class Data {
     public synchronized void removeFriend(Data.Friend friend) {
     }
 
-    public synchronized Data.LocationPackage readFriendLocationPackage() {
+    public synchronized Data.Status readFriendStatus() {
         return null;
     }
 
-    public synchronized void writeFriendLocationPackage(Data.LocationPackage locationPackage) {
+    public synchronized void writeFriendStatus(Data.Status status) {
     }
     
     // 2pc:
