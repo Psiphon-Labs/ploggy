@@ -31,9 +31,6 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 
-import ca.psiphon.ploggy.KeyMaterial.HiddenServiceIdentity;
-import ca.psiphon.ploggy.KeyMaterial.TransportKeyPair;
-
 import com.squareup.otto.Subscribe;
 
 public class LocationMonitor implements android.location.LocationListener {

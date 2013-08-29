@@ -1131,6 +1131,7 @@ public abstract class NanoHTTPD {
     private static final void safeClose(Socket socket) {
         if (socket != null) {
             try {
+                // TODO: http://code.google.com/p/android/issues/detail?id=7933? socket.shutdownInput();?
                 socket.close();
             }
             catch(IOException e) {

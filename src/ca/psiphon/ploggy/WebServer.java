@@ -31,7 +31,7 @@ import javax.net.ssl.TrustManager;
 
 import fi.iki.elonen.NanoHTTPD;
 
-public class WebServer extends NanoHTTPD {
+public class WebServer extends NanoHTTPD implements NanoHTTPD.AsyncRunner {
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
 
@@ -42,6 +42,7 @@ public class WebServer extends NanoHTTPD {
                 makeSSLSocketFactory(transportKeyPair),
                 TransportSecurity.getRequiredTransportProtocols(),
                 TransportSecurity.getRequiredTransportCipherSuites());
+        setAsyncRunner(this);
     }
 
     private static SSLServerSocketFactory makeSSLSocketFactory(TransportSecurity.TransportKeyPair transportKeyPair) throws IOException {
@@ -60,6 +61,12 @@ public class WebServer extends NanoHTTPD {
            throw new IOException(e);
        }
        return sslServerSocketFactory;
+    }
+
+    @Override
+    public void exec(Runnable webRequestTask) {
+        // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables        
+        Engine.getInstance().submitTask(webRequestTask);
     }
 
     @Override
