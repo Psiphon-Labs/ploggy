@@ -19,15 +19,16 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.ArrayList;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import ca.psiphon.ploggy.TransportSecurity.HiddenServiceIdentity;
-import ca.psiphon.ploggy.TransportSecurity.TransportKeyPair;
+import ca.psiphon.ploggy.Utils.GeneralException;
 
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
@@ -62,12 +63,13 @@ public class Engine {
         new LinuxSecureRandom();
     }    
 
-    public synchronized void start(Context context) {
+    public synchronized void start(Context context) throws Utils.GeneralException {
         Events.bus.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
         mTimer = new Timer();
         mLocationMonitor = new LocationMonitor(context);
         mLocationMonitor.start();
+        // TODO: check Data.getInstance().hasSelf()...
         startSharingService();
         initFriendPollPeriod();
         schedulePollFriends();
@@ -122,7 +124,7 @@ public class Engine {
         mTimer.schedule(new ScheduledTask(task), delayMilliseconds);
     }
     
-    private void startSharingService() {
+    private void startSharingService() throws Utils.GeneralException {
         try {
             Data.Self self = Data.getInstance().getSelf();
             stopSharingService();
@@ -131,7 +133,10 @@ public class Engine {
             int webServerPort = mWebServer.getListeningPort();
             mTorWrapper = new TorWrapper(HiddenService.Identity.fromJson(self.mHiddenServiceIdentity), webServerPort);
             mTorWrapper.start();
-        } catch (Data.NotFoundException e) {            
+        } catch (Data.DataNotFoundException e) {
+            throw new Utils.GeneralException(e);
+        } catch (IOException e) {
+            throw new Utils.GeneralException(e);
         }
     }
     
@@ -142,6 +147,15 @@ public class Engine {
     	if (mWebServer != null) {
     		mWebServer.stop();
     	}
+    }
+    
+    public synchronized Proxy getLocalProxy() throws GeneralException {
+        if (mTorWrapper != null) {
+            return new Proxy(
+                    Proxy.Type.SOCKS,
+                    new InetSocketAddress(TorWrapper.SOCKS_PROXY_HOSTNAME, mTorWrapper.getSocksProxyPort()));
+        }
+        throw new Utils.GeneralException();
     }
     
     @Subscribe
@@ -233,12 +247,12 @@ public class Engine {
             public void run() {
                 try {
                     Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
-                    String response = WebClient.makeGetRequest(friend.mHiddenServiceHostname, Protocol.GET_STATUS_REQUEST, null);
+                    String response = WebClient.makeGetRequest(friend.mHiddenServiceHostname, Protocol.GET_STATUS_REQUEST_PATH, null);
                     Data.Status friendStatus = Data.Status.fromJson(response);
                     Events.bus.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll
                     Engine.getInstance().schedulePollFriend(taskFriendId, false);
-                } catch (Data.NotFoundException e) {
+                } catch (Data.DataNotFoundException e) {
                     // Next poll won't be scheduled
                 }
             }

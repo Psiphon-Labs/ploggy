@@ -19,10 +19,15 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.InputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import android.content.Context;
 
 public class Data {
     
@@ -44,6 +49,16 @@ public class Data {
         // - location reporting granularity
         // - geofencing
         // - time-of-day limits
+
+        public static Preferences fromJson(String json) {
+            // TODO: ...
+            return null;
+        }
+
+        public Preferences toJson() {
+            // TODO: ...
+            return null;
+        }
     }
     
     public static class Self {
@@ -84,7 +99,7 @@ public class Data {
         public Friend(String nickname, String identicon, String transportPublicKey, String hiddenServiceHostname) {
             mId = Utils.makeId(nickname, transportPublicKey, hiddenServiceHostname);
             mNickname = nickname;
-            mIdenticon = Utils.makeIdenticon(id);
+            mIdenticon = Utils.makeIdenticon(mId);
             mTransportPublicKey = transportPublicKey;
             mHiddenServiceHostname = hiddenServiceHostname;            
         }
@@ -128,7 +143,7 @@ public class Data {
         }
     }
     
-    public static class NotFoundException extends Exception {
+    public static class DataNotFoundException extends Exception {
         private static final long serialVersionUID = -8736069103392081076L;        
     }
 
@@ -145,44 +160,57 @@ public class Data {
     }
     // -------------------
 
+    private static final String PREFERENCES_FILENAME = "preferences.json"; 
+    private static final String SELF_FILENAME = "self.json"; 
+    private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
+    private static final String FRIENDS_FILENAME = "friends.json"; 
+    private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json"; 
+    
     Preferences mPreferences;
     Self mSelf;
     Status mSelfStatus;
     ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     
-    // 1. read from disk
-    // 2. cache
-    
     public synchronized Data.Preferences getPreferences() {
-        // TODO: ...
-        return null;
+        if (mPreferences == null) {
+            try {
+                mPreferences = Preferences.fromJson(readFile(PREFERENCES_FILENAME));
+            } catch (DataNotFoundException e) {
+                // Use default preferences
+                mPreferences = new Preferences();
+            }
+        }
+        return mPreferences;
     }
 
     public synchronized void updatePreferences(Data.Preferences preferences) {
-        // TODO: ...
+        writeFile(PREFERENCES_FILENAME, preferences.toJson());
+        mPreferences = preferences;
     }
     
-    // 1. write JSON to disk
-    // 2. set in-memory value
-    // 3. serve (some) reads from memory
-
-    public synchronized Data.Self getSelf() throws NotFoundException {
-        // TODO: ...
-        return null;
+    public synchronized Data.Self getSelf() throws DataNotFoundException {
+        if (mSelf == null) {
+            mSelf = Self.fromJson(readFile(SELF_FILENAME));
+        }
+        return mSelf;
     }
 
     public synchronized void updateSelf(Data.Self self) {
-        // TODO: ...
+        writeFile(SELF_FILENAME, self.toJson());
+        mSelf = self;
     }
 
-    public synchronized Data.Status getSelfStatus() throws NotFoundException {
-        // TODO: ...
-        return null;
+    public synchronized Data.Status getSelfStatus() throws DataNotFoundException {
+        if (mSelfStatus == null) {
+            mSelfStatus = Status.fromJson(readFile(SELF_STATUS_FILENAME));
+        }
+        return mSelfStatus;
     }
 
-    public synchronized void setSelfStatus(Data.Status status) {
-        // TODO: ...
+    public synchronized void updateSelfStatus(Data.Status status) {
+        writeFile(SELF_STATUS_FILENAME, status.toJson());
+        mSelfStatus = status;
     }
 
     public synchronized ArrayList<Data.Friend> getFriends() {
@@ -190,15 +218,15 @@ public class Data {
         return null;
     }
 
-    public synchronized Data.Friend getFriendById(String id) throws NotFoundException {
+    public synchronized Data.Friend getFriendById(String id) throws DataNotFoundException {
         // TODO: ...
-        throw new NotFoundException();
+        throw new DataNotFoundException();
     }
 
-    public synchronized Data.Friend getFriendByTransportCertificate(X509Certificate certificate) throws NotFoundException {
+    public synchronized Data.Friend getFriendByTransportCertificate(X509Certificate certificate) throws DataNotFoundException {
         // TODO: ...
         // ...certificate.getEncoded()
-        throw new NotFoundException();
+        throw new DataNotFoundException();
     }
 
     public synchronized void updateFriend(Data.Friend friend) {
@@ -209,7 +237,7 @@ public class Data {
         // TODO: ...
     }
 
-    public synchronized Data.Status getFriendStatus() throws NotFoundException {
+    public synchronized Data.Status getFriendStatus() throws DataNotFoundException {
         // TODO: ...
         return null;
     }
@@ -241,4 +269,36 @@ public class Data {
         return null;
     }
     */
+    
+    // TODO: SQLCipher/IOCipher storage?
+    
+    private static String readFile(String filename) throws DataNotFoundException {
+        FileInputStream inputStream;
+        try {
+            inputStream = openFileInput(filename);
+            return Utils.inputStreamToString(inputStream);
+        } catch (FileNotFoundException e) {
+            throw new DataNotFoundException();
+        } catch (IOException e) {
+            // TODO: ...
+        } finally {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        }        
+    }
+
+    private static void writeFile(String filename, String value) {
+        FileOutputStream outputStream;
+        try {
+            outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
+            outputStream.write(value.getBytes());
+        } catch (IOException e) {
+            // TODO: ...
+        } finally {
+            if (outputStream != null) {
+                outputStream.close();
+            }
+        }
+    }
 }

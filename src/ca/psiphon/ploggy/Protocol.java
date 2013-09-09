@@ -21,7 +21,11 @@ package ca.psiphon.ploggy;
 
 public class Protocol {
     
-    public static final String GET_STATUS_REQUEST = "/status";
+    public static final String WEB_SERVER_PROTOCOL = "https";
+    
+    public static final int WEB_SERVER_VIRTUAL_PORT = 443;
+    
+    public static final String GET_STATUS_REQUEST_PATH = "/status";
 
     public Data.Friend validateFriend(String jsonFriend) {
         return null;

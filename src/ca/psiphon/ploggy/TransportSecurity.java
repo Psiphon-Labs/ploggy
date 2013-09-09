@@ -20,18 +20,14 @@
 package ca.psiphon.ploggy;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Set;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -105,8 +101,6 @@ public class TransportSecurity {
         
         private boolean isKnownPeerCertificate(X509Certificate[] chain) {
         	
-            Data.Friend getFriendFromTransportCertificate(X509Certificate certificate)
-            
             // TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
         	
             if (chain.length != 1) {
@@ -114,9 +108,9 @@ public class TransportSecurity {
             }
 
             try {
-                Data.Friend friend = Data.getInstance().getFriendFromTransportCertificate(chain[0]);
+                Data.getInstance().getFriendByTransportCertificate(chain[0]);
                 return true;
-            } catch (Data.NotFoundException e) {
+            } catch (Data.DataNotFoundException e) {
             }
             return false;
         }
@@ -125,10 +119,9 @@ public class TransportSecurity {
         public X509Certificate[] getAcceptedIssuers() {
             return null;
         }
-    }    
+    }
     
-    public static SSLServerSocketFactory getSSLSocketFactory(TransportSecurity.KeyPair transportKeyPair) throws IOException {
-        SSLServerSocketFactory sslServerSocketFactory = null;
+    public static SSLContext getSSLContext(TransportSecurity.KeyPair transportKeyPair) throws Utils.GeneralException {
         try {
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             transportKeyPair.deploy(keystore);
@@ -138,21 +131,9 @@ public class TransportSecurity {
             TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager() }; 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
-            sslServerSocketFactory = sslContext.getServerSocketFactory();
+            return sslContext;
         } catch (Exception e) {
-            throw new IOException(e);
-        }
-        return sslServerSocketFactory;
+            throw new Utils.GeneralException(e);
+        }        
     }
-    /*
-    @Subscribe
-    public void handleAddedFriend(Events.AddedFriend addedFriend) {
-    	// TODO: Re-populate the trust cert store
-    }    
-
-    @Subscribe
-    public void handleDeletedFriend(Events.DeletedFriend deletedFriend) {
-    	// TODO: Re-populate the trust cert store
-    }
-    */   
 }

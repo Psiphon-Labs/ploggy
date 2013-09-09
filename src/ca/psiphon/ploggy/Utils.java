@@ -19,7 +19,23 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
 public class Utils {
+
+    public static class GeneralException extends Exception {
+        private static final long serialVersionUID = -3656367025650685613L;
+
+        public GeneralException() {
+        }
+
+        public GeneralException(Exception e) {
+            super(e);
+        }
+    }
 
     public static String makeId(String nickname, String transportPublicKey, String hiddenServiceHostname) {
         // TODO: ...
@@ -30,4 +46,14 @@ public class Utils {
         // TODO: ...
         return null;
     }    
+
+    public static String inputStreamToString(InputStream inputStream) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        StringBuilder value = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            value.append(line);
+        }
+        return value.toString();
+    }
 }

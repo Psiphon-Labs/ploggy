@@ -19,11 +19,40 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.Proxy;
+import java.net.URL;
+
+import com.squareup.okhttp.OkHttpClient;
+
 public class WebClient {
 
-    public static String makeGetRequest(String host, String url, String body) {
-        // TODO: ...
-        return null;
-    }
+    public static String makeGetRequest(TransportSecurity.KeyPair transportKeyPair, String hostname, String requestPath, String body) throws Utils.GeneralException {        
+        try {
+            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, Protocol.WEB_SERVER_VIRTUAL_PORT, requestPath);
+            Proxy proxy = Engine.getInstance().getLocalProxy();
+            
+            // TODO: cache? or setConnectionPool(ConnectionPool connectionPool)?
+            // ... see default connection pool params: http://square.github.io/okhttp/javadoc/com/squareup/okhttp/ConnectionPool.html
+            OkHttpClient client = new OkHttpClient();        
+            client.setProxy(proxy);
+            client.setSslSocketFactory(TransportSecurity.getSSLContext(transportKeyPair).getSocketFactory());
     
+            HttpURLConnection connection = client.open(url);
+            connection.setRequestMethod("GET");
+            
+            // TODO: stream larger responses to files, etc.
+            // TODO: finally { connection.close(); }
+            return Utils.inputStreamToString(connection.getInputStream());
+        } catch (MalformedURLException e) {
+            throw new Utils.GeneralException(e);
+        } catch (ProtocolException e) {
+            throw new Utils.GeneralException(e);
+        } catch (IOException e) {
+            throw new Utils.GeneralException(e);
+        }
+    }    
 }

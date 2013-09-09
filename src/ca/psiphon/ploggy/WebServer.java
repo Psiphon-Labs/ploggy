@@ -19,20 +19,7 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.IOException;
-import java.security.KeyStore;
-import java.security.SecureRandom;
 import java.util.Map;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.TrustManager;
-
-import ca.psiphon.ploggy.Events.Request;
-import ca.psiphon.ploggy.Events.Response;
-
-import com.squareup.otto.Subscribe;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -40,11 +27,11 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.AsyncRunner {
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
 	
-    public WebServer(TransportSecurity.KeyPair transportKeyPair) throws IOException {
+    public WebServer(TransportSecurity.KeyPair transportKeyPair) throws Utils.GeneralException {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
 		makeSecure(
-		        TransportSecurity.getSSLSocketFactory(transportKeyPair),
+		        TransportSecurity.getSSLContext(transportKeyPair).getServerSocketFactory(),
 		        TransportSecurity.getRequiredTransportProtocols(),
 		        TransportSecurity.getRequiredTransportCipherSuites());
         setAsyncRunner(this);

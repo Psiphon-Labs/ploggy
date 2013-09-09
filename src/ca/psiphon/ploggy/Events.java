@@ -56,9 +56,11 @@ public class Events {
     
     public static class RequestFailed {
         public final long mRequestId;
+        public final String mErrorMessage;
 
-        public RequestFailed(long requestId) {
+        public RequestFailed(long requestId, String errorMessage) {
             mRequestId = requestId;
+            mErrorMessage = errorMessage;
         }
     }
     
