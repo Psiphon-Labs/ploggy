@@ -19,6 +19,9 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +51,8 @@ public class Engine {
     }
     // -------------------
     
+    private long mFriendPollPeriod;
+    private Timer mTimer;
     private ExecutorService mTaskThreadPool;
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
@@ -58,19 +63,23 @@ public class Engine {
     }    
 
     public synchronized void start(Context context) {
-        Events.bus.register(this);        
+        Events.bus.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
+        mTimer = new Timer();
         mLocationMonitor = new LocationMonitor(context);
         mLocationMonitor.start();
-        startHiddenService();
+        startSharingService();
+        initFriendPollPeriod();
+        schedulePollFriends();
         // TODO: Events.bus.post(new Events.EngineRunning()); ?
     }
 
     public synchronized void stop() {
         Events.bus.unregister(this);
-        stopHiddenService();
+        stopSharingService();
         if (mLocationMonitor != null) {
         	mLocationMonitor.stop();
+        	mLocationMonitor = null;
         }
         if (mTaskThreadPool != null) {
 	        try
@@ -85,22 +94,48 @@ public class Engine {
 	        {
 	            Thread.currentThread().interrupt();
 	        }
+	        mTaskThreadPool = null;
+        }
+        if (mTimer != null) {
+            mTimer.cancel();
+            mTimer = null;
         }
         // TODO: Events.bus.post(new Events.EngineStopped()); ?
     }
 
-    private void startHiddenService() {
-        Data.Self self = Data.getInstance().getSelf();
-        if (self != null) {
-	        mWebServer = new WebServer(TransportSecurity.TransportKeyPair.fromJson(self.mTransportKeyPair));
-	        mWebServer.start();
-	        int webServerPort = mWebServer.getListeningPort();
-	        mTorWrapper = new TorWrapper(TransportSecurity.HiddenServiceIdentity.fromJson(self.mHiddenServiceIdentity), webServerPort);
-	        mTorWrapper.start();
-        }    	
+    public synchronized void submitTask(Runnable task) {
+        mTaskThreadPool.submit(task);
     }
     
-    private void stopHiddenService() {
+    private class ScheduledTask extends TimerTask {
+        Runnable mTask;
+        public ScheduledTask(Runnable task) {
+            mTask = task;
+        }
+        @Override
+        public void run() {
+            mTaskThreadPool.submit(mTask);
+        }
+    }
+    
+    public synchronized void scheduleTask(Runnable task, long delayMilliseconds) {
+        mTimer.schedule(new ScheduledTask(task), delayMilliseconds);
+    }
+    
+    private void startSharingService() {
+        try {
+            Data.Self self = Data.getInstance().getSelf();
+            stopSharingService();
+            mWebServer = new WebServer(TransportSecurity.KeyPair.fromJson(self.mTransportKeyPair));
+            mWebServer.start();
+            int webServerPort = mWebServer.getListeningPort();
+            mTorWrapper = new TorWrapper(HiddenService.Identity.fromJson(self.mHiddenServiceIdentity), webServerPort);
+            mTorWrapper.start();
+        } catch (Data.NotFoundException e) {            
+        }
+    }
+    
+    private void stopSharingService() {
     	if (mTorWrapper != null) {
     		mTorWrapper.stop();
     	}
@@ -109,68 +144,109 @@ public class Engine {
     	}
     }
     
-    public synchronized void submitTask(Runnable task) {
-    	mTaskThreadPool.submit(task);
-    }
-    
     @Subscribe
-    public synchronized void handleRequestUpdatePreferences(
+    private synchronized void handleRequestUpdatePreferences(
             Events.RequestUpdatePreferences requestUpdatePreferences) {
+        // TODO: update prefs (task)
+        // TODO: Events.bus.post(new Events.UpdatedPreferences());
     }
 
     @Subscribe
-    public synchronized void handleRequestGenerateSelf(
+    private synchronized void handleRequestGenerateSelf(
             Events.RequestGenerateSelf requestGenerateSelf) {
+        
+        // TODO: check if already in progress?
 
-        // TODO: check if already in progress
-
+        final Events.RequestGenerateSelf taskRequestGenerateSelf = requestGenerateSelf;
         Runnable task = new Runnable() {
                 public void run() {
-                    // TODO: cancellable
-                    // TODO: catch errors
-                    // TODO: Self
-                    TransportKeyPair transportKeyPair = TransportSecurity.generateTransportKeyPair();
-                    HiddenServiceIdentity hiddenServiceIdentity = TransportSecurity.generateHiddenServiceIdentity();
-                    Data.getInstance().updateSelf(new Data.Self());
-                    Events.bus.post(new Events.GeneratedSelf());
-                    }
+                    try {
+                        // TODO: validate nickname?
+                        // TODO: cancellable generation?
+                        stopSharingService();
+                        Data.Self self = new Data.Self(
+                                taskRequestGenerateSelf.mNickname,
+                                TransportSecurity.KeyPair.generate().toJson(true),
+                                HiddenService.Identity.generate().toJson(true));
+                        Data.getInstance().updateSelf(self);
+                        Events.bus.post(new Events.GeneratedSelf(self));
+                    } catch (/*TEMP*/Exception e) {
+                        Events.bus.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId));
+                    } finally {
+                        // Apply new transport and hidden service credentials, or restart with old settings on error
+                        startSharingService();                        
+                        }
+                }
             };
         mTaskThreadPool.submit(task);
     }
     
+    @Produce
+    private synchronized Events.GeneratedSelf produceGeneratedSelf() {
+        // TODO: ...
+        return null;
+    }
+
     @Subscribe
-    public synchronized void handleGeneratedSelf(
-    		Events.GeneratedSelf generatedSelf) {
-    	// Apply new transport and hidden service credentials
-    	stopHiddenService();
-    	startHiddenService();
+    private synchronized void handleRequestDecodeFriend(
+            Events.RequestDecodeFriend requestDecodeFriend)  {
+        // TODO: ...
+    }
+
+    @Subscribe
+    private synchronized void handleRequestAddFriend(
+            Events.RequestAddFriend requestAddFriend)  {
+        // ...[re-]validate
+        // ...insert or update data
+        // ... update trust manager back end?
+        // ...schedule polling (if new) with schedulePollFriend()
+        // TODO: ...
+    }
+
+    @Subscribe
+    private synchronized void handleRequestDeleteFriend(
+            Events.RequestDeleteFriend requestDeleteFriend) {
+        // ...doesn't cancel polling
+        // TODO: ...
+    }
+
+    @Produce
+    private synchronized Events.NewSelfStatus produceNewSelfStatus() {
+        // TODO: ...
+        return null;
     }
     
-    @Produce
-    public synchronized Events.GeneratedSelf produceGeneratedSelf() {
-        return null;
+    private void initFriendPollPeriod() {
+        // TODO: adjust for foreground, battery, sleep, network type 
+        mFriendPollPeriod = 60*1000;
     }
 
-    @Subscribe
-    public synchronized void handleRequestDecodeFriend(
-            Events.RequestDecodeFriend requestDecodeFriend)  {
+    private void schedulePollFriends() {
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            schedulePollFriend(friend.mId, true);
+        }
     }
-
-    @Subscribe
-    public synchronized void handleRequestAddFriend(
-            Events.RequestAddFriend requestAddFriend)  {
+    
+    private void schedulePollFriend(String friendId, boolean initialRequest) {
+        final String taskFriendId = friendId;
+        Runnable task = new Runnable() {
+            public void run() {
+                try {
+                    Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
+                    String response = WebClient.makeGetRequest(friend.mHiddenServiceHostname, Protocol.GET_STATUS_REQUEST, null);
+                    Data.Status friendStatus = Data.Status.fromJson(response);
+                    Events.bus.post(new Events.NewFriendStatus(friendStatus));
+                    // Schedule next poll
+                    Engine.getInstance().schedulePollFriend(taskFriendId, false);
+                } catch (Data.NotFoundException e) {
+                    // Next poll won't be scheduled
+                }
+            }
+        };
+        long delay = initialRequest ? 0 : mFriendPollPeriod;
+        scheduleTask(task, delay);
     }
-
-    @Subscribe
-    public synchronized void handleRequestDeleteFriend(
-            Events.RequestDeleteFriend requestDeleteFriend) {
-    }
-
-    @Produce
-    public synchronized Events.PreparedNewLocationPackage producePreparedNewLocationPackage() {
-        return null;
-    }    
-
+    
     /*
     public synchronized Data.Self generateSelf() {
         return null;

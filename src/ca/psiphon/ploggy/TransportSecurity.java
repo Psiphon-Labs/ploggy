@@ -48,20 +48,29 @@ public class TransportSecurity {
         return new String [] { "TLSv1.2" };
     }   
 
-    public static class TransportKeyPair {
-        public String mType; // TODO: "PLOGGYv1"?
-        public String mPublicKey;
-        public String mPrivateKey;
+    public static class KeyPair {
+        public final String mType; // TODO: "PLOGGYv1"?
+        public final String mPublicKey;
+        public final String mPrivateKey;
         
-        public static TransportKeyPair generate() {
+        public KeyPair(String type, String publicKey, String privateKey) {        
+            mType = type;
+            mPublicKey = publicKey;
+            mPrivateKey = privateKey;
+        }
+        
+        public static KeyPair generate() {
+            // TODO: ...
             return null;
         }
 
-        public static TransportKeyPair fromJson(String json) {
+        public static KeyPair fromJson(String json) {
+            // TODO: ...
             return null;
         }
 
-        public String toJson(boolean stripPrivateKey) {
+        public String toJson(boolean includePrivateKey) {
+            // TODO: ...
             // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html? use SqlCipher?
             return null;
         }
@@ -73,23 +82,13 @@ public class TransportSecurity {
         }
         
         public void deploy(KeyStore keystore) {
+            // TODO: ...
             // keystore.load(stream, null);
         }
     }
 
     public static class KnownPeerCertificatesTrustManager implements X509TrustManager {
-        private Set<byte[]> mKnownPeerCertificates;
         
-        KnownPeerCertificatesTrustManager(Set<X509Certificate> knownPeerCertificates) {
-            for (X509Certificate knownPeerCertificate : knownPeerCertificates) {
-                try {
-                    mKnownPeerCertificates.add(knownPeerCertificate.getEncoded());
-                } catch (CertificateEncodingException e) {
-                    // Skip adding this certificate
-                }
-            }
-        }
-
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
             if (!isKnownPeerCertificate(chain)) {
@@ -106,21 +105,20 @@ public class TransportSecurity {
         
         private boolean isKnownPeerCertificate(X509Certificate[] chain) {
         	
-        	// TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
+            Data.Friend getFriendFromTransportCertificate(X509Certificate certificate)
+            
+            // TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
         	
             if (chain.length != 1) {
                 return false;
             }
 
-            byte[] encodedCertificate = null;
             try {
-               encodedCertificate = chain[0].getEncoded();
-            } catch (CertificateEncodingException e) {
-                return false;
+                Data.Friend friend = Data.getInstance().getFriendFromTransportCertificate(chain[0]);
+                return true;
+            } catch (Data.NotFoundException e) {
             }
-            
-            // TODO: is contains equivalent to, e.g., Arrays.equals?
-            return mKnownPeerCertificates.contains(encodedCertificate);
+            return false;
         }
 
         @Override
@@ -129,7 +127,7 @@ public class TransportSecurity {
         }
     }    
     
-    public static SSLServerSocketFactory getSSLSocketFactory(TransportSecurity.TransportKeyPair transportKeyPair) throws IOException {
+    public static SSLServerSocketFactory getSSLSocketFactory(TransportSecurity.KeyPair transportKeyPair) throws IOException {
         SSLServerSocketFactory sslServerSocketFactory = null;
         try {
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -137,7 +135,7 @@ public class TransportSecurity {
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keystore, null);
             // TODO: populate KnownPeerCertificatesTrustManager? Subscribe to re-populate? Or query Data on each checkTrusted
-            TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager(null) }; 
+            TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager() }; 
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
             sslServerSocketFactory = sslContext.getServerSocketFactory();
@@ -157,26 +155,4 @@ public class TransportSecurity {
     	// TODO: Re-populate the trust cert store
     }
     */   
-     
-    public static class HiddenServiceIdentity {
-        public String mType; // TODO: "TORv1"?
-        public String mHostname;
-        public String mPrivateKey;
-
-        public static HiddenServiceIdentity generate() {
-            return null;
-        }
-
-        public static HiddenServiceIdentity fromJson(String json) {
-            return null;
-        }
-
-        public String toJson() {
-            return null;
-        }
-        
-        public void deploy(KeyStore keystore) {
-            // keystore.load(stream, passphrase);
-        }
-    }    
 }

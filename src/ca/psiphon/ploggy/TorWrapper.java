@@ -21,10 +21,10 @@ package ca.psiphon.ploggy;
 
 public class TorWrapper {
 
-	TransportSecurity.HiddenServiceIdentity mHiddenServiceIdentity;
+	HiddenService.Identity mHiddenServiceIdentity;
 	int mWebServerPort;
 	
-	public TorWrapper(TransportSecurity.HiddenServiceIdentity hiddenServiceIdentity, int webServerPort) {
+	public TorWrapper(HiddenService.Identity hiddenServiceIdentity, int webServerPort) {
 		mHiddenServiceIdentity = hiddenServiceIdentity;
 		mWebServerPort = webServerPort;
 	}

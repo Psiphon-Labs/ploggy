@@ -27,37 +27,71 @@ import com.squareup.otto.ThreadEnforcer;
 
 public class Events {
 
+    // TODO: post-on-MAIN-thread helper: runOnUiThread?
+    
     public static final Bus bus = new Bus(ThreadEnforcer.MAIN);
     
-    // TODO:
-    // post-on-MAIN-thread helper: runOnUiThread?
-    
     public static class Request {
-        public int mRequestId;
+        private static long mNextRequestId = 0;        
+        public final long mRequestId;
+
+        public Request() {
+            mRequestId = ++mNextRequestId;
+        }
     }
 
+    /*
     public static class Response {
-        public int mRequestId;
-        public boolean mSuccess;
-        public String mErrorMessage;
+        public final int mRequestId;
+        public final boolean mSuccess;
+        public final String mErrorMessage;
+        
+        public Response(int requestId, boolean success, String errorMessage) {
+            mRequestId = requestId;
+            mSuccess = success;
+            mErrorMessage = errorMessage;
+        }
     }
+    */
     
-    // RequestFailed event?
+    public static class RequestFailed {
+        public final long mRequestId;
+
+        public RequestFailed(long requestId) {
+            mRequestId = requestId;
+        }
+    }
     
     public static class RequestUpdatePreferences extends Request {
-        public Data.Preferences mPreferences;
+        public final Data.Preferences mPreferences;
+
+        public RequestUpdatePreferences(Data.Preferences preferences) {
+            mPreferences = preferences;            
+        }
     }
 
-    public static class UpdatedPreferences extends Response {
-        public Data.Preferences mPreferences;
+    public static class UpdatedPreferences {
+        public final Data.Preferences mPreferences;
+
+        public UpdatedPreferences(Data.Preferences preferences) {
+            mPreferences = preferences;            
+        }
     }
 
     public static class RequestGenerateSelf extends Request {
-        public String mNickname;
+        public final String mNickname;
+
+        public RequestGenerateSelf(String nickname) {
+            mNickname = nickname;            
+        }
     }
 
-    public static class GeneratedSelf extends Response {
-        public Data.Self mSelf;
+    public static class GeneratedSelf {
+        public final Data.Self mSelf;
+
+        public GeneratedSelf(Data.Self self) {
+            mSelf = self;            
+        }
     }
     /*
     @Produce public GeneratedSelf produceGeneratedSelf() {
@@ -66,47 +100,77 @@ public class Events {
     */  
 
     public static class RequestDecodeFriend extends Request  {
-        public String mEncodedFriend;
+        public final String mEncodedFriend;
+        
+        public RequestDecodeFriend(String encodedFriend) {
+            mEncodedFriend = encodedFriend;
+        }
     }
 
-    public static class DecodedFriend extends Response {
-        public Data.Friend mFriend;
+    public static class DecodedFriend {
+        public final Data.Friend mFriend;
+        
+        public DecodedFriend(Data.Friend friend) {
+            mFriend = friend;
+        }
     }
 
     public static class RequestAddFriend extends Request  {
-        public Data.Friend mFriend;
+        public final Data.Friend mFriend;
+
+        public RequestAddFriend(Data.Friend friend) {
+            mFriend = friend;
+        }
     }
 
-    public static class AddedFriend extends Response {
-        public Data.Friend mFriend;
+    public static class AddedFriend {
+        public final Data.Friend mFriend;
+
+        public AddedFriend(Data.Friend friend) {
+            mFriend = friend;
+        }
     }
-    // subs: UI, pusher
+    // TODO subs: UI, pusher
 
     public static class RequestDeleteFriend extends Request {
-        public String mFriendNickname;
+        public final String mId;
+
+        public RequestDeleteFriend(String id) {
+            mId = id;
+        }
     }
 
-    public static class DeletedFriend extends Response {
-        public String mFriendNickname;
-    }
-    // subs: UI, pusher
+    public static class DeletedFriend {
+        public final String mId;
 
-    public static class NewCurrentLocation {
-    	final Location mLocation;
-    	final Address mAddress;
-    	public NewCurrentLocation(Location location, Address address) {
+        public DeletedFriend(String id) {
+            mId = id;
+        }
+    }
+    // TODO subs: UI, pusher
+
+    public static class NewSelfLocation {
+    	public final Location mLocation;
+    	public final Address mAddress;
+
+    	public NewSelfLocation(Location location, Address address) {
     		mLocation = location;
     		mAddress = address;
     	}
     }
-    // subs: ...
+    // TODO subs: ...
 
-    public static class PreparedNewLocationPackage {
+    public static class NewSelfStatus {
     }    
-    // @Produce: existing package --> for UI subscriber
-    // subs: pusher
+    // TODO @Produce: existing package --> for UI subscriber
+    // TODO subs: pusher
 
-    public static class ReceivedFriendLocationPackage {
+    public static class NewFriendStatus {
+        public final Data.Status mStatus;
+
+        public NewFriendStatus(Data.Status status) {
+            mStatus = status;
+        }
     }
-    // @Produce: existing package --> for UI subscriber [...which Friend?]
+    // TODO @Produce: existing package --> for UI subscriber [...which Friend?]
 }

@@ -19,11 +19,32 @@
 
 package ca.psiphon.ploggy;
 
-public class WebClient {
-
-    public static String makeGetRequest(String host, String url, String body) {
-        // TODO: ...
-        return null;
-    }
+public class HiddenService {
     
+    public static class Identity {
+        public final String mType; // TODO: "TORv1"?
+        public final String mHostname;
+        public final String mPrivateKey;
+
+        public Identity(String type, String hostname, String privateKey) {        
+            mType = type;
+            mHostname = hostname;
+            mPrivateKey = privateKey;
+        }
+        
+        public static Identity generate() {
+            // TODO: ...
+            return null;
+        }
+
+        public static Identity fromJson(String json) {
+            // TODO: ...
+            return null;
+        }
+
+        public String toJson(boolean includePrivateKey) {
+            // TODO: ...
+            return null;
+        }
+    }    
 }

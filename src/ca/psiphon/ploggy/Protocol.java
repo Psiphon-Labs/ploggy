@@ -20,6 +20,8 @@
 package ca.psiphon.ploggy;
 
 public class Protocol {
+    
+    public static final String GET_STATUS_REQUEST = "/status";
 
     public Data.Friend validateFriend(String jsonFriend) {
         return null;

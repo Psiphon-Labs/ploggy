@@ -20,5 +20,14 @@
 package ca.psiphon.ploggy;
 
 public class Utils {
- 
+
+    public static String makeId(String nickname, String transportPublicKey, String hiddenServiceHostname) {
+        // TODO: ...
+        return null;
+    }
+    
+    public static String makeIdenticon(String id) {        
+        // TODO: ...
+        return null;
+    }    
 }
