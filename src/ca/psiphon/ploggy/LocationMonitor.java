@@ -160,6 +160,10 @@ public class LocationMonitor implements android.location.LocationListener {
 					} catch (IOException e) {
 						// TODO: report error
                     }
+					
+					// TODO: get tiles
+					// http://code.google.com/p/osmdroid/source/browse/trunk/osmdroid-android/src/main/java/org/osmdroid/tileprovider/MapTileProviderBasic.java
+					
 					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
 					Events.bus.post(new Events.NewCurrentLocation(mLastReportedLocation, address));
                 }

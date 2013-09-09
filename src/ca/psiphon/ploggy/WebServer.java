@@ -29,38 +29,25 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.TrustManager;
 
+import ca.psiphon.ploggy.Events.Request;
+import ca.psiphon.ploggy.Events.Response;
+
+import com.squareup.otto.Subscribe;
+
 import fi.iki.elonen.NanoHTTPD;
 
 public class WebServer extends NanoHTTPD implements NanoHTTPD.AsyncRunner {
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
-
+	
     public WebServer(TransportSecurity.TransportKeyPair transportKeyPair) throws IOException {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
-        makeSecure(
-                makeSSLSocketFactory(transportKeyPair),
-                TransportSecurity.getRequiredTransportProtocols(),
-                TransportSecurity.getRequiredTransportCipherSuites());
+		makeSecure(
+		        TransportSecurity.getSSLSocketFactory(transportKeyPair),
+		        TransportSecurity.getRequiredTransportProtocols(),
+		        TransportSecurity.getRequiredTransportCipherSuites());
         setAsyncRunner(this);
-    }
-
-    private static SSLServerSocketFactory makeSSLSocketFactory(TransportSecurity.TransportKeyPair transportKeyPair) throws IOException {
-       SSLServerSocketFactory sslServerSocketFactory = null;
-       try {
-           KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-           transportKeyPair.deploy(keystore);
-           KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-           keyManagerFactory.init(keystore, null);
-           // TODO: populate KnownPeerCertificatesTrustManager? Subscribe to re-populate? Or query Data on each checkTrusted
-           TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager(null) }; 
-           SSLContext sslContext = SSLContext.getInstance("TLS");
-           sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
-           sslServerSocketFactory = sslContext.getServerSocketFactory();
-       } catch (Exception e) {
-           throw new IOException(e);
-       }
-       return sslServerSocketFactory;
     }
 
     @Override

@@ -20,13 +20,19 @@
 package ca.psiphon.ploggy;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Set;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 import android.util.Base64;
@@ -99,6 +105,9 @@ public class TransportSecurity {
         }
         
         private boolean isKnownPeerCertificate(X509Certificate[] chain) {
+        	
+        	// TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
+        	
             if (chain.length != 1) {
                 return false;
             }
@@ -120,6 +129,35 @@ public class TransportSecurity {
         }
     }    
     
+    public static SSLServerSocketFactory getSSLSocketFactory(TransportSecurity.TransportKeyPair transportKeyPair) throws IOException {
+        SSLServerSocketFactory sslServerSocketFactory = null;
+        try {
+            KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+            transportKeyPair.deploy(keystore);
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(keystore, null);
+            // TODO: populate KnownPeerCertificatesTrustManager? Subscribe to re-populate? Or query Data on each checkTrusted
+            TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager(null) }; 
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
+            sslServerSocketFactory = sslContext.getServerSocketFactory();
+        } catch (Exception e) {
+            throw new IOException(e);
+        }
+        return sslServerSocketFactory;
+    }
+    /*
+    @Subscribe
+    public void handleAddedFriend(Events.AddedFriend addedFriend) {
+    	// TODO: Re-populate the trust cert store
+    }    
+
+    @Subscribe
+    public void handleDeletedFriend(Events.DeletedFriend deletedFriend) {
+    	// TODO: Re-populate the trust cert store
+    }
+    */   
+     
     public static class HiddenServiceIdentity {
         public String mType; // TODO: "TORv1"?
         public String mHostname;

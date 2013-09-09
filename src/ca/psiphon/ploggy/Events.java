@@ -109,5 +109,4 @@ public class Events {
     public static class ReceivedFriendLocationPackage {
     }
     // @Produce: existing package --> for UI subscriber [...which Friend?]
-
 }

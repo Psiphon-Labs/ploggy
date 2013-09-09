@@ -50,6 +50,8 @@ public class Engine {
     
     private ExecutorService mTaskThreadPool;
     private LocationMonitor mLocationMonitor;
+    private WebServer mWebServer;
+    private TorWrapper mTorWrapper;
 
     private Engine() {
         new LinuxSecureRandom();
@@ -59,26 +61,54 @@ public class Engine {
         Events.bus.register(this);        
         mTaskThreadPool = Executors.newCachedThreadPool();
         mLocationMonitor = new LocationMonitor(context);
-        mLocationMonitor.start();        
+        mLocationMonitor.start();
+        startHiddenService();
+        // TODO: Events.bus.post(new Events.EngineRunning()); ?
     }
 
     public synchronized void stop() {
         Events.bus.unregister(this);
-        mLocationMonitor.stop();        
-        try
-        {
-            mTaskThreadPool.shutdown();
-            if (!mTaskThreadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
-                mTaskThreadPool.shutdownNow();
-                mTaskThreadPool.awaitTermination(100, TimeUnit.MILLISECONDS);                
-            }
+        stopHiddenService();
+        if (mLocationMonitor != null) {
+        	mLocationMonitor.stop();
         }
-        catch (InterruptedException e)
-        {
-            Thread.currentThread().interrupt();
-        }        
+        if (mTaskThreadPool != null) {
+	        try
+	        {
+	            mTaskThreadPool.shutdown();
+	            if (!mTaskThreadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+	                mTaskThreadPool.shutdownNow();
+	                mTaskThreadPool.awaitTermination(100, TimeUnit.MILLISECONDS);                
+	            }
+	        }
+	        catch (InterruptedException e)
+	        {
+	            Thread.currentThread().interrupt();
+	        }
+        }
+        // TODO: Events.bus.post(new Events.EngineStopped()); ?
     }
 
+    private void startHiddenService() {
+        Data.Self self = Data.getInstance().getSelf();
+        if (self != null) {
+	        mWebServer = new WebServer(TransportSecurity.TransportKeyPair.fromJson(self.mTransportKeyPair));
+	        mWebServer.start();
+	        int webServerPort = mWebServer.getListeningPort();
+	        mTorWrapper = new TorWrapper(TransportSecurity.HiddenServiceIdentity.fromJson(self.mHiddenServiceIdentity), webServerPort);
+	        mTorWrapper.start();
+        }    	
+    }
+    
+    private void stopHiddenService() {
+    	if (mTorWrapper != null) {
+    		mTorWrapper.stop();
+    	}
+    	if (mWebServer != null) {
+    		mWebServer.stop();
+    	}
+    }
+    
     public synchronized void submitTask(Runnable task) {
     	mTaskThreadPool.submit(task);
     }
@@ -108,6 +138,14 @@ public class Engine {
         mTaskThreadPool.submit(task);
     }
     
+    @Subscribe
+    public synchronized void handleGeneratedSelf(
+    		Events.GeneratedSelf generatedSelf) {
+    	// Apply new transport and hidden service credentials
+    	stopHiddenService();
+    	startHiddenService();
+    }
+    
     @Produce
     public synchronized Events.GeneratedSelf produceGeneratedSelf() {
         return null;
@@ -127,9 +165,6 @@ public class Engine {
     public synchronized void handleRequestDeleteFriend(
             Events.RequestDeleteFriend requestDeleteFriend) {
     }
-
-    public static class PreparedNewLocationPackage {
-    }    
 
     @Produce
     public synchronized Events.PreparedNewLocationPackage producePreparedNewLocationPackage() {

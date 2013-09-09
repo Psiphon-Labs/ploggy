@@ -33,6 +33,7 @@ public class Data {
         public boolean mAllowUseGeoCoder = true;
         public boolean mAllowUseMobileNetwork = true;
         // TODO:
+        // - manually-triggered location sharing-only
         // - location reporting granularity
         // - geofencing
         // - time-of-day limits
@@ -41,10 +42,8 @@ public class Data {
     public static class Self {
         public String mNickname;
         public String mIdenticon; // cached
-        public String mTransportPublicKey;
-        public String mTransportPrivateKey;
-        public String mHiddenServiceHostname;
-        public String mHiddenServicePrivateKey;
+        public String mTransportKeyPair;
+        public String mHiddenServiceIdentity;
     }
     
     public static class Friend {
