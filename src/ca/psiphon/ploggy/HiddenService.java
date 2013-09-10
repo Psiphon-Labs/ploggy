@@ -19,32 +19,38 @@
 
 package ca.psiphon.ploggy;
 
+import ca.psiphon.ploggy.TransportSecurity.PublicKey;
+
 public class HiddenService {
     
-    public static class Identity {
+    public static class KeyMaterial {
         public final String mType; // TODO: "TORv1"?
         public final String mHostname;
         public final String mPrivateKey;
 
-        public Identity(String type, String hostname, String privateKey) {        
+        public KeyMaterial(String type, String hostname, String privateKey) {        
             mType = type;
             mHostname = hostname;
             mPrivateKey = privateKey;
         }
         
-        public static Identity generate() {
+        public static KeyMaterial generate() {
             // TODO: ...
             return null;
         }
+    }    
 
-        public static Identity fromJson(String json) {
-            // TODO: ...
-            return null;
+    public static class Identity {
+        public final String mType;
+        public final String mHostname;
+
+        public Identity(String type, String hostname) {        
+            mType = type;
+            mHostname = hostname;
         }
-
-        public String toJson(boolean includePrivateKey) {
-            // TODO: ...
-            return null;
+        
+        public Identity getIdentity() {
+            return new Identity(mType, mHostname);
         }
     }    
 }

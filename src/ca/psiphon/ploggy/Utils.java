@@ -24,15 +24,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class Utils {
 
-    public static class GeneralException extends Exception {
+    public static class ApplicationError extends Exception {
         private static final long serialVersionUID = -3656367025650685613L;
 
-        public GeneralException() {
+        public ApplicationError() {
         }
 
-        public GeneralException(Exception e) {
+        public ApplicationError(Exception e) {
             super(e);
         }
     }
@@ -55,5 +60,27 @@ public class Utils {
             value.append(line);
         }
         return value.toString();
+    }
+
+    private static final ObjectMapper mObjectMapper = new ObjectMapper();
+    
+    public static String toJson(Object object) throws ApplicationError {
+        try {
+            return mObjectMapper.writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            throw new ApplicationError(e);
+        }
+    }
+
+    public static <T> T fromJson(String json, Class<T> type) throws ApplicationError {
+        try {
+            return mObjectMapper.readValue(json, type);
+        } catch (JsonParseException e) {
+            throw new ApplicationError(e);
+        } catch (JsonMappingException e) {
+            throw new ApplicationError(e);
+        } catch (IOException e) {
+            throw new ApplicationError(e);
+        }
     }
 }

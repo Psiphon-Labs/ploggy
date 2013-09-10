@@ -30,7 +30,7 @@ import com.squareup.okhttp.OkHttpClient;
 
 public class WebClient {
 
-    public static String makeGetRequest(TransportSecurity.KeyPair transportKeyPair, String hostname, String requestPath, String body) throws Utils.GeneralException {        
+    public static String makeGetRequest(TransportSecurity.KeyMaterial transportKeyPair, String hostname, String requestPath, String body) throws Utils.ApplicationError {        
         try {
             URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, Protocol.WEB_SERVER_VIRTUAL_PORT, requestPath);
             Proxy proxy = Engine.getInstance().getLocalProxy();
@@ -48,11 +48,11 @@ public class WebClient {
             // TODO: finally { connection.close(); }
             return Utils.inputStreamToString(connection.getInputStream());
         } catch (MalformedURLException e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         } catch (ProtocolException e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         } catch (IOException e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         }
     }    
 }

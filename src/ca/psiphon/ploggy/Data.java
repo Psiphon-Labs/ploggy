@@ -27,11 +27,14 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import ca.psiphon.ploggy.Utils.ApplicationError;
+
 import android.content.Context;
 
 public class Data {
     
     // ... immutable POJOs
+    // TODO: rename mFieldName --> fieldName (since using object mapper for json)
 
     public static class Preferences {
         public final int mLocationUpdatePeriodInSeconds = 600;
@@ -49,43 +52,23 @@ public class Data {
         // - location reporting granularity
         // - geofencing
         // - time-of-day limits
-
-        public static Preferences fromJson(String json) {
-            // TODO: ...
-            return null;
-        }
-
-        public Preferences toJson() {
-            // TODO: ...
-            return null;
-        }
     }
     
     public static class Self {
         public final String mNickname;
         public final String mIdenticon;
-        public final String mTransportKeyPair;
-        public final String mHiddenServiceIdentity;
+        public final TransportSecurity.KeyMaterial mTransportKeyMaterial;
+        public final HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
 
-        public Self(String nickname, String transportKeyPair, String hiddenServiceIdentity) {
+        public Self(
+                String nickname,
+                TransportSecurity.KeyMaterial transportKeyMaterial,
+                HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
             mNickname = nickname;
-            String id = Utils.makeId(
-                            nickname,
-                            TransportSecurity.KeyPair.fromJson(transportKeyPair).mPublicKey,
-                            HiddenService.Identity.fromJson(hiddenServiceIdentity).mHostname);
+            String id = Utils.makeId(nickname, transportKeyMaterial.mPublicKey, hiddenServiceKeyMaterial.mHostname);
             mIdenticon = Utils.makeIdenticon(id);
-            mTransportKeyPair = transportKeyPair;
-            mHiddenServiceIdentity = hiddenServiceIdentity;            
-        }
-
-        public static Self fromJson(String json) {
-            // TODO: ...
-            return null;
-        }
-
-        public String toJson() {
-            // TODO: ...
-            return null;
+            mTransportKeyMaterial = transportKeyMaterial;
+            mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;            
         }
     }
     
@@ -93,25 +76,18 @@ public class Data {
         public final String mId;
         public final String mNickname;
         public final String mIdenticon;
-        public final String mTransportPublicKey;
-        public final String mHiddenServiceHostname;
+        public final TransportSecurity.PublicKey mTransportPublicKey;
+        public final HiddenService.Identity mHiddenServiceIdentity;
 
-        public Friend(String nickname, String identicon, String transportPublicKey, String hiddenServiceHostname) {
-            mId = Utils.makeId(nickname, transportPublicKey, hiddenServiceHostname);
+        public Friend(
+                String nickname,
+                TransportSecurity.PublicKey transportPublicKey,
+                HiddenService.Identity hiddenServiceIdentity) {
+            mId = Utils.makeId(nickname, transportPublicKey.mPublicKey, hiddenServiceIdentity.mHostname);
             mNickname = nickname;
             mIdenticon = Utils.makeIdenticon(mId);
             mTransportPublicKey = transportPublicKey;
-            mHiddenServiceHostname = hiddenServiceHostname;            
-        }
-
-        public static Friend fromJson(String json) {
-            // TODO: ...
-            return null;
-        }
-
-        public String toJson() {
-            // TODO: ...
-            return null;
+            mHiddenServiceIdentity = hiddenServiceIdentity;            
         }
     }
     
@@ -130,16 +106,6 @@ public class Data {
             mLongitude = longitude;
             mLatitude = latitude;
             mStreetAddress = streetAddress;            
-        }
-
-        public static Status fromJson(String json) {
-            // TODO: ...
-            return null;
-        }
-
-        public String toJson() {
-            // TODO: ...
-            return null;
         }
     }
     
@@ -172,10 +138,10 @@ public class Data {
     ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     
-    public synchronized Data.Preferences getPreferences() {
+    public synchronized Data.Preferences getPreferences() throws Utils.ApplicationError {
         if (mPreferences == null) {
             try {
-                mPreferences = Preferences.fromJson(readFile(PREFERENCES_FILENAME));
+                mPreferences = Utils.fromJson(readFile(PREFERENCES_FILENAME), Preferences.class);
             } catch (DataNotFoundException e) {
                 // Use default preferences
                 mPreferences = new Preferences();
@@ -184,32 +150,32 @@ public class Data {
         return mPreferences;
     }
 
-    public synchronized void updatePreferences(Data.Preferences preferences) {
-        writeFile(PREFERENCES_FILENAME, preferences.toJson());
+    public synchronized void updatePreferences(Data.Preferences preferences) throws Utils.ApplicationError {
+        writeFile(PREFERENCES_FILENAME, Utils.toJson(preferences));
         mPreferences = preferences;
     }
     
-    public synchronized Data.Self getSelf() throws DataNotFoundException {
+    public synchronized Data.Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelf == null) {
-            mSelf = Self.fromJson(readFile(SELF_FILENAME));
+            mSelf = Utils.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
     }
 
-    public synchronized void updateSelf(Data.Self self) {
-        writeFile(SELF_FILENAME, self.toJson());
+    public synchronized void updateSelf(Data.Self self) throws Utils.ApplicationError {
+        writeFile(SELF_FILENAME, Utils.toJson(self));
         mSelf = self;
     }
 
-    public synchronized Data.Status getSelfStatus() throws DataNotFoundException {
+    public synchronized Data.Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelfStatus == null) {
-            mSelfStatus = Status.fromJson(readFile(SELF_STATUS_FILENAME));
+            mSelfStatus = Utils.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
         }
         return mSelfStatus;
     }
 
-    public synchronized void updateSelfStatus(Data.Status status) {
-        writeFile(SELF_STATUS_FILENAME, status.toJson());
+    public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
+        writeFile(SELF_STATUS_FILENAME, Utils.toJson(status));
         mSelfStatus = status;
     }
 
@@ -225,6 +191,7 @@ public class Data {
 
     public synchronized Data.Friend getFriendByTransportCertificate(X509Certificate certificate) throws DataNotFoundException {
         // TODO: ...
+        // ...transportPublicKey.toX509()
         // ...certificate.getEncoded()
         throw new DataNotFoundException();
     }
@@ -271,8 +238,9 @@ public class Data {
     */
     
     // TODO: SQLCipher/IOCipher storage?
+    // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
     
-    private static String readFile(String filename) throws DataNotFoundException {
+    private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundException {
         FileInputStream inputStream;
         try {
             inputStream = openFileInput(filename);
@@ -288,7 +256,7 @@ public class Data {
         }        
     }
 
-    private static void writeFile(String filename, String value) {
+    private static void writeFile(String filename, String value) throws Utils.ApplicationError {
         FileOutputStream outputStream;
         try {
             outputStream = openFileOutput(filename, Context.MODE_PRIVATE);

@@ -44,31 +44,45 @@ public class TransportSecurity {
         return new String [] { "TLSv1.2" };
     }   
 
-    public static class KeyPair {
+    public static class KeyMaterial {
         public final String mType; // TODO: "PLOGGYv1"?
         public final String mPublicKey;
         public final String mPrivateKey;
         
-        public KeyPair(String type, String publicKey, String privateKey) {        
+        public KeyMaterial(String type, String publicKey, String privateKey) {        
             mType = type;
             mPublicKey = publicKey;
             mPrivateKey = privateKey;
         }
         
-        public static KeyPair generate() {
+        public static KeyMaterial generate() {
             // TODO: ...
             return null;
         }
 
-        public static KeyPair fromJson(String json) {
-            // TODO: ...
-            return null;
+        public PublicKey getPublicKey() {
+            return new PublicKey(mType, mPublicKey);
         }
-
-        public String toJson(boolean includePrivateKey) {
+        
+        public X509Certificate toX509() throws CertificateException {
+            CertificateFactory factory = CertificateFactory.getInstance("X.509");
+            byte[] decodedServerCertificate = Base64.decode(mPublicKey, Base64.NO_WRAP);
+            return (X509Certificate)factory.generateCertificate(new ByteArrayInputStream(decodedServerCertificate));            
+        }
+        
+        public void deploy(KeyStore keystore) {
             // TODO: ...
-            // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html? use SqlCipher?
-            return null;
+            // keystore.load(stream, null);
+        }
+    }
+
+    public static class PublicKey {
+        public final String mType; // TODO: "PLOGGYv1"?
+        public final String mPublicKey;
+        
+        public PublicKey(String type, String publicKey) {        
+            mType = type;
+            mPublicKey = publicKey;
         }
         
         public X509Certificate toX509() throws CertificateException {
@@ -121,7 +135,7 @@ public class TransportSecurity {
         }
     }
     
-    public static SSLContext getSSLContext(TransportSecurity.KeyPair transportKeyPair) throws Utils.GeneralException {
+    public static SSLContext getSSLContext(TransportSecurity.KeyMaterial transportKeyPair) throws Utils.ApplicationError {
         try {
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
             transportKeyPair.deploy(keystore);
@@ -133,7 +147,7 @@ public class TransportSecurity {
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
             return sslContext;
         } catch (Exception e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         }        
     }
 }

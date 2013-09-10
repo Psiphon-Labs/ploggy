@@ -27,7 +27,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.AsyncRunner {
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
 	
-    public WebServer(TransportSecurity.KeyPair transportKeyPair) throws Utils.GeneralException {
+    public WebServer(TransportSecurity.KeyMaterial transportKeyPair) throws Utils.ApplicationError {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
 		makeSecure(

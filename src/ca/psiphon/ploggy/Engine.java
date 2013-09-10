@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import ca.psiphon.ploggy.Utils.GeneralException;
+import ca.psiphon.ploggy.Utils.ApplicationError;
 
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
@@ -63,7 +63,7 @@ public class Engine {
         new LinuxSecureRandom();
     }    
 
-    public synchronized void start(Context context) throws Utils.GeneralException {
+    public synchronized void start(Context context) throws Utils.ApplicationError {
         Events.bus.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
         mTimer = new Timer();
@@ -124,19 +124,18 @@ public class Engine {
         mTimer.schedule(new ScheduledTask(task), delayMilliseconds);
     }
     
-    private void startSharingService() throws Utils.GeneralException {
+    private void startSharingService() throws Utils.ApplicationError {
         try {
             Data.Self self = Data.getInstance().getSelf();
             stopSharingService();
-            mWebServer = new WebServer(TransportSecurity.KeyPair.fromJson(self.mTransportKeyPair));
+            mWebServer = new WebServer(self.mTransportKeyMaterial);
             mWebServer.start();
-            int webServerPort = mWebServer.getListeningPort();
-            mTorWrapper = new TorWrapper(HiddenService.Identity.fromJson(self.mHiddenServiceIdentity), webServerPort);
+            mTorWrapper = new TorWrapper(self.mHiddenServiceKeyMaterial, mWebServer.getListeningPort());
             mTorWrapper.start();
         } catch (Data.DataNotFoundException e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         } catch (IOException e) {
-            throw new Utils.GeneralException(e);
+            throw new Utils.ApplicationError(e);
         }
     }
     
@@ -149,13 +148,13 @@ public class Engine {
     	}
     }
     
-    public synchronized Proxy getLocalProxy() throws GeneralException {
+    public synchronized Proxy getLocalProxy() throws ApplicationError {
         if (mTorWrapper != null) {
             return new Proxy(
                     Proxy.Type.SOCKS,
                     new InetSocketAddress(TorWrapper.SOCKS_PROXY_HOSTNAME, mTorWrapper.getSocksProxyPort()));
         }
-        throw new Utils.GeneralException();
+        throw new Utils.ApplicationError();
     }
     
     @Subscribe
@@ -180,16 +179,20 @@ public class Engine {
                         stopSharingService();
                         Data.Self self = new Data.Self(
                                 taskRequestGenerateSelf.mNickname,
-                                TransportSecurity.KeyPair.generate().toJson(true),
-                                HiddenService.Identity.generate().toJson(true));
+                                TransportSecurity.KeyMaterial.generate(),
+                                HiddenService.KeyMaterial.generate());
                         Data.getInstance().updateSelf(self);
                         Events.bus.post(new Events.GeneratedSelf(self));
                     } catch (/*TEMP*/Exception e) {
-                        Events.bus.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId));
+                        Events.bus.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId, e.getMessage()));
                     } finally {
                         // Apply new transport and hidden service credentials, or restart with old settings on error
-                        startSharingService();                        
-                        }
+                        try {
+                            startSharingService();
+                        } catch (Utils.ApplicationError e) {
+                            // TODO: ...
+                        }                        
+                    }
                 }
             };
         mTaskThreadPool.submit(task);
@@ -248,12 +251,14 @@ public class Engine {
                 try {
                     Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
                     String response = WebClient.makeGetRequest(friend.mHiddenServiceHostname, Protocol.GET_STATUS_REQUEST_PATH, null);
-                    Data.Status friendStatus = Data.Status.fromJson(response);
+                    Data.Status friendStatus = Utils.fromJson(response, Data.Status.class);
                     Events.bus.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll
                     Engine.getInstance().schedulePollFriend(taskFriendId, false);
                 } catch (Data.DataNotFoundException e) {
                     // Next poll won't be scheduled
+                } catch (Utils.ApplicationError e) {
+                    // TODO: ...?
                 }
             }
         };
