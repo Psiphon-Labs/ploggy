@@ -78,9 +78,6 @@ public abstract class NanoHTTPD {
     private final String hostname;
     private final int myPort;
     private ServerSocket myServerSocket;
-    private SSLServerSocketFactory sslServerSocketFactory;
-    private String[] enabledCipherSuites;
-    private String[] enabledProtocols;
     private Thread myThread;
     /**
      * Pseudo-Parameter to use to store the actual query string in the parameters map for later re-processing.
@@ -102,36 +99,17 @@ public abstract class NanoHTTPD {
         this.myPort = port;
         setTempFileManagerFactory(new DefaultTempFileManagerFactory());
         setAsyncRunner(new DefaultAsyncRunner());
+        setServerSocketFactory(new DefaultServerSocketFactory());
     }
 
-   /**
-    * Call before start() to serve over HTTPS instead of HTTP
-    */
-    public void makeSecure(
-            SSLServerSocketFactory sslServerSocketFactory,
-            String[] enabledCipherSuites,
-            String[] enabledProtocols) {
-        this.sslServerSocketFactory = sslServerSocketFactory;
-        this.enabledCipherSuites = enabledCipherSuites;
-        this.enabledProtocols = enabledProtocols;
-    }
-    
     /**
      * Start the server.
      * @throws IOException if the socket is in use.
      */
     public void start() throws IOException {
-        if (sslServerSocketFactory != null) {
-            SSLServerSocket sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket();
-            sslServerSocket.setNeedClientAuth(true);
-            sslServerSocket.setEnabledCipherSuites(this.enabledCipherSuites);
-            sslServerSocket.setEnabledProtocols(this.enabledProtocols);
-            myServerSocket = sslServerSocket;
-        } else {
-            myServerSocket = new ServerSocket();
-        }
+        this.myServerSocket = this.serverSocketFactory.createServerSocket();
 
-        myServerSocket.bind((hostname != null) ? new InetSocketAddress(hostname, myPort) : new InetSocketAddress(myPort));
+        this.myServerSocket.bind((hostname != null) ? new InetSocketAddress(hostname, myPort) : new InetSocketAddress(myPort));
 
         myThread = new Thread(new Runnable() {
             @Override
@@ -299,6 +277,29 @@ public abstract class NanoHTTPD {
                 }
             }
             return null;
+        }
+    }
+
+    // ------------------------------------------------------------------------------- //
+    //
+    // SocketFactory Interface.
+    //
+    // ------------------------------------------------------------------------------- //
+
+    private ServerSocketFactory serverSocketFactory;
+
+    public void setServerSocketFactory(ServerSocketFactory serverSocketFactory) {
+        this.serverSocketFactory = serverSocketFactory;
+    }
+
+    public interface ServerSocketFactory {
+        public ServerSocket createServerSocket()  throws IOException;
+    }
+
+    public static class DefaultServerSocketFactory implements ServerSocketFactory {
+        @Override
+        public ServerSocket createServerSocket() throws IOException {
+            return new ServerSocket();
         }
     }
 

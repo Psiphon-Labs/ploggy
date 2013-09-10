@@ -30,16 +30,21 @@ import com.squareup.okhttp.OkHttpClient;
 
 public class WebClient {
 
-    public static String makeGetRequest(TransportSecurity.KeyMaterial transportKeyPair, String hostname, String requestPath, String body) throws Utils.ApplicationError {        
+    public static String makeGetRequest(
+            TransportSecurity.KeyMaterial selfTransportKeyMaterial,
+            TransportSecurity.PublicKey peerTransportPublicKey,
+            HiddenService.Identity peerHiddenServiceIdentity,
+            String requestPath,
+            String body) throws Utils.ApplicationError {        
         try {
-            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, Protocol.WEB_SERVER_VIRTUAL_PORT, requestPath);
+            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, peerHiddenServiceIdentity.mHostname, Protocol.WEB_SERVER_VIRTUAL_PORT, requestPath);
             Proxy proxy = Engine.getInstance().getLocalProxy();
             
             // TODO: cache? or setConnectionPool(ConnectionPool connectionPool)?
             // ... see default connection pool params: http://square.github.io/okhttp/javadoc/com/squareup/okhttp/ConnectionPool.html
             OkHttpClient client = new OkHttpClient();        
             client.setProxy(proxy);
-            client.setSslSocketFactory(TransportSecurity.getSSLContext(transportKeyPair).getSocketFactory());
+            client.setSslSocketFactory(TransportSecurity.getSSLContext(selfTransportKeyMaterial, peerTransportPublicKey).getSocketFactory());
     
             HttpURLConnection connection = client.open(url);
             connection.setRequestMethod("GET");

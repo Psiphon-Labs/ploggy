@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import android.content.Context;
+
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -62,6 +64,16 @@ public class Utils {
         return value.toString();
     }
 
+    private static Context mApplicationContext;
+
+    public static void setApplicationContext(Context context) {
+        mApplicationContext = context;
+    }
+    
+    public static Context getApplicationContext() {
+        return mApplicationContext;
+    }
+    
     private static final ObjectMapper mObjectMapper = new ObjectMapper();
     
     public static String toJson(Object object) throws ApplicationError {

@@ -19,22 +19,34 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD;
 
-public class WebServer extends NanoHTTPD implements NanoHTTPD.AsyncRunner {
+public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactory, NanoHTTPD.AsyncRunner {
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
+    
+    private TransportSecurity.KeyMaterial mTransportKeyMaterial;
 	
-    public WebServer(TransportSecurity.KeyMaterial transportKeyPair) throws Utils.ApplicationError {
+    public WebServer(TransportSecurity.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
-		makeSecure(
-		        TransportSecurity.getSSLContext(transportKeyPair).getServerSocketFactory(),
-		        TransportSecurity.getRequiredTransportProtocols(),
-		        TransportSecurity.getRequiredTransportCipherSuites());
+        mTransportKeyMaterial = transportKeyMaterial;
+        setServerSocketFactory(this);
         setAsyncRunner(this);
+    }
+
+
+    @Override
+    public ServerSocket createServerSocket() throws IOException {
+        try {
+            return TransportSecurity.makeServerSocket(mTransportKeyMaterial);
+        } catch (Utils.ApplicationError e) {
+            throw new IOException(e);
+        }
     }
 
     @Override

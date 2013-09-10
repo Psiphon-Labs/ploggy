@@ -19,8 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import ca.psiphon.ploggy.TransportSecurity.PublicKey;
-
 public class HiddenService {
     
     public static class KeyMaterial {

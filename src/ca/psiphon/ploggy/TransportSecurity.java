@@ -20,14 +20,23 @@
 package ca.psiphon.ploggy;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -97,26 +106,24 @@ public class TransportSecurity {
         }
     }
 
-    public static class KnownPeerCertificatesTrustManager implements X509TrustManager {
+    public static class AllPeerCertificatesTrustManager implements X509TrustManager {
         
         @Override
         public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            if (!isKnownPeerCertificate(chain)) {
+            if (!isPeerCertificate(chain)) {
                 throw new CertificateException();
             }
         }
 
         @Override
         public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-            if (!isKnownPeerCertificate(chain)) {
+            if (!isPeerCertificate(chain)) {
                 throw new CertificateException();
             }
         }
         
-        private boolean isKnownPeerCertificate(X509Certificate[] chain) {
-        	
-            // TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
-        	
+        private boolean isPeerCertificate(X509Certificate[] chain) {
+            
             if (chain.length != 1) {
                 return false;
             }
@@ -135,19 +142,93 @@ public class TransportSecurity {
         }
     }
     
-    public static SSLContext getSSLContext(TransportSecurity.KeyMaterial transportKeyPair) throws Utils.ApplicationError {
+    public static class SinglePeerCertificateTrustManager implements X509TrustManager {
+        
+        private X509Certificate mCertificate;
+        
+        public SinglePeerCertificateTrustManager(TransportSecurity.PublicKey publicKey) throws Utils.ApplicationError {
+            try {
+                mCertificate = publicKey.toX509();
+            } catch (CertificateException e) {
+                throw new Utils.ApplicationError(e);
+            }
+        }
+        
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            if (!isFixedPeerCertificate(chain)) {
+                throw new CertificateException();
+            }
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+            if (!isFixedPeerCertificate(chain)) {
+                throw new CertificateException();
+            }
+        }
+        
+        private boolean isFixedPeerCertificate(X509Certificate[] chain) {
+            if (chain.length != 1) {
+                return false;
+            }
+
+            try {
+                return Arrays.equals(chain[0].getEncoded(), mCertificate.getEncoded());
+            } catch (CertificateEncodingException e) {
+                return false;
+            }
+        }
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return null;
+        }
+    }
+    
+    public static SSLContext getSSLContext(
+            TransportSecurity.KeyMaterial transportKeyMaterial,
+            TransportSecurity.PublicKey peerPublicKey) throws Utils.ApplicationError {
         try {
+
+            // TODO: http://www.thoughtcrime.org/blog/authenticity-is-broken-in-ssl-but-your-app-ha/
+            // TODO: http://blog.chariotsolutions.com/2013/01/https-with-client-certificates-on.html
+            // ... -- use keystore for server/peer certs?
+            
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-            transportKeyPair.deploy(keystore);
+            transportKeyMaterial.deploy(keystore);
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keystore, null);
-            // TODO: populate KnownPeerCertificatesTrustManager? Subscribe to re-populate? Or query Data on each checkTrusted
-            TrustManager[] trustManagers = new TrustManager[] { new TransportSecurity.KnownPeerCertificatesTrustManager() }; 
+            TrustManager[] trustManagers;
+            if (peerPublicKey == null) {
+                trustManagers = new TrustManager[] { new TransportSecurity.AllPeerCertificatesTrustManager() };
+            } else {
+                trustManagers = new TrustManager[] { new TransportSecurity.SinglePeerCertificateTrustManager(peerPublicKey) };
+            }
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagerFactory.getKeyManagers(), trustManagers, new SecureRandom());
             return sslContext;
-        } catch (Exception e) {
+        } catch (KeyStoreException e) {
+            throw new Utils.ApplicationError(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new Utils.ApplicationError(e);
+        } catch (UnrecoverableKeyException e) {
+            throw new Utils.ApplicationError(e);
+        } catch (KeyManagementException e) {
             throw new Utils.ApplicationError(e);
         }        
+    }
+
+    public static ServerSocket makeServerSocket(TransportSecurity.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
+        try {
+            SSLServerSocket sslServerSocket =
+                    (SSLServerSocket)(TransportSecurity.getSSLContext(transportKeyMaterial, null).getServerSocketFactory().createServerSocket());
+            sslServerSocket.setNeedClientAuth(true);
+            sslServerSocket.setEnabledCipherSuites(TransportSecurity.getRequiredTransportCipherSuites());
+            sslServerSocket.setEnabledProtocols(TransportSecurity.getRequiredTransportProtocols());
+            return sslServerSocket;
+        } catch (IOException e) {
+            throw new Utils.ApplicationError(e);
+        }
     }
 }

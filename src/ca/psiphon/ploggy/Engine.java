@@ -28,14 +28,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import ca.psiphon.ploggy.Utils.ApplicationError;
-
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
-
-import android.content.Context;
 
 public class Engine {
 
@@ -63,11 +59,11 @@ public class Engine {
         new LinuxSecureRandom();
     }    
 
-    public synchronized void start(Context context) throws Utils.ApplicationError {
+    public synchronized void start() throws Utils.ApplicationError {
         Events.bus.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
         mTimer = new Timer();
-        mLocationMonitor = new LocationMonitor(context);
+        mLocationMonitor = new LocationMonitor(Utils.getApplicationContext());
         mLocationMonitor.start();
         // TODO: check Data.getInstance().hasSelf()...
         startSharingService();
@@ -148,7 +144,7 @@ public class Engine {
     	}
     }
     
-    public synchronized Proxy getLocalProxy() throws ApplicationError {
+    public synchronized Proxy getLocalProxy() throws Utils.ApplicationError {
         if (mTorWrapper != null) {
             return new Proxy(
                     Proxy.Type.SOCKS,
@@ -249,8 +245,14 @@ public class Engine {
         Runnable task = new Runnable() {
             public void run() {
                 try {
+                    Data.Self self = Data.getInstance().getSelf();
                     Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
-                    String response = WebClient.makeGetRequest(friend.mHiddenServiceHostname, Protocol.GET_STATUS_REQUEST_PATH, null);
+                    String response = WebClient.makeGetRequest(
+                            self.mTransportKeyMaterial,
+                            friend.mTransportPublicKey,
+                            friend.mHiddenServiceIdentity,
+                            Protocol.GET_STATUS_REQUEST_PATH,
+                            null);
                     Data.Status friendStatus = Utils.fromJson(response, Data.Status.class);
                     Events.bus.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll

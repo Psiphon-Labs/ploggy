@@ -40,7 +40,11 @@ public class PloggyService extends Service {
     
     @Override
     public void onCreate() {
-        mEngine.start(this);
+        try {
+            mEngine.start();
+        } catch (Utils.ApplicationError e) {
+            // TODO: ...
+        }
         doForeground();
     }
    

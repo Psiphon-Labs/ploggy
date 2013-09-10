@@ -27,8 +27,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import ca.psiphon.ploggy.Utils.ApplicationError;
-
 import android.content.Context;
 
 public class Data {
@@ -241,31 +239,37 @@ public class Data {
     // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
     
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundException {
-        FileInputStream inputStream;
+        FileInputStream inputStream = null;
         try {
-            inputStream = openFileInput(filename);
+            inputStream = Utils.getApplicationContext().openFileInput(filename);
             return Utils.inputStreamToString(inputStream);
         } catch (FileNotFoundException e) {
             throw new DataNotFoundException();
         } catch (IOException e) {
-            // TODO: ...
+            throw new Utils.ApplicationError(e);
         } finally {
             if (inputStream != null) {
-                inputStream.close();
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                }
             }
         }        
     }
 
     private static void writeFile(String filename, String value) throws Utils.ApplicationError {
-        FileOutputStream outputStream;
+        FileOutputStream outputStream = null;
         try {
-            outputStream = openFileOutput(filename, Context.MODE_PRIVATE);
+            outputStream = Utils.getApplicationContext().openFileOutput(filename, Context.MODE_PRIVATE);
             outputStream.write(value.getBytes());
         } catch (IOException e) {
-            // TODO: ...
+            throw new Utils.ApplicationError(e);
         } finally {
             if (outputStream != null) {
-                outputStream.close();
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                }
             }
         }
     }
