@@ -131,8 +131,10 @@ public class TransportSecurity {
             try {
                 Data.getInstance().getFriendByTransportCertificate(chain[0]);
                 return true;
+            } catch (Utils.ApplicationError e) {
+            	// TODO: ...
             } catch (Data.DataNotFoundException e) {
-            }
+			}
             return false;
         }
 
