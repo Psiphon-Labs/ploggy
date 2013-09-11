@@ -23,11 +23,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 
 import android.content.Context;
 
+import ca.psiphon.ploggy.Data.Friend;
+
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -87,6 +91,18 @@ public class Utils {
     public static <T> T fromJson(String json, Class<T> type) throws ApplicationError {
         try {
             return mObjectMapper.readValue(json, type);
+        } catch (JsonParseException e) {
+            throw new ApplicationError(e);
+        } catch (JsonMappingException e) {
+            throw new ApplicationError(e);
+        } catch (IOException e) {
+            throw new ApplicationError(e);
+        }
+    }
+
+    public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws ApplicationError {
+        try {
+            return mObjectMapper.readValue(json, new TypeReference<ArrayList<T>>() {});
         } catch (JsonParseException e) {
             throw new ApplicationError(e);
         } catch (JsonMappingException e) {

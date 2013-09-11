@@ -19,12 +19,15 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import android.content.Context;
@@ -43,7 +46,6 @@ public class Data {
         public final boolean mAllowUseMobileNetwork = true;
         
         // TODO: public Preferences(int, int, int, boolean, boolean, boolean) {}
-        // TODO: fromJson, toJson
 
         // TODO:
         // - manually-triggered location sharing-only
@@ -124,11 +126,17 @@ public class Data {
     }
     // -------------------
 
+    // TODO: SQLCipher/IOCipher storage? key/value store?
+    // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
+    // ...consistency: write file, then update in-memory; 2pc; only for short lists of friends
+    // ...eventually use file system for map tiles etc.
+       
     private static final String PREFERENCES_FILENAME = "preferences.json"; 
     private static final String SELF_FILENAME = "self.json"; 
     private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
     private static final String FRIENDS_FILENAME = "friends.json"; 
     private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json"; 
+    private static final String COMMIT_FILENAME_SUFFIX = ".commit"; 
     
     Preferences mPreferences;
     Self mSelf;
@@ -136,7 +144,7 @@ public class Data {
     ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     
-    public synchronized Data.Preferences getPreferences() throws Utils.ApplicationError {
+    public synchronized Preferences getPreferences() throws Utils.ApplicationError {
         if (mPreferences == null) {
             try {
                 mPreferences = Utils.fromJson(readFile(PREFERENCES_FILENAME), Preferences.class);
@@ -148,24 +156,24 @@ public class Data {
         return mPreferences;
     }
 
-    public synchronized void updatePreferences(Data.Preferences preferences) throws Utils.ApplicationError {
+    public synchronized void updatePreferences(Preferences preferences) throws Utils.ApplicationError {
         writeFile(PREFERENCES_FILENAME, Utils.toJson(preferences));
         mPreferences = preferences;
     }
     
-    public synchronized Data.Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
+    public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelf == null) {
             mSelf = Utils.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
     }
 
-    public synchronized void updateSelf(Data.Self self) throws Utils.ApplicationError {
+    public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Utils.toJson(self));
         mSelf = self;
     }
 
-    public synchronized Data.Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
+    public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelfStatus == null) {
             mSelfStatus = Utils.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
         }
@@ -177,46 +185,96 @@ public class Data {
         mSelfStatus = status;
     }
 
-    public synchronized ArrayList<Data.Friend> getFriends() {
-        // TODO: ...
-        return null;
+    private void loadFriends() throws Utils.ApplicationError {
+        if (mFriends == null) {
+	    	try {
+				mFriends = Utils.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
+			} catch (DataNotFoundException e) {
+				mFriends = new ArrayList<Friend>();
+			}    	
+        }
+    }
+    
+    public synchronized final ArrayList<Friend> getFriends() throws Utils.ApplicationError {
+    	loadFriends();
+        // TODO: return immutable ArrayList?
+        return mFriends;
     }
 
-    public synchronized Data.Friend getFriendById(String id) throws DataNotFoundException {
-        // TODO: ...
+    public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundException {
+    	loadFriends();
+        for (int i = 0; i < mFriends.size(); i++) {
+        	if (mFriends.get(i).mId.equals(id)) {
+        		return mFriends.get(i);
+        	}
+        }
         throw new DataNotFoundException();
     }
 
-    public synchronized Data.Friend getFriendByTransportCertificate(X509Certificate certificate) throws DataNotFoundException {
-        // TODO: ...
-        // ...transportPublicKey.toX509()
-        // ...certificate.getEncoded()
-        throw new DataNotFoundException();
+    public synchronized Friend getFriendByTransportCertificate(X509Certificate certificate) throws Utils.ApplicationError, DataNotFoundException {
+    	// TODO: remove if using trust keystore
+    	loadFriends();
+    	try {
+	    	// TODO: cache encodings? hash lookup?
+	    	byte[] encodedCertificate = certificate.getEncoded();
+	        for (int i = 0; i < mFriends.size(); i++) {
+	        	if (Arrays.equals(encodedCertificate, mFriends.get(i).mTransportPublicKey.toX509().getEncoded())) {
+	        		return mFriends.get(i);
+	        	}
+	        }
+	        throw new DataNotFoundException();
+    	} catch (CertificateException e) {
+    		throw new Utils.ApplicationError(e);
+    	}
     }
 
-    public synchronized void updateFriend(Data.Friend friend) {
-        // TODO: ...
+    public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
+    	loadFriends();
+    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+    	boolean found = false;
+        for (int i = 0; i < newFriends.size(); i++) {
+        	if (newFriends.get(i).mId.equals(friend.mId)) {
+        		newFriends.set(i, friend);
+        		found = true;
+        		break;
+        	}
+        }
+        if (!found) {
+        	newFriends.add(friend);
+        }
+        writeFile(FRIENDS_FILENAME, Utils.toJson(newFriends));
+        mFriends = newFriends;
     }
 
-    public synchronized void removeFriend(Data.Friend friend) {
-        // TODO: ...
+    public synchronized void removeFriend(Friend friend) throws Utils.ApplicationError, DataNotFoundException {
+    	loadFriends();
+    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+    	boolean found = false;
+        for (int i = 0; i < newFriends.size(); i++) {
+        	if (newFriends.get(i).mId.equals(friend.mId)) {
+        		newFriends.remove(i);
+        		found = true;
+        		break;
+        	}
+        }
+        if (!found) {
+        	throw new DataNotFoundException();
+        }
+        writeFile(FRIENDS_FILENAME, Utils.toJson(newFriends));
+        mFriends = newFriends;
     }
 
-    public synchronized Data.Status getFriendStatus() throws DataNotFoundException {
-        // TODO: ...
-        return null;
+    public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
+    	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
+        return Utils.fromJson(readFile(filename), Status.class);
     }
 
-    public synchronized void updateFriendStatus(Data.Status status) {
-        // TODO: ...
+    public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+    	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
+    	writeFile(filename, Utils.toJson(status));
     }
     
     /*
-    // 2pc:
-    // - write <friendID>-loc.json.new
-    // - delete <friendID>-loc.json
-    // - [resumable] rename <friendID>-loc.json.new -->  <friendID>-loc.json
-
     // data files: (1) map tile/photo; (2) may or may not exist/be complete/be cached
     
     public static synchronized InputStream openDataFileForRead(String dataFileId) {
@@ -235,12 +293,11 @@ public class Data {
     }
     */
     
-    // TODO: SQLCipher/IOCipher storage?
-    // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
-    
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundException {
         FileInputStream inputStream = null;
         try {
+        	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
+        	replaceFileIfExists(commitFilename, filename);
             inputStream = Utils.getApplicationContext().openFileInput(filename);
             return Utils.inputStreamToString(inputStream);
         } catch (FileNotFoundException e) {
@@ -260,8 +317,11 @@ public class Data {
     private static void writeFile(String filename, String value) throws Utils.ApplicationError {
         FileOutputStream outputStream = null;
         try {
-            outputStream = Utils.getApplicationContext().openFileOutput(filename, Context.MODE_PRIVATE);
+        	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
+            outputStream = Utils.getApplicationContext().openFileOutput(commitFilename, Context.MODE_PRIVATE);
             outputStream.write(value.getBytes());
+            outputStream.close();
+            replaceFileIfExists(commitFilename, filename);
         } catch (IOException e) {
             throw new Utils.ApplicationError(e);
         } finally {
@@ -271,6 +331,15 @@ public class Data {
                 } catch (IOException e) {
                 }
             }
+        }
+    }
+
+    private static void replaceFileIfExists(String commitFilename, String filename) throws IOException {
+        File commitFile = new File(Utils.getApplicationContext().getFilesDir(), commitFilename);
+        if (commitFile.exists()) {
+	        File file = new File(Utils.getApplicationContext().getFilesDir(), filename);
+	        file.delete();
+	        commitFile.renameTo(file);
         }
     }
 }
