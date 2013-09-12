@@ -24,10 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
 import android.content.Context;
@@ -65,7 +62,7 @@ public class Data {
                 TransportSecurity.KeyMaterial transportKeyMaterial,
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
             mNickname = nickname;
-            String id = Utils.makeId(nickname, transportKeyMaterial.mPublicKey, hiddenServiceKeyMaterial.mHostname);
+            String id = Utils.makeId(nickname, transportKeyMaterial.mCertificate, hiddenServiceKeyMaterial.mHostname);
             mIdenticon = Utils.makeIdenticon(id);
             mTransportKeyMaterial = transportKeyMaterial;
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;            
@@ -76,17 +73,17 @@ public class Data {
         public final String mId;
         public final String mNickname;
         public final String mIdenticon;
-        public final TransportSecurity.PublicKey mTransportPublicKey;
+        public final TransportSecurity.Certificate mTransportCertificate;
         public final HiddenService.Identity mHiddenServiceIdentity;
 
         public Friend(
                 String nickname,
-                TransportSecurity.PublicKey transportPublicKey,
+                TransportSecurity.Certificate certificate,
                 HiddenService.Identity hiddenServiceIdentity) {
-            mId = Utils.makeId(nickname, transportPublicKey.mPublicKey, hiddenServiceIdentity.mHostname);
+            mId = Utils.makeId(nickname, certificate.mCertificate, hiddenServiceIdentity.mHostname);
             mNickname = nickname;
             mIdenticon = Utils.makeIdenticon(mId);
-            mTransportPublicKey = transportPublicKey;
+            mTransportCertificate = certificate;
             mHiddenServiceIdentity = hiddenServiceIdentity;            
         }
     }
@@ -147,7 +144,7 @@ public class Data {
     public synchronized Preferences getPreferences() throws Utils.ApplicationError {
         if (mPreferences == null) {
             try {
-                mPreferences = Utils.fromJson(readFile(PREFERENCES_FILENAME), Preferences.class);
+                mPreferences = Json.fromJson(readFile(PREFERENCES_FILENAME), Preferences.class);
             } catch (DataNotFoundException e) {
                 // Use default preferences
                 mPreferences = new Preferences();
@@ -157,38 +154,38 @@ public class Data {
     }
 
     public synchronized void updatePreferences(Preferences preferences) throws Utils.ApplicationError {
-        writeFile(PREFERENCES_FILENAME, Utils.toJson(preferences));
+        writeFile(PREFERENCES_FILENAME, Json.toJson(preferences));
         mPreferences = preferences;
     }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelf == null) {
-            mSelf = Utils.fromJson(readFile(SELF_FILENAME), Self.class);
+            mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
-        writeFile(SELF_FILENAME, Utils.toJson(self));
+        writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
     }
 
     public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelfStatus == null) {
-            mSelfStatus = Utils.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
         }
         return mSelfStatus;
     }
 
     public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
-        writeFile(SELF_STATUS_FILENAME, Utils.toJson(status));
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
     }
 
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
 	    	try {
-				mFriends = Utils.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
+				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
 			} catch (DataNotFoundException e) {
 				mFriends = new ArrayList<Friend>();
 			}    	
@@ -211,23 +208,6 @@ public class Data {
         throw new DataNotFoundException();
     }
 
-    public synchronized Friend getFriendByTransportCertificate(X509Certificate certificate) throws Utils.ApplicationError, DataNotFoundException {
-    	// TODO: remove if using trust keystore
-    	loadFriends();
-    	try {
-	    	// TODO: cache encodings? hash lookup?
-	    	byte[] encodedCertificate = certificate.getEncoded();
-	        for (int i = 0; i < mFriends.size(); i++) {
-	        	if (Arrays.equals(encodedCertificate, mFriends.get(i).mTransportPublicKey.toX509().getEncoded())) {
-	        		return mFriends.get(i);
-	        	}
-	        }
-	        throw new DataNotFoundException();
-    	} catch (CertificateException e) {
-    		throw new Utils.ApplicationError(e);
-    	}
-    }
-
     public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
     	loadFriends();
     	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
@@ -242,7 +222,7 @@ public class Data {
         if (!found) {
         	newFriends.add(friend);
         }
-        writeFile(FRIENDS_FILENAME, Utils.toJson(newFriends));
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
         mFriends = newFriends;
     }
 
@@ -260,18 +240,18 @@ public class Data {
         if (!found) {
         	throw new DataNotFoundException();
         }
-        writeFile(FRIENDS_FILENAME, Utils.toJson(newFriends));
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
         mFriends = newFriends;
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-        return Utils.fromJson(readFile(filename), Status.class);
+        return Json.fromJson(readFile(filename), Status.class);
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-    	writeFile(filename, Utils.toJson(status));
+    	writeFile(filename, Json.toJson(status));
     }
     
     /*

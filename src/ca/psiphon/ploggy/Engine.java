@@ -31,8 +31,6 @@ import java.util.concurrent.TimeUnit;
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
 
-import de.schildbach.wallet.util.LinuxSecureRandom;
-
 public class Engine {
 
     // ---- Singleton ----
@@ -56,7 +54,7 @@ public class Engine {
     private TorWrapper mTorWrapper;
 
     private Engine() {
-        new LinuxSecureRandom();
+        Utils.initSecureRandom();
     }    
 
     public synchronized void start() throws Utils.ApplicationError {
@@ -234,7 +232,7 @@ public class Engine {
         mFriendPollPeriod = 60*1000;
     }
 
-    private void schedulePollFriends() {
+    private void schedulePollFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             schedulePollFriend(friend.mId, true);
         }
@@ -249,11 +247,11 @@ public class Engine {
                     Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
                     String response = WebClient.makeGetRequest(
                             self.mTransportKeyMaterial,
-                            friend.mTransportPublicKey,
+                            friend.mTransportCertificate,
                             friend.mHiddenServiceIdentity,
                             Protocol.GET_STATUS_REQUEST_PATH,
                             null);
-                    Data.Status friendStatus = Utils.fromJson(response, Data.Status.class);
+                    Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
                     Events.bus.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll
                     Engine.getInstance().schedulePollFriend(taskFriendId, false);
@@ -267,29 +265,4 @@ public class Engine {
         long delay = initialRequest ? 0 : mFriendPollPeriod;
         scheduleTask(task, delay);
     }
-    
-    /*
-    public synchronized Data.Self generateSelf() {
-        return null;
-    }
-
-    public synchronized void addFriend(Data.Friend friend) {
-        
-    }
-    
-    public synchronized void removeFriend(Data.Friend friend) {
-        
-    }
-    
-    public synchronized void updateLocation(Data.Location location) {        
-    }
-
-    public synchronized Data.Location getSelfLocation() {
-        return null;
-    }
-
-    public synchronized Data.Location getFriendLocation() {        
-        return null;
-    }
-    */
 }

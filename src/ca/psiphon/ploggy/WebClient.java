@@ -32,7 +32,7 @@ public class WebClient {
 
     public static String makeGetRequest(
             TransportSecurity.KeyMaterial selfTransportKeyMaterial,
-            TransportSecurity.PublicKey peerTransportPublicKey,
+            TransportSecurity.Certificate peerTransportCertificate,
             HiddenService.Identity peerHiddenServiceIdentity,
             String requestPath,
             String body) throws Utils.ApplicationError {        
@@ -44,7 +44,7 @@ public class WebClient {
             // ... see default connection pool params: http://square.github.io/okhttp/javadoc/com/squareup/okhttp/ConnectionPool.html
             OkHttpClient client = new OkHttpClient();        
             client.setProxy(proxy);
-            client.setSslSocketFactory(TransportSecurity.getSSLContext(selfTransportKeyMaterial, peerTransportPublicKey).getSocketFactory());
+            client.setSslSocketFactory(TransportSecurity.getSSLContext(selfTransportKeyMaterial, peerTransportCertificate).getSocketFactory());
     
             HttpURLConnection connection = client.open(url);
             connection.setRequestMethod("GET");

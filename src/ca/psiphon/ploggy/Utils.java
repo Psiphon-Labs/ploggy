@@ -23,17 +23,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 
 import android.content.Context;
 
-import ca.psiphon.ploggy.Data.Friend;
-
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import de.schildbach.wallet.util.LinuxSecureRandom;
 
 public class Utils {
 
@@ -68,6 +61,16 @@ public class Utils {
         return value.toString();
     }
 
+    public static void initSecureRandom() {
+        new LinuxSecureRandom();
+    }
+    
+    public static String getRandomHexString(int bits) {
+        int length = bits*4;
+        // TODO: ...
+        return null;
+    }
+    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {
@@ -76,39 +79,5 @@ public class Utils {
     
     public static Context getApplicationContext() {
         return mApplicationContext;
-    }
-    
-    private static final ObjectMapper mObjectMapper = new ObjectMapper();
-    
-    public static String toJson(Object object) throws ApplicationError {
-        try {
-            return mObjectMapper.writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            throw new ApplicationError(e);
-        }
-    }
-
-    public static <T> T fromJson(String json, Class<T> type) throws ApplicationError {
-        try {
-            return mObjectMapper.readValue(json, type);
-        } catch (JsonParseException e) {
-            throw new ApplicationError(e);
-        } catch (JsonMappingException e) {
-            throw new ApplicationError(e);
-        } catch (IOException e) {
-            throw new ApplicationError(e);
-        }
-    }
-
-    public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws ApplicationError {
-        try {
-            return mObjectMapper.readValue(json, new TypeReference<ArrayList<T>>() {});
-        } catch (JsonParseException e) {
-            throw new ApplicationError(e);
-        } catch (JsonMappingException e) {
-            throw new ApplicationError(e);
-        } catch (IOException e) {
-            throw new ApplicationError(e);
-        }
     }
 }

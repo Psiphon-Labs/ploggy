@@ -19,9 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import android.content.Context;
-import android.os.Build;
-
 public class TorWrapper {
 
     public static final String SOCKS_PROXY_HOSTNAME = "127.0.0.1";
