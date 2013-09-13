@@ -78,6 +78,8 @@ public class TorWrapper {
             file.close();
             bundledBinary.close();
     
+    		XXXXX targetFile.setExecutable(true, true);
+    		
             String chmodCommand = "chmod 700 " + targetFile.getAbsolutePath();
             Runtime.getRuntime().exec(chmodCommand).waitFor();
             
@@ -85,7 +87,7 @@ public class TorWrapper {
         }
         catch (InterruptedException e)
         {
-            Thread.currentThread().interrupt();
+            XXXXX Thread.currentThread().interrupt();
         }
         catch (IOException e)
         {

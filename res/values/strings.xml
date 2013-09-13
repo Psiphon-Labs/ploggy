@@ -2,9 +2,9 @@
 <resources>
 
     <string name="app_name">Ploggy</string>
-    <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string><string name="foreground_service_notification_id">ploggy_service</string>
-    
     <string name="default_foreground_service_notification_message">Ploggy is running</string>
+    <string name="action_add_friend">Add friend</string>
+    <string name="action_settings">Settings</string>
 
 </resources>

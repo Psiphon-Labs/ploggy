@@ -1,0 +1,11 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:ploggy="http://schemas.android.com/apk/res-auto" >
+    <item android:id="@+id/action_add_friend"
+          android:icon="@drawable/ic_action_add_friend"
+          android:title="@string/action_add_friend"
+          ploggy:showAsAction="ifRoom"  />
+    <item android:id="@+id/action_settings"
+          android:icon="@drawable/ic_action_settings"
+          android:title="@string/action_settings"
+          ploggy:showAsAction="ifRoom"  />
+</menu>

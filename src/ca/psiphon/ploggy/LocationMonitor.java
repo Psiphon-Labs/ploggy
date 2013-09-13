@@ -52,13 +52,17 @@ public class LocationMonitor implements android.location.LocationListener {
         mContext = context;
     }
     
-    public void start() {
+    public void start() throws Utils.ApplicationError {
         mLocationUpdateTimer = new Timer();
         mLocationUpdateTimer.schedule(
             new TimerTask() {          
                 @Override
                 public void run() {
-                    startLocationListeners();
+                	try {
+                		startLocationListeners();
+                	} catch (Utils.ApplicationError e) {
+                		// TODO: ...log
+                	}
                 }
             },
             0,
@@ -77,7 +81,7 @@ public class LocationMonitor implements android.location.LocationListener {
         stopLocationListeners();
     }
 
-    public void restart() {
+    public void restart() throws Utils.ApplicationError {
         stop();
         start();
     }
@@ -85,10 +89,14 @@ public class LocationMonitor implements android.location.LocationListener {
     @Subscribe
     public void handleUpdatedPreferences(
             Events.UpdatedPreferences updatedPreferences) {
-        restart();
+    	try {
+    		restart();
+    	} catch (Utils.ApplicationError e) {
+    		// TODO: ...log?
+    	}
     }    
     
-    public void startLocationListeners() {
+    public void startLocationListeners() throws Utils.ApplicationError {
         LocationManager locationManager = (LocationManager)mContext.getSystemService(Context.LOCATION_SERVICE);
         
         for (String provider: locationManager.getAllProviders()) {
@@ -120,8 +128,12 @@ public class LocationMonitor implements android.location.LocationListener {
             new TimerTask() {          
                 @Override
                 public void run() {
-                    reportLocation();
-                    stopLocationListeners();
+                	try {
+	                    reportLocation();
+	                    stopLocationListeners();
+                	} catch (Utils.ApplicationError e) {
+                		// TODO: ...log
+                	}
                 }
             },
             0,
@@ -133,7 +145,7 @@ public class LocationMonitor implements android.location.LocationListener {
         locationManager.removeUpdates(this);        
     }
         
-    public void reportLocation() {
+    public void reportLocation() throws Utils.ApplicationError {
     	if (mCurrentLocation == null) {
     		return;
     	}
@@ -182,17 +194,29 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onProviderDisabled(String provider) {
-        restart();
+    	try {
+    		restart();
+    	} catch (Utils.ApplicationError e) {
+    		// TODO: ...log?
+    	}
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-        restart();
+    	try {
+    		restart();
+    	} catch (Utils.ApplicationError e) {
+    		// TODO: ...log?
+    	}
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-        restart();
+    	try {
+    		restart();
+    	} catch (Utils.ApplicationError e) {
+    		// TODO: ...log?
+    	}
     }
 
     protected void updateCurrentLocation(Location location) {
