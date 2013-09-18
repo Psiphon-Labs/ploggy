@@ -53,7 +53,7 @@ public class Data {
     
     public static class Self {
         public final String mNickname;
-        public final String mIdenticon;
+        public final String mAvatar;
         public final TransportSecurity.KeyMaterial mTransportKeyMaterial;
         public final HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
 
@@ -63,7 +63,7 @@ public class Data {
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
             mNickname = nickname;
             String id = Utils.makeId(nickname, transportKeyMaterial.mCertificate, hiddenServiceKeyMaterial.mHostname);
-            mIdenticon = Utils.makeIdenticon(id);
+            mAvatar = Utils.makeIdenticon(id);
             mTransportKeyMaterial = transportKeyMaterial;
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;            
         }
@@ -72,7 +72,7 @@ public class Data {
     public static class Friend {
         public final String mId;
         public final String mNickname;
-        public final String mIdenticon;
+        public final String mAvatar;
         public final TransportSecurity.Certificate mTransportCertificate;
         public final HiddenService.Identity mHiddenServiceIdentity;
 
@@ -82,7 +82,7 @@ public class Data {
                 HiddenService.Identity hiddenServiceIdentity) {
             mId = Utils.makeId(nickname, certificate.mCertificate, hiddenServiceIdentity.mHostname);
             mNickname = nickname;
-            mIdenticon = Utils.makeIdenticon(mId);
+            mAvatar = Utils.makeIdenticon(mId);
             mTransportCertificate = certificate;
             mHiddenServiceIdentity = hiddenServiceIdentity;            
         }
