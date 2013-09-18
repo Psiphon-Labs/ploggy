@@ -149,7 +149,9 @@ public class Events {
             mId = id;
         }
     }
-    // TODO subs: UI, pusher
+
+    public static class AddedLogEntry {
+    }
 
     public static class NewSelfLocation {
     	public final Location mLocation;

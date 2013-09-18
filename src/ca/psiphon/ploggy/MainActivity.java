@@ -19,7 +19,13 @@
 
 package ca.psiphon.ploggy;
 
+import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.List;
+
+import ca.psiphon.ploggy.Utils.ApplicationError;
+
+import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
 import android.app.ActionBar;
@@ -34,7 +40,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -73,7 +79,6 @@ public class MainActivity extends Activity {
     }
 
     // from: http://developer.android.com/guide/topics/ui/actionbar.html#Tabs
-
     private static class TabListener<T extends Fragment> implements ActionBar.TabListener {
         private Fragment mFragment;
         private final Activity mActivity;
@@ -140,40 +145,52 @@ public class MainActivity extends Activity {
     }
     
     public static class FriendListFragment extends ListFragment {
+    	private FriendAdapter mFriendAdapter;
+    	
     	@Override
 		public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
 
-            // TODO: temporary
-            ArrayList<Data.Friend> dummyFriends = new ArrayList<Data.Friend>();
-            dummyFriends.add(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
-            dummyFriends.add(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
-            dummyFriends.add(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
-
-    		setListAdapter(new FriendAdapter(getActivity(), R.layout.friend_list_row, dummyFriends));
+            try {
+				mFriendAdapter = new FriendAdapter(getActivity(), Data.getInstance().getFriends());
+	    		setListAdapter(mFriendAdapter);
+			} catch (ApplicationError e) {
+				// TODO: ...
+			}
     	}
+
+        @Subscribe
+        private void onAddedFriend(Events.AddedFriend addedFriend) {
+        	mFriendAdapter.notifyDataSetChanged();
+        }    	
+
+        @Subscribe
+        private void onDeletedFriend(Events.DeletedFriend deletedFriend) {
+        	mFriendAdapter.notifyDataSetChanged();
+        }    	
     }
 
-    private static class FriendAdapter extends ArrayAdapter<Data.Friend> {
-    	private ArrayList<Data.Friend> mFriends;
+    private static class FriendAdapter extends BaseAdapter {
+    	private Context mContext;
+    	private List<Data.Friend> mFriends;
 
-    	public FriendAdapter(Context context, int textViewResourceId, ArrayList<Data.Friend> friends) {
-    		super(context, textViewResourceId, friends);
+    	public FriendAdapter(Context context, List<Data.Friend> friends) {
+    		mContext = context;
     		mFriends = friends;
     	}
 
     	@Override
     	public View getView(int position, View view, ViewGroup parent) {
     		if (view == null) {
-    			LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+    			LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
     			view = inflater.inflate(R.layout.friend_list_row, null);
     		}
     		Data.Friend friend = mFriends.get(position);
     		if (friend != null) {
-    			ImageView avatarImage = (ImageView)view.findViewById(R.id.avatar_image);
-    			TextView nicknameText = (TextView)view.findViewById(R.id.nickname_text);
-    			TextView streetAddressText = (TextView)view.findViewById(R.id.street_address_text);
-    			TextView timestampText = (TextView)view.findViewById(R.id.timestamp_text);
+    			ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
+    			TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
+    			TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
+    			TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
     			
     			// TODO: friend.mAvatar
     			avatarImage.setImageResource(R.drawable.ic_unknown_avatar);
@@ -185,8 +202,86 @@ public class MainActivity extends Activity {
     		}    		
     		return view;
     	}
+
+		@Override
+		public int getCount() {
+			return mFriends.size();
+		}
+
+		@Override
+		public Object getItem(int position) {
+			return mFriends.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			return position;
+		}
     }
 
     public static class LogFragment extends ListFragment {
+    	private LogAdapter mLogAdapter;
+    	
+    	@Override
+		public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+
+            mLogAdapter = new LogAdapter(getActivity(), Log.getEntries());
+    		setListAdapter(mLogAdapter);
+    		
+    		// TODO: ensure last entry visible
+    		// -- http://stackoverflow.com/questions/3606530/listview-scroll-to-the-end-of-the-list-after-updating-the-list
+    	}
+
+        @Subscribe
+        private void onAddedLogEntry(Events.AddedLogEntry addedLogEntry) {
+        	mLogAdapter.notifyDataSetChanged();
+        }    	
+    }
+
+    private static class LogAdapter extends BaseAdapter {
+    	private Context mContext;
+    	private List<Log.Entry> mEntries;
+    	private DateFormat mDateFormat;
+
+    	public LogAdapter(Context context, List<Log.Entry> entries) {
+    		mContext = context;
+    		mEntries = entries;
+    		mDateFormat = DateFormat.getDateInstance();
+    	}
+
+    	@Override
+    	public View getView(int position, View view, ViewGroup parent) {
+    		if (view == null) {
+    			LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+    			view = inflater.inflate(R.layout.log_row, null);
+    		}
+    		Log.Entry entry = mEntries.get(position);
+    		if (entry != null) {
+    			TextView timestampText = (TextView)view.findViewById(R.id.log_timestamp_text);
+    			TextView tagText = (TextView)view.findViewById(R.id.log_tag_text);
+    			TextView messageText = (TextView)view.findViewById(R.id.log_message_text);
+
+    			timestampText.setText(mDateFormat.format(entry.mTimestamp));
+    			tagText.setText(entry.mTag);
+    			messageText.setText(entry.mMessage);
+    		}    		
+    		return view;
+    	}
+
+		@Override
+		public int getCount() {
+			return mEntries.size();
+		}
+
+		@Override
+		public Object getItem(int position) {
+			return mEntries.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			return position;
+		}
     }
 }

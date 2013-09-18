@@ -25,7 +25,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+
+import ca.psiphon.ploggy.Log.Entry;
 
 import android.content.Context;
 
@@ -65,7 +69,7 @@ public class Data {
             String id = Utils.makeId(nickname, transportKeyMaterial.mCertificate, hiddenServiceKeyMaterial.mHostname);
             mAvatar = Utils.makeIdenticon(id);
             mTransportKeyMaterial = transportKeyMaterial;
-            mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;            
+            mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
         }
     }
     
@@ -138,7 +142,7 @@ public class Data {
     Preferences mPreferences;
     Self mSelf;
     Status mSelfStatus;
-    ArrayList<Friend> mFriends;
+    List<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     
     public synchronized Preferences getPreferences() throws Utils.ApplicationError {
@@ -188,13 +192,14 @@ public class Data {
 				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
 			} catch (DataNotFoundException e) {
 				mFriends = new ArrayList<Friend>();
-			}    	
+			}
+        	mFriends = Collections.synchronizedList(mFriends);
         }
     }
     
-    public synchronized final ArrayList<Friend> getFriends() throws Utils.ApplicationError {
+    public synchronized final List<Friend> getFriends() throws Utils.ApplicationError {
     	loadFriends();
-        // TODO: return immutable ArrayList?
+        // TODO: return immutable List?
         return mFriends;
     }
 
@@ -208,31 +213,33 @@ public class Data {
         throw new DataNotFoundException();
     }
 
-    public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
-    	loadFriends();
-    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+    private void insertOrUpdate(Friend friend, List<Friend> list) {
     	boolean found = false;
-        for (int i = 0; i < newFriends.size(); i++) {
-        	if (newFriends.get(i).mId.equals(friend.mId)) {
-        		newFriends.set(i, friend);
+        for (int i = 0; i < list.size(); i++) {
+        	if (list.get(i).mId.equals(friend.mId)) {
+        		list.set(i, friend);
         		found = true;
         		break;
         	}
         }
         if (!found) {
-        	newFriends.add(friend);
+        	list.add(friend);
         }
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-        mFriends = newFriends;
     }
 
-    public synchronized void removeFriend(Friend friend) throws Utils.ApplicationError, DataNotFoundException {
+    public synchronized void insertOrUpdateFriend(Friend friend) throws Utils.ApplicationError {
     	loadFriends();
     	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+    	insertOrUpdate(friend, newFriends);
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+    	insertOrUpdate(friend, mFriends);
+    }
+
+    private void remove(Friend friend, List<Friend> list) throws DataNotFoundException {
     	boolean found = false;
-        for (int i = 0; i < newFriends.size(); i++) {
-        	if (newFriends.get(i).mId.equals(friend.mId)) {
-        		newFriends.remove(i);
+        for (int i = 0; i < list.size(); i++) {
+        	if (list.get(i).mId.equals(friend.mId)) {
+        		list.remove(i);
         		found = true;
         		break;
         	}
@@ -240,8 +247,14 @@ public class Data {
         if (!found) {
         	throw new DataNotFoundException();
         }
+    }
+
+    public synchronized void removeFriend(Friend friend) throws Utils.ApplicationError, DataNotFoundException {
+    	loadFriends();
+    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+    	remove(friend, newFriends);
         writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-        mFriends = newFriends;
+    	remove(friend, mFriends);
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
@@ -253,7 +266,7 @@ public class Data {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
     	writeFile(filename, Json.toJson(status));
     }
-    
+
     /*
     // data files: (1) map tile/photo; (2) may or may not exist/be complete/be cached
     
