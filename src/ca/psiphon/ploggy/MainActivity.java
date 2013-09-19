@@ -20,7 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.text.DateFormat;
-import java.util.ArrayList;
 import java.util.List;
 
 import ca.psiphon.ploggy.Utils.ApplicationError;

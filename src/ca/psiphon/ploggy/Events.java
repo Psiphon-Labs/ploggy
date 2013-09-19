@@ -29,7 +29,8 @@ public class Events {
 
     // TODO: post-on-MAIN-thread helper: runOnUiThread?
     
-    public static final Bus bus = new Bus(ThreadEnforcer.MAIN);
+    //public static final Bus bus = new Bus(ThreadEnforcer.MAIN);
+	public static final Bus bus = new Bus(ThreadEnforcer.ANY);
     
     public static class Request {
         private static long mNextRequestId = 0;        

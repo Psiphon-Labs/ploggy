@@ -29,8 +29,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
-import ca.psiphon.ploggy.Log.Entry;
-
 import android.content.Context;
 
 public class Data {
@@ -205,11 +203,13 @@ public class Data {
 
     public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundException {
     	loadFriends();
-        for (int i = 0; i < mFriends.size(); i++) {
-        	if (mFriends.get(i).mId.equals(id)) {
-        		return mFriends.get(i);
-        	}
-        }
+    	synchronized(mFriends) {
+	        for (Friend friend : mFriends) {
+	        	if (friend.mId.equals(id)) {
+	        		return friend;
+	        	}
+	        }
+    	}
         throw new DataNotFoundException();
     }
 
@@ -229,10 +229,12 @@ public class Data {
 
     public synchronized void insertOrUpdateFriend(Friend friend) throws Utils.ApplicationError {
     	loadFriends();
-    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-    	insertOrUpdate(friend, newFriends);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-    	insertOrUpdate(friend, mFriends);
+    	synchronized(mFriends) {
+	    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+	    	insertOrUpdate(friend, newFriends);
+	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+	    	insertOrUpdate(friend, mFriends);
+    	}
     }
 
     private void remove(Friend friend, List<Friend> list) throws DataNotFoundException {
@@ -251,10 +253,12 @@ public class Data {
 
     public synchronized void removeFriend(Friend friend) throws Utils.ApplicationError, DataNotFoundException {
     	loadFriends();
-    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-    	remove(friend, newFriends);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-    	remove(friend, mFriends);
+    	synchronized(mFriends) {
+	    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+	    	remove(friend, newFriends);
+	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+	    	remove(friend, mFriends);
+    	}
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
