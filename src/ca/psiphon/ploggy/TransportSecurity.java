@@ -87,6 +87,16 @@ public class TransportSecurity {
             mType = type;
             mCertificate = certificate;
         }
+        
+        public String getFingerprint() {
+            // TODO: temp
+            return "CE1D32CE0CFFD121E9FE74B94F366A8368A3A6890F2228A9E2B103196313BB22";
+        }
+        
+        public Date getTimestamp() {
+            // TODO: temp
+            return new Date();
+        }
     }
 
     static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {

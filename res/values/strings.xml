@@ -8,5 +8,9 @@
     <string name="action_settings">Settings</string>
     <string name="title_friend_list_fragment">Friends</string>
     <string name="title_log_fragment">Log</string>
+    <string name="text_add_friend_self_section">Your Identity</string>
+    <string name="text_add_friend_friend_section">Friend</string>
+    <string name="text_add_friend_add_button">Add</string>
+    <string name="prompt_nfc_not_available">NFC is not available</string>
 
 </resources>
