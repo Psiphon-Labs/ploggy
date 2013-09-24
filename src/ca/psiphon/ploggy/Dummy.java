@@ -22,10 +22,6 @@ package ca.psiphon.ploggy;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.google.gson.Gson;
-
-import ca.psiphon.ploggy.Data.Self;
-
 public class Dummy {
 	
 	private static Timer mTimer;
@@ -34,12 +30,12 @@ public class Dummy {
 		try {
 			Data data = Data.getInstance();
 
-	        data.insertOrUpdateFriend(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
-	        data.insertOrUpdateFriend(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
-	        data.insertOrUpdateFriend(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
-	        //data.getFriends().add(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
-	        //data.getFriends().add(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
-	        //data.getFriends().add(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
+	        //data.insertOrUpdateFriend(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
+	        //data.insertOrUpdateFriend(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
+	        //data.insertOrUpdateFriend(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
+	        data.getFriends().add(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
+	        data.getFriends().add(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
+	        data.getFriends().add(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
 		} catch (Utils.ApplicationError e) {
 			// TODO: ...
 		}

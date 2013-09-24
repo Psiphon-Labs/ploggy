@@ -13,5 +13,9 @@
     <string name="text_add_friend_add_button">Add</string>
     <string name="prompt_nfc_not_available">NFC is not available</string>
     <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
+    <string name="prompt_nfc_push_complete_without_friend_received">Identity beamed to friend. Repeat to receive identity from friend.</string>
+    <string name="prompt_nfc_push_complete_and_friend_received">Identity beamed to friend. Click Add to remember friend.</string>
+    <string name="prompt_nfc_friend_received_without_push_complete">Identity received from friend. Repeat to beam your identity.</string>
+    <string name="prompt_nfc_friend_received_and_push_complete">Identity received from friend. Click Add to remember friend.</string>
 
 </resources>

@@ -162,6 +162,8 @@
             android:text="@string/text_add_friend_add_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_below="@id/add_friend_friend_hidden_service_hostname_text"
+            android:layout_alignParentRight="true"
             android:typeface="sans"
             android:textSize="16dip"
             android:textStyle="bold" />

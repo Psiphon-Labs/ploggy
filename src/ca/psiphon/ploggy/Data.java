@@ -189,12 +189,17 @@ public class Data {
 
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
+            // TODO: temp
+            /*
 	    	try {
 				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
 			} catch (DataNotFoundException e) {
 				mFriends = new ArrayList<Friend>();
 			}
-        	mFriends = Collections.synchronizedList(mFriends);
+			*/
+	    	mFriends = new ArrayList<Friend>();
+
+	    	mFriends = Collections.synchronizedList(mFriends);
         }
     }
     
