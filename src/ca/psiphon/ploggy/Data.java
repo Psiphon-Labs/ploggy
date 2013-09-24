@@ -69,6 +69,10 @@ public class Data {
             mTransportKeyMaterial = transportKeyMaterial;
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
         }
+        
+        public Friend getFriend() {
+        	return new Friend(mNickname, mTransportKeyMaterial.getCertificate(), mHiddenServiceKeyMaterial.getIdentity());
+        }
     }
     
     public static class Friend {
@@ -161,10 +165,14 @@ public class Data {
     }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
-        if (mSelf == null) {
+    	// TODO: temp
+    	return new Self("selfNickname", new TransportSecurity.KeyMaterial("type", "certificate", "privateKey"), new HiddenService.KeyMaterial("type", "hostname", "privateKey"));
+    	/*
+    	if (mSelf == null) {
             mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
+        */
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {

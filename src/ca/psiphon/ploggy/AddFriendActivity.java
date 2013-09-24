@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.nio.charset.Charset;
 import java.text.DateFormat;
 
 import android.nfc.NdefMessage;
@@ -27,14 +28,16 @@ import android.nfc.NfcAdapter;
 import android.nfc.NfcEvent;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.view.MenuItem;
+import android.os.Vibrator;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 
 public class AddFriendActivity extends Activity implements View.OnClickListener, NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
@@ -44,7 +47,7 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
     
     private NfcAdapter mNfcAdapter;
     private ImageView mFriendAvatarImage;
-    private LinearLayout mFriendSectionLayout;
+    private RelativeLayout mFriendSectionLayout;
     private TextView mFriendNicknameText;
     private TextView mFriendTransportPublicKeyFingerprintText;
     private TextView mFriendTransportPublicKeyTimestampText;
@@ -60,6 +63,7 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
         // TODO: http://stackoverflow.com/questions/10887275/aar-record-in-nfc-wheres-the-payload
         // TODO: http://stackoverflow.com/questions/15602275/android-beam-payload-transfer-from-both-devices-when-only-one-touch-to-beam
         // TODO: http://mobisocial.github.io/EasyNFC/apidocs/reference/mobisocial/nfc/addon/BluetoothConnector.html
+        // TODO: http://code.google.com/p/ndef-tools-for-android/
         
         Data.Self self = null;
         try {
@@ -86,7 +90,7 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
         selfTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(self.mTransportKeyMaterial.getCertificate().getTimestamp()));        
         selfHiddenServiceHostnameText.setText(self.mHiddenServiceKeyMaterial.mHostname);        
         
-        mFriendSectionLayout = (LinearLayout)findViewById(R.id.add_friend_friend_section);
+        mFriendSectionLayout = (RelativeLayout)findViewById(R.id.add_friend_friend_section);
         mFriendSectionLayout.setVisibility(View.GONE);
         mFriendAvatarImage = (ImageView)findViewById(R.id.add_friend_friend_avatar_image);
         mFriendNicknameText = (TextView)findViewById(R.id.add_friend_friend_nickname_text);
@@ -100,6 +104,11 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
         if (mNfcAdapter == null) {
             Toast.makeText(this, R.string.prompt_nfc_not_available, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        if (!mNfcAdapter.isNdefPushEnabled()) {
+            Toast.makeText(this, R.string.prompt_nfc_not_enabled, Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -135,7 +144,7 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
     @Override
     public void onNewIntent(Intent intent) {
         setIntent(intent);
-        // TODO: trigger UI update when already resumed...?
+        // TODO: trigger UI update when already resumed...? Need foreground dispatch?
     }
 
     @Override
@@ -144,8 +153,15 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
         try {
             payload = Json.toJson(Data.getInstance().getSelf().getFriend());
             return new NdefMessage(
-                    NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
-                    NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME));
+            		new NdefRecord[] {
+            				// TODO: NdefRecord.createMime(NFC_MIME_TYPE, ),
+            				new NdefRecord(
+            						NdefRecord.TNF_MIME_MEDIA,
+            						NFC_MIME_TYPE.getBytes(Charset.forName("US-ASCII")),
+            						null,
+            						payload.getBytes()),
+            				NdefRecord.createApplicationRecord(
+            						NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
             // TODO: log?
         } catch (Data.DataNotFoundException e) {
@@ -156,6 +172,8 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
     @Override
     public void onNdefPushComplete(NfcEvent arg0) {
         // TODO: runOnUiThread(Runnable r)
+        Vibrator vibe = (Vibrator)getSystemService(Context.VIBRATOR_SERVICE) ;
+        vibe.vibrate(500); 
     }
 
     @Override

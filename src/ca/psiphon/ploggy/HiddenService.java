@@ -36,6 +36,10 @@ public class HiddenService {
             // TODO: ...
             return null;
         }
+
+        public Identity getIdentity() {
+            return new Identity(mType, mHostname);
+        }
     }    
 
     public static class Identity {

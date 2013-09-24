@@ -12,5 +12,6 @@
     <string name="text_add_friend_friend_section">Friend</string>
     <string name="text_add_friend_add_button">Add</string>
     <string name="prompt_nfc_not_available">NFC is not available</string>
+    <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
 
 </resources>

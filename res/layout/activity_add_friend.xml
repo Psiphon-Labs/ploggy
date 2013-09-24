@@ -1,4 +1,4 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -6,6 +6,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
     tools:context=".AddFriendActivity" >
 
     <TextView
@@ -22,7 +23,10 @@
         android:layout_height="1dip"
         android:background="#000000" />
 
-    <LinearLayout android:id="@+id/add_friend_self_section">
+    <RelativeLayout
+    	android:id="@+id/add_friend_self_section"
+    	android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
 
         <LinearLayout android:id="@+id/add_friend_self_avatar"
             android:layout_width="wrap_content"
@@ -78,7 +82,7 @@
             android:typeface="sans"
             android:textSize="8dip" />
 
-    </LinearLayout>
+    </RelativeLayout>
 
     <TextView
         android:id="@+id/add_friend_friend_section_text"
@@ -94,7 +98,10 @@
         android:layout_height="1dip"
         android:background="#000000" />
 
-    <LinearLayout android:id="@+id/add_friend_friend_section">
+    <RelativeLayout
+    	android:id="@+id/add_friend_friend_section"
+    	android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
 
         <LinearLayout android:id="@+id/add_friend_friend_avatar"
             android:layout_width="wrap_content"
@@ -150,7 +157,7 @@
             android:typeface="sans"
             android:textSize="8dip" />
     
-        <ButtonView
+        <Button
             android:id="@+id/add_friend_add_button"
             android:text="@string/text_add_friend_add_button"
             android:layout_width="wrap_content"
@@ -159,6 +166,6 @@
             android:textSize="16dip"
             android:textStyle="bold" />
 
-    </LinearLayout>
+    </RelativeLayout>
 
-</RelativeLayout>
+</LinearLayout>
