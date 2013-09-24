@@ -19,47 +19,35 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 
 public class Json {
 
-    private static final ObjectMapper mObjectMapper = new ObjectMapper();
+    private static final Gson mSerializer = new Gson();
     
-    public static String toJson(Object object) throws Utils.ApplicationError {
-        try {
-            return mObjectMapper.writeValueAsString(object);
-        } catch (JsonProcessingException e) {
-            throw new Utils.ApplicationError(e);
-        }
+    public static String toJson(Object object) {
+    	return mSerializer.toJson(object);
     }
 
     public static <T> T fromJson(String json, Class<T> type) throws Utils.ApplicationError {
         try {
-            return mObjectMapper.readValue(json, type);
-        } catch (JsonParseException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (JsonMappingException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (IOException e) {
+            return mSerializer.fromJson(json, type);
+        } catch (JsonSyntaxException e) {
             throw new Utils.ApplicationError(e);
         }
     }
 
     public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws Utils.ApplicationError {
         try {
-            return mObjectMapper.readValue(json, new TypeReference<ArrayList<T>>() {});
-        } catch (JsonParseException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (JsonMappingException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (IOException e) {
+        	Type collectionType = new TypeToken<Collection<T>>(){}.getType();
+            return mSerializer.fromJson(json, collectionType);
+        } catch (JsonSyntaxException e) {
             throw new Utils.ApplicationError(e);
         }
     }

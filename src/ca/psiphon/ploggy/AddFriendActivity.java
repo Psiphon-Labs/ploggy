@@ -32,7 +32,6 @@ import android.os.Vibrator;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -107,7 +106,8 @@ public class AddFriendActivity extends Activity implements View.OnClickListener,
             finish();
             return;
         }
-        if (!mNfcAdapter.isNdefPushEnabled()) {
+        // TODO: isNdefPushEnabled (API 16)
+        if (!mNfcAdapter.isEnabled()) {
             Toast.makeText(this, R.string.prompt_nfc_not_enabled, Toast.LENGTH_LONG).show();
             finish();
             return;
