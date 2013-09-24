@@ -43,8 +43,8 @@ import android.content.IntentFilter;
 
 public class AddFriendActivity extends Activity implements View.OnClickListener, NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
 
-    static private final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
-    static private final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
+    private static final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
+    private static final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
     
     private NfcAdapter mNfcAdapter;
     // TODO: no guarantee same device pushed to/received from

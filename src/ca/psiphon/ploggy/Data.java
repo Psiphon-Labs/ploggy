@@ -67,7 +67,7 @@ public class Data {
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
         }
         
-        public Friend getFriend() {
+        public Friend getFriend() throws Utils.ApplicationError {
         	return new Friend(mNickname, mTransportKeyMaterial.getCertificate(), mHiddenServiceKeyMaterial.getIdentity());
         }
     }
@@ -81,7 +81,7 @@ public class Data {
         public Friend(
                 String nickname,
                 TransportSecurity.Certificate transportCertificate,
-                HiddenService.Identity hiddenServiceIdentity) {
+                HiddenService.Identity hiddenServiceIdentity) throws Utils.ApplicationError {
             mId = Utils.makeId(nickname, transportCertificate.mCertificate, hiddenServiceIdentity.mHostname);
             mNickname = nickname;
             mTransportCertificate = transportCertificate;

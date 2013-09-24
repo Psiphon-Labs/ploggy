@@ -194,8 +194,14 @@ public class MainActivity extends Activity {
     			TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
     			TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
     			
-    			// TODO: friend.mAvatar
-    			avatarImage.setImageResource(R.drawable.ic_unknown_avatar);
+    			try {
+                    // TODO: cache bitmap
+    			    avatarImage.setImageBitmap(MonsterId.getMonsterId(mContext, friend.mId.getBytes()));
+    			} catch (Utils.ApplicationError e) {
+    			    // TODO: security issue?
+    			    throw new RuntimeException(e);
+    			    //avatarImage.setImageResource(R.drawable.ic_unknown_avatar); 
+    			}
     			nicknameText.setText(friend.mNickname);
 
     			// TODO: load status

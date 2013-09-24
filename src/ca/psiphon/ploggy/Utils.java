@@ -20,11 +20,16 @@
 package ca.psiphon.ploggy;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import android.content.Context;
+import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -41,9 +46,20 @@ public class Utils {
         }
     }
 
-    public static String makeId(String nickname, String transportPublicKey, String hiddenServiceHostname) {
-        // TODO: ...
-        return null;
+    public static String makeId(String nickname, String transportPublicKey, String hiddenServiceHostname) throws Utils.ApplicationError {
+        try {
+            MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
+            sha1.update(nickname.getBytes("UTF-8"));
+            sha1.update(transportPublicKey.getBytes("UTF-8"));
+            sha1.update(hiddenServiceHostname.getBytes("UTF-8"));
+            return Base64.encodeToString(sha1.digest(), Base64.NO_WRAP);
+        } catch (NoSuchAlgorithmException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        } catch (UnsupportedEncodingException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        }
     }
     
     public static String makeIdenticon(String id) {        
@@ -59,6 +75,17 @@ public class Utils {
             value.append(line);
         }
         return value.toString();
+    }
+
+    public static byte[] inputStreamToBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        int readCount;
+        byte[] buffer = new byte[16384];
+        while ((readCount = inputStream.read(buffer, 0, buffer.length)) != -1) {
+            outputStream.write(buffer, 0, readCount);
+        }
+        outputStream.flush();
+        return outputStream.toByteArray();
     }
 
     public static void initSecureRandom() {
