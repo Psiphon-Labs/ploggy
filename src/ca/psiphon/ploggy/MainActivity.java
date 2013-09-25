@@ -196,10 +196,11 @@ public class MainActivity extends Activity {
     			
     			try {
                     // TODO: cache bitmap
-    			    avatarImage.setImageBitmap(MonsterId.getMonsterId(mContext, friend.mId.getBytes()));
+    			    avatarImage.setImageBitmap(Robohash.getRobohash(mContext, friend.mId.getBytes()));
     			} catch (Utils.ApplicationError e) {
-    			    // TODO: security issue?
+    			    // TODO: temp; forcing crash
     			    throw new RuntimeException(e);
+                    // TODO: security issue?
     			    //avatarImage.setImageResource(R.drawable.ic_unknown_avatar); 
     			}
     			nicknameText.setText(friend.mNickname);
