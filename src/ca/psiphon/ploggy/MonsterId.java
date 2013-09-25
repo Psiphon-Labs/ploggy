@@ -47,11 +47,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.R.integer;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 
@@ -63,6 +65,8 @@ public class MonsterId {
     public static Bitmap getMonsterId(Context context, byte[] data) throws Utils.ApplicationError {
         
         // TODO: assets vs. res/raw -- memory management
+        // TODO: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/9194259#9194259
+        // TOOD: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/16314940#16314940
         
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
@@ -83,21 +87,28 @@ public class MonsterId {
             backgroundBitmap.recycle();
             Canvas monsterCanvas = new Canvas(monsterBitmap);
             
-            // TODO: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/9194259#9194259
-            // TOOD: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/16314940#16314940
-            // TODO: colorization
-
             JSONObject parts = config.getJSONObject("parts");
             Iterator<?> keys = parts.keys();
             while (keys.hasNext()) {
-                JSONArray availableParts = parts.getJSONArray((String)keys.next());
-                String selectedPart = availableParts.getString(random.nextInt(availableParts.length()));
-                Bitmap partBitmap = loadAssetToBitmap(assetManager, selectedPart);
+                String key = (String)keys.next();
+                JSONObject part = parts.getJSONObject(key);
+                boolean colorize = part.getBoolean("colorize");
+                JSONArray choices = part.getJSONArray("choices");
+                String selection = choices.getString(random.nextInt(choices.length()));
+                Bitmap partBitmap = loadAssetToBitmap(assetManager, selection);
+                Bitmap colorizedBitmap = partBitmap.copy(Bitmap.Config.ARGB_8888, true);
+                partBitmap.recycle();
+                
+                if (colorize) {
+                    float hue = 360.0f * random.nextFloat();
+                    float saturation = 0.25f + 0.75f * random.nextFloat();
+                    colorize(colorizedBitmap, hue, saturation);
+                }
 
                 Rect rect = new Rect(0, 0, width, height);
                 Paint paint = new Paint();
                 paint.setAlpha(255);
-                monsterCanvas.drawBitmap(partBitmap, rect, rect, paint);
+                monsterCanvas.drawBitmap(colorizedBitmap, rect, rect, paint);
                 partBitmap.recycle();
             }
             
@@ -112,6 +123,19 @@ public class MonsterId {
         } catch (NoSuchAlgorithmException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
+        }
+    }
+    
+    private static void colorize(Bitmap bitmap, float hue, float saturation) {
+        float[] hsv = new float[3];
+        for (int x = 0; x < bitmap.getWidth(); x++) {
+            for (int y = 0; y < bitmap.getHeight(); y++) {
+                int pixel = bitmap.getPixel(x, y);
+                Color.colorToHSV(pixel, hsv);
+                hsv[0] = hue;
+                hsv[1] = saturation;
+                bitmap.setPixel(x, y, Color.HSVToColor(Color.alpha(pixel), hsv));
+            }
         }
     }
 
