@@ -1,0 +1,104 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
+    tools:context=".ActivityGenerateSelf" >
+
+    <TextView
+        android:id="@+id/generate_self_preamble_text"
+        android:text="@string/text_generate_self_preamble"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:typeface="sans"
+        android:textSize="24dip"
+        android:textStyle="bold" />
+
+    <RelativeLayout
+    	android:id="@+id/generate_self_main_section"
+    	android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <LinearLayout android:id="@+id/generate_self_avatar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dip"
+            android:layout_alignParentLeft="true"
+            android:layout_marginRight="4dip">
+ 
+            <ImageView
+                android:id="@+id/generate_self_avatar_image"
+                android:layout_width="150dip"
+                android:layout_height="150dip" />
+ 
+        </LinearLayout>
+ 
+        <TextView
+            android:id="@+id/generate_self_nickname_text"
+            android:text="@string/text_generate_self_nickname"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignTop="@+id/generate_self_avatar"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:typeface="sans"
+            android:textSize="24dip"
+            android:textStyle="bold" />
+ 
+        <EditText
+            android:id="@+id/generate_self_nickname_edit"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignBottom="@+id/generate_self_nickname_text"
+            android:layout_toRightOf="@+id/generate_self_nickname_text"
+            android:typeface="sans"
+            android:textSize="24dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/generate_self_transport_public_key_fingerprint_text"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/generate_self_nickname_text"
+            android:layout_marginTop="1dip"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:typeface="sans"
+            android:textSize="16dip" />
+
+        <TextView
+            android:id="@+id/generate_self_transport_public_key_timestamp_text"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/generate_self_transport_public_key_fingerprint_text"
+            android:layout_marginTop="1dip"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:typeface="sans"
+            android:textSize="16dip" />
+
+        <TextView
+            android:id="@+id/generate_self_hidden_service_hostname_text"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/generate_self_transport_public_key_timestamp_text"
+            android:layout_marginTop="1dip"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:typeface="sans"
+            android:textSize="16dip" />
+
+        <Button
+            android:id="@+id/generate_self_save_button"
+            android:text="@string/text_generate_self_save_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/generate_self_hidden_service_hostname_text"
+            android:layout_alignParentRight="true"
+            android:typeface="sans"
+            android:textSize="16dip"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+</LinearLayout>

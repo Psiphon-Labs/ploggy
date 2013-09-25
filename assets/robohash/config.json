@@ -301,19 +301,6 @@
             ],
             [
                 [
-                    "000#yellow_eyes-10.png", "001#yellow_eyes-09.png", "002#yellow_eyes-02.png",
-                    "003#yellow_eyes-03.png", "004#yellow_eyes-07.png", "005#yellow_eyes-01.png",
-                    "006#yellow_eyes-05.png", "007#yellow_eyes-08.png", "008#yellow_eyes-04.png",
-                    "009#yellow_eyes-06.png"
-                ],
-                [
-                    "000#yellow__accessory-07.png", "001#yellow__accessory-09.png",
-                    "002#yellow__accessory-10.png", "003#yellow__accessory-05.png",
-                    "004#yellow__accessory-06.png", "005#yellow__accessory-03.png",
-                    "006#yellow__accessory-04.png", "007#yellow__accessory-02.png",
-                    "008#yellow__accessory-01.png", "009#yellow__accessory-08.png"
-                ],
-                [
                     "000#yellow_body-04.png", "001#yellow_body-06.png", "002#yellow_body-09.png",
                     "003#yellow_body-07.png", "004#yellow_body-02.png", "005#yellow_body-10.png",
                     "006#yellow_body-05.png", "007#yellow_body-03.png", "008#yellow_body-08.png",
@@ -330,6 +317,19 @@
                     "003#yellow_mouth-01.png", "004#yellow_mouth-09.png", "005#yellow_mouth-04.png",
                     "006#yellow_mouth-08.png", "007#yellow_mouth-05.png", "008#yellow_mouth-10.png",
                     "009#yellow_mouth-07.png"
+                ],
+                [
+                    "000#yellow_eyes-10.png", "001#yellow_eyes-09.png", "002#yellow_eyes-02.png",
+                    "003#yellow_eyes-03.png", "004#yellow_eyes-07.png", "005#yellow_eyes-01.png",
+                    "006#yellow_eyes-05.png", "007#yellow_eyes-08.png", "008#yellow_eyes-04.png",
+                    "009#yellow_eyes-06.png"
+                ],
+                [
+                    "000#yellow_accessory-07.png", "001#yellow_accessory-09.png",
+                    "002#yellow_accessory-10.png", "003#yellow_accessory-05.png",
+                    "004#yellow_accessory-06.png", "005#yellow_accessory-03.png",
+                    "006#yellow_accessory-04.png", "007#yellow_accessory-02.png",
+                    "008#yellow_accessory-01.png", "009#yellow_accessory-08.png"
                 ]
             ]
         ]

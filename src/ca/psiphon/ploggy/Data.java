@@ -59,7 +59,7 @@ public class Data {
         public final HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
 
         public Self(
-        String nickname,
+                String nickname,
                 TransportSecurity.KeyMaterial transportKeyMaterial,
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
             mNickname = nickname;

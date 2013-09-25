@@ -64,7 +64,7 @@ public class PloggyService extends Service {
         int iconID = R.drawable.ic_launcher;
 
         // Invoke main Activity if notification is clicked
-        Intent intent = new Intent("ACTION_VIEW", null, this, ca.psiphon.ploggy.MainActivity.class);
+        Intent intent = new Intent("ACTION_VIEW", null, this, ca.psiphon.ploggy.ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);        
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     

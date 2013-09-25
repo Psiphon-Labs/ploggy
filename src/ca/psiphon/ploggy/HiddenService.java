@@ -33,8 +33,13 @@ public class HiddenService {
         }
         
         public static KeyMaterial generate() {
-            // TODO: ...
-            return null;
+            // TODO: temp!
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return new KeyMaterial("", "B94F366A8368A3A6890F2228.onion", Utils.getRandomHexString(1024));
         }
 
         public Identity getIdentity() {

@@ -27,9 +27,9 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 
 import android.content.Context;
-import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -52,7 +52,7 @@ public class Utils {
             sha1.update(nickname.getBytes("UTF-8"));
             sha1.update(transportPublicKey.getBytes("UTF-8"));
             sha1.update(hiddenServiceHostname.getBytes("UTF-8"));
-            return Base64.encodeToString(sha1.digest(), Base64.NO_WRAP);
+            return byteArrayToHexString(sha1.digest());
         } catch (NoSuchAlgorithmException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
@@ -92,10 +92,22 @@ public class Utils {
         new LinuxSecureRandom();
     }
     
+    // from:
+    // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+    public static String byteArrayToHexString(byte[] bytes) {
+        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        char[] hexChars = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++)  {
+            hexChars[i*2] = hexArray[(bytes[i] & 0xFF)/16];
+            hexChars[i*2 + 1] = hexArray[(bytes[i] & 0xFF)%16];
+        }
+        return new String(hexChars);
+    }
+
     public static String getRandomHexString(int bits) {
-        int length = bits*4;
-        // TODO: ...
-        return null;
+        byte[] buffer = new byte[bits/4];
+        new SecureRandom().nextBytes(buffer);
+        return byteArrayToHexString(buffer);
     }
     
     private static Context mApplicationContext;

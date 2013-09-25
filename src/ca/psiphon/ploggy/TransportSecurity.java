@@ -54,6 +54,8 @@ import javax.security.auth.x500.X500Principal;
 import org.spongycastle.openssl.PEMWriter;
 import org.spongycastle.x509.X509V3CertificateGenerator;
 
+import ca.psiphon.ploggy.HiddenService.KeyMaterial;
+
 import android.util.Base64;
 
 public class TransportSecurity {
@@ -70,8 +72,13 @@ public class TransportSecurity {
         }
         
         public static KeyMaterial generate() {
-            // TODO: ...
-            return null;
+            // TODO: temp!
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return new KeyMaterial("", Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
         }
 
         public Certificate getCertificate() {
@@ -89,12 +96,12 @@ public class TransportSecurity {
         }
         
         public String getFingerprint() {
-            // TODO: temp
+            // TODO: temp!
             return "CE1D32CE0CFFD121E9FE74B94F366A8368A3A6890F2228A9E2B103196313BB22";
         }
         
         public Date getTimestamp() {
-            // TODO: temp
+            // TODO: temp!
             return new Date();
         }
     }
