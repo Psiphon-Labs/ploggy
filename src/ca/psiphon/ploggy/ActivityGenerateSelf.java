@@ -35,6 +35,7 @@ import android.widget.TextView;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 
 public class ActivityGenerateSelf extends Activity implements View.OnClickListener {
 
@@ -43,13 +44,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     private TextView mTransportPublicKeyFingerprintText;
     private TextView mTransportPublicKeyTimestampText;
     private TextView mHiddenServiceHostnameText;
+    private Button mEditButton;
     private Button mSaveButton;
     private ProgressDialog mProgressDialog;
     private GenerateTask mGenerateTask;
     private GenerateResult mGenerateResult;
     private Timer mAvatarTimer;
     private TimerTask mAvatarTimerTask;
-        
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,22 +61,59 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mAvatarImage.setImageResource(R.drawable.ic_unknown_avatar);
         mNicknameEdit = (EditText)findViewById(R.id.generate_self_nickname_edit);
         mNicknameEdit.addTextChangedListener(getNicknameTextChangedListener());
+        mNicknameEdit.setEnabled(false);
         mTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.generate_self_transport_public_key_fingerprint_text);
         mTransportPublicKeyTimestampText = (TextView)findViewById(R.id.generate_self_transport_public_key_timestamp_text);
         mHiddenServiceHostnameText = (TextView)findViewById(R.id.generate_self_hidden_service_hostname_text);
+        mEditButton = (Button)findViewById(R.id.generate_self_edit_button);
+        mEditButton.setEnabled(false);
+        mEditButton.setVisibility(View.GONE);
+        mEditButton.setOnClickListener(this);
         mSaveButton = (Button)findViewById(R.id.generate_self_save_button);
         mSaveButton.setEnabled(false);
+        mSaveButton.setVisibility(View.GONE);
         mSaveButton.setOnClickListener(this);
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.setMessage(getText(R.string.text_generate_progress));
         mProgressDialog.setCancelable(true);
         mAvatarTimer = new Timer();
     }
+
+    private void showKeyMaterial(
+            TransportSecurity.KeyMaterial transportKeyMaterial,
+            HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
+        TransportSecurity.Certificate transportCertificate = transportKeyMaterial.getCertificate();
+        HiddenService.Identity hiddenServiceIdentity = hiddenServiceKeyMaterial.getIdentity();
+        mTransportPublicKeyFingerprintText.setText(transportCertificate.getFingerprint());        
+        mTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(transportCertificate.getTimestamp()));        
+        mHiddenServiceHostnameText.setText(hiddenServiceIdentity.mHostname);        
+    }
     
     @Override
     public void onResume() {
         super.onResume();
-        // TODO: check if already generated?
+        Events.bus.register(this);
+        
+        // TODO: ...two modes (1) self already exists; (2) no self exists
+        Data.Self self = getSelf();
+        if (self == null) {
+            startGenerating();
+        } else {
+            showKeyMaterial(self.mTransportKeyMaterial, self.mHiddenServiceKeyMaterial);
+            mNicknameEdit.setText(self.mNickname);
+            mEditButton.setEnabled(true);
+            mEditButton.setVisibility(View.VISIBLE);
+            mSaveButton.setEnabled(false);
+            mSaveButton.setVisibility(View.GONE);
+        }
+    }
+    
+    private void startGenerating() {
+        mNicknameEdit.setText("");
+        mEditButton.setEnabled(false);
+        mEditButton.setVisibility(View.GONE);
+        mSaveButton.setEnabled(false);
+        mSaveButton.setVisibility(View.VISIBLE);        
         mGenerateTask = new GenerateTask();
         mGenerateTask.execute();
     }
@@ -82,10 +121,36 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     @Override
     public void onPause() {
         super.onPause();
+        Events.bus.unregister(this);
         // TODO: http://stackoverflow.com/questions/1875670/what-to-do-with-asynctask-in-onpause
         if (mGenerateTask != null) {
             mGenerateTask.cancel(true);
             mGenerateTask = null;
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (getSelf() != null) {
+            super.onBackPressed();
+        }
+    }
+    
+    @Override
+    public void onClick(View view) {
+        if (view.equals(mEditButton)) {
+            startGenerating();            
+        } else if (view.equals(mSaveButton)) {
+            String nickname = mNicknameEdit.getText().toString();
+            if (mGenerateResult == null || !Protocol.isValidNickname(nickname)) {
+                return;
+            }            
+            try {
+                Data.getInstance().updateSelf(new Data.Self(nickname, mGenerateResult.mTransportKeyMaterial, mGenerateResult.mHiddenServiceKeyMaterial));
+                finish();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log?
+            }            
         }
     }
 
@@ -121,18 +186,8 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 mProgressDialog.dismiss();
             }
             mGenerateResult = result;
-            TransportSecurity.Certificate transportCertificate = mGenerateResult.mTransportKeyMaterial.getCertificate();
-            HiddenService.Identity hiddenServiceIdentity = mGenerateResult.mHiddenServiceKeyMaterial.getIdentity();
-            mTransportPublicKeyFingerprintText.setText(transportCertificate.getFingerprint());        
-            mTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(transportCertificate.getTimestamp()));        
-            mHiddenServiceHostnameText.setText(hiddenServiceIdentity.mHostname);
-        }
-    }
-
-    @Override
-    public void onClick(View view) {
-        if (view.equals(mSaveButton)) {
-            // TODO: ...
+            showKeyMaterial(mGenerateResult.mTransportKeyMaterial, mGenerateResult.mHiddenServiceKeyMaterial);
+            mNicknameEdit.setEnabled(true);
         }
     }
 
@@ -151,6 +206,9 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             @Override
             public void afterTextChanged(Editable s) {
                 final String nickname = s.toString();
+                
+                mSaveButton.setEnabled(mGenerateResult != null && Protocol.isValidNickname(nickname));
+
                 if (mAvatarTimerTask != null) {
                     mAvatarTimerTask.cancel();
                 }
@@ -161,14 +219,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                             @Override
                             public void run() {
                                 if (mGenerateResult != null) {                                    
-                                    // TODO: common helper function
-                                    try {
-                                        // TODO: cache bitmap
-                                        Data.Friend friend = new Data.Friend(nickname, mGenerateResult.mTransportKeyMaterial.getCertificate(), mGenerateResult.mHiddenServiceKeyMaterial.getIdentity());
-                                        mAvatarImage.setImageBitmap(Robohash.getRobohash(context,friend.mId.getBytes()));
-                                    } catch (Utils.ApplicationError e) {
-                                        // TODO: security issue?
-                                        mAvatarImage.setImageResource(R.drawable.ic_unknown_avatar); 
+                                    Data.Friend friend = null;
+                                    if (nickname.length() > 0) {
+                                        try {
+                                            friend = new Data.Friend(nickname, mGenerateResult.mTransportKeyMaterial.getCertificate(), mGenerateResult.mHiddenServiceKeyMaterial.getIdentity());
+                                        } catch (Utils.ApplicationError e) {
+                                            // TODO: log
+                                        }
+                                        Robohash.setRobohashImage(context, mAvatarImage, friend);
                                     }
                                 }
                             }
@@ -179,4 +237,22 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             }
         };
     }
+
+    static private Data.Self getSelf() {
+        Data.Self self = null;
+        try {
+            self = Data.getInstance().getSelf();
+        } catch (Utils.ApplicationError e) {
+            // TODO: log?
+        } catch (Data.DataNotFoundException e) {
+        }
+        return self;
+    }
+    
+    static public void checkLaunchGenerateSelf(Context context) {
+        // TODO: ...helper to ensure Self is generated
+        if (getSelf() == null) {
+            context.startActivity(new Intent(context, ActivityGenerateSelf.class));
+        }
+    }        
 }

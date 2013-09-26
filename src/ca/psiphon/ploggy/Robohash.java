@@ -69,6 +69,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.widget.ImageView;
 
 public class Robohash {
 
@@ -77,6 +78,20 @@ public class Robohash {
 
     private static JSONObject mConfig = null;
 
+    public static void setRobohashImage(Context context, ImageView imageView, Data.Friend friend) {
+        if (friend != null) {
+            try {
+                // TODO: cache bitmap
+                imageView.setImageBitmap(Robohash.getRobohash(context, friend.mId.getBytes()));
+                return;
+            } catch (Utils.ApplicationError e) {
+                // TODO: log
+                // TODO: loss of security if fail over to no image?
+            }
+        }
+        imageView.setImageResource(R.drawable.ic_unknown_avatar); 
+    }
+    
     public static Bitmap getRobohash(Context context, byte[] data) throws Utils.ApplicationError {
         
         // TODO: assets vs. res/raw -- memory management

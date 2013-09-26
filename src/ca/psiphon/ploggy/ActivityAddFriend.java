@@ -50,6 +50,13 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     // TODO: no guarantee same device pushed to/received from
     private boolean mPushComplete;
     private Data.Friend mReceivedFriend;
+
+    ImageView mSelfAvatarImage;
+    TextView mSelfNicknameText;
+    TextView mSelfTransportPublicKeyFingerprintText;
+    TextView mSelfTransportPublicKeyTimestampText;
+    TextView mSelfHiddenServiceHostnameText;
+    
     private RelativeLayout mFriendSectionLayout;
     private ImageView mFriendAvatarImage;
     private TextView mFriendNicknameText;
@@ -69,29 +76,11 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         // TODO: http://mobisocial.github.io/EasyNFC/apidocs/reference/mobisocial/nfc/addon/BluetoothConnector.html
         // TODO: http://code.google.com/p/ndef-tools-for-android/
         
-        Data.Self self = null;
-        try {
-            self = Data.getInstance().getSelf();
-        } catch (Utils.ApplicationError e) {
-            // TODO: log?
-        } catch (Data.DataNotFoundException e) {
-        }
-        if (self == null) {
-            // TODO: prompt?
-            finish();
-            return;
-        }
-
-        ImageView selfAvatarImage = (ImageView)findViewById(R.id.add_friend_self_avatar_image);
-        TextView selfNicknameText = (TextView)findViewById(R.id.add_friend_self_nickname_text);
-        TextView selfTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_fingerprint_text);
-        TextView selfTransportPublicKeyTimestampText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_timestamp_text);
-        TextView selfHiddenServiceHostnameText = (TextView)findViewById(R.id.add_friend_self_hidden_service_hostname_text);
-        selfAvatarImage.setImageResource(R.drawable.ic_unknown_avatar);
-        selfNicknameText.setText(self.mNickname);        
-        selfTransportPublicKeyFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
-        selfTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(self.mTransportKeyMaterial.getCertificate().getTimestamp()));        
-        selfHiddenServiceHostnameText.setText(self.mHiddenServiceKeyMaterial.mHostname);        
+        mSelfAvatarImage = (ImageView)findViewById(R.id.add_friend_self_avatar_image);
+        mSelfNicknameText = (TextView)findViewById(R.id.add_friend_self_nickname_text);
+        mSelfTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_fingerprint_text);
+        mSelfTransportPublicKeyTimestampText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_timestamp_text);
+        mSelfHiddenServiceHostnameText = (TextView)findViewById(R.id.add_friend_self_hidden_service_hostname_text);
         
         mFriendSectionLayout = (RelativeLayout)findViewById(R.id.add_friend_friend_section);
         mFriendAvatarImage = (ImageView)findViewById(R.id.add_friend_friend_avatar_image);
@@ -122,9 +111,30 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         mNfcAdapter.setOnNdefPushCompleteCallback(this, this);
     }
 
+    private void showSelf() {
+        try {
+            Data.Self self = Data.getInstance().getSelf();
+            Robohash.setRobohashImage(this, mSelfAvatarImage, self.getFriend());
+            mSelfNicknameText.setText(self.mNickname);        
+            mSelfTransportPublicKeyFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
+            mSelfTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(self.mTransportKeyMaterial.getCertificate().getTimestamp()));        
+            mSelfHiddenServiceHostnameText.setText(self.mHiddenServiceKeyMaterial.mHostname);
+            return;
+        } catch (Utils.ApplicationError e) {
+            // TODO: log?
+        } catch (Data.DataNotFoundException e) {
+            // TODO: log?
+        }
+        Robohash.setRobohashImage(this, mSelfAvatarImage, null);
+        mSelfNicknameText.setText("");    
+        mSelfTransportPublicKeyFingerprintText.setText("");        
+        mSelfTransportPublicKeyTimestampText.setText("");        
+        mSelfHiddenServiceHostnameText.setText("");        
+    }
+
     private void showFriend() {
         if (mReceivedFriend != null) {
-            mFriendAvatarImage.setImageResource(R.drawable.ic_unknown_avatar);
+            Robohash.setRobohashImage(this, mFriendAvatarImage, mReceivedFriend);
             mFriendNicknameText.setText(mReceivedFriend.mNickname);        
             mFriendTransportPublicKeyFingerprintText.setText(mReceivedFriend.mTransportCertificate.getFingerprint());        
             mFriendTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(mReceivedFriend.mTransportCertificate.getTimestamp()));        
@@ -158,13 +168,17 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     @Override
     public void onResume() {
         super.onResume();
+        Events.bus.register(this);
         // TODO: handle intent? or is onNewIntent always called?
         setupForegroundDispatch();
+        ActivityGenerateSelf.checkLaunchGenerateSelf(this);
+        showSelf();
     }
 
     @Override
     public void onPause() {
         super.onPause();
+        Events.bus.unregister(this);
         mNfcAdapter.disableForegroundDispatch(this);
     }
 
@@ -178,7 +192,12 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
             String payload = new String(ndefMessage.getRecords()[0].getPayload());
             try {
-                mReceivedFriend = Json.fromJson(payload, Data.Friend.class);
+                Data.Friend friend = Json.fromJson(payload, Data.Friend.class);
+                if (!Protocol.isValidFriend(friend)) {
+                    // TODO: show error?
+                    return;
+                }
+                mReceivedFriend = friend;
                 showFriend();
                 int promptId = mPushComplete ? R.string.prompt_nfc_friend_received_and_push_complete : R.string.prompt_nfc_friend_received_without_push_complete;
                 Toast.makeText(this, promptId, Toast.LENGTH_LONG).show();
@@ -226,11 +245,16 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
 
     @Override
     public void onClick(View view) {
-        if (view.equals(mFriendAddButton)) {
-            // TODO: save friend
-            mPushComplete = false;
-            mReceivedFriend = null;
-            showFriend();
+        if (view.equals(mFriendAddButton)) {            
+            if (mReceivedFriend == null) {
+                return;
+            }
+            try {
+                Data.getInstance().insertOrUpdateFriend(mReceivedFriend);
+                finish();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log?
+            }            
         }
     }
 }

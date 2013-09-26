@@ -160,14 +160,10 @@ public class Data {
     }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
-    	// TODO: temp
-    	return new Self("selfNickname", new TransportSecurity.KeyMaterial("type", "certificate", "privateKey"), new HiddenService.KeyMaterial("type", "hostname", "privateKey"));
-    	/*
     	if (mSelf == null) {
             mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
-        */
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {

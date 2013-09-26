@@ -70,8 +70,6 @@ public class ActivityMain extends Activity {
         if (savedInstanceState != null) {
         	actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
         }
-
-        checkLaunchGenerateSelf();
     }
 
     @Override
@@ -116,6 +114,7 @@ public class ActivityMain extends Activity {
     protected void onResume() {
         super.onResume();
         Events.bus.register(this);
+        ActivityGenerateSelf.checkLaunchGenerateSelf(this);
     }
     
     @Override
@@ -137,14 +136,16 @@ public class ActivityMain extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-            case R.id.action_add_friend:
-                Intent intent = new Intent(this, ActivityAddFriend.class);
-                startActivity(intent);
-                return true;
-            case R.id.action_settings:
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
+        case R.id.action_generate_self:
+            startActivity(new Intent(this, ActivityGenerateSelf.class));
+            return true;
+        case R.id.action_add_friend:
+            startActivity(new Intent(this, ActivityAddFriend.class));
+            return true;
+        case R.id.action_settings:
+            return true;
+        default:
+            return super.onOptionsItemSelected(item);
         }
     }
     
@@ -196,17 +197,8 @@ public class ActivityMain extends Activity {
     			TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
     			TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
     			
-    			try {
-                    // TODO: cache bitmap
-    			    avatarImage.setImageBitmap(Robohash.getRobohash(mContext, friend.mId.getBytes()));
-    			} catch (Utils.ApplicationError e) {
-    			    // TODO: temp; forcing crash
-    			    throw new RuntimeException(e);
-                    // TODO: security issue?
-    			    //avatarImage.setImageResource(R.drawable.ic_unknown_avatar); 
-    			}
+    			Robohash.setRobohashImage(mContext, avatarImage, friend);
     			nicknameText.setText(friend.mNickname);
-
     			// TODO: load status
     			streetAddressText.setText("123 Streetname St.\nCity\nState\nCountry");
     			timestampText.setText("2013-09-13 22:52:00");
@@ -294,19 +286,5 @@ public class ActivityMain extends Activity {
 		public long getItemId(int position) {
 			return position;
 		}
-    }
-    
-    private void checkLaunchGenerateSelf() {
-        Data.Self self = null;
-        try {
-            self = Data.getInstance().getSelf();
-        } catch (Utils.ApplicationError e) {
-            // TODO: log?
-        } catch (Data.DataNotFoundException e) {
-        }
-        {//if (self == null) {
-            Intent intent = new Intent(this, ActivityGenerateSelf.class);
-            startActivity(intent);            
-        }        
     }
 }

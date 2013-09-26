@@ -1,10 +1,14 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item android:id="@+id/action_generate_self"
+          android:icon="@drawable/ic_action_generate_self"
+          android:title="@string/action_generate_self"
+          android:showAsAction="ifRoom|withText" />
     <item android:id="@+id/action_add_friend"
           android:icon="@drawable/ic_action_add_friend"
           android:title="@string/action_add_friend"
-          android:showAsAction="ifRoom" />
+          android:showAsAction="ifRoom|withText" />
     <item android:id="@+id/action_settings"
           android:icon="@drawable/ic_action_settings"
           android:title="@string/action_settings"
-          android:showAsAction="ifRoom" />
+          android:showAsAction="ifRoom|withText" />
 </menu>

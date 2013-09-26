@@ -27,8 +27,13 @@ public class Protocol {
     
     public static final String GET_STATUS_REQUEST_PATH = "/status";
 
-    public Data.Friend validateFriend(String jsonFriend) {
-        return null;
+    public static boolean isValidNickname(String nickname) {
+        // TODO: characters?
+        return nickname.length() > 0;
     }
-        
+
+    public static boolean isValidFriend(Data.Friend friend) {
+        // TODO: check nickname, cert, etc.
+        return true;
+    }
 }

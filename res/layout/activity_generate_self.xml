@@ -56,7 +56,8 @@
             android:layout_toRightOf="@+id/generate_self_nickname_text"
             android:typeface="sans"
             android:textSize="24dip"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:singleLine="true" />
  
         <TextView
             android:id="@+id/generate_self_transport_public_key_fingerprint_text"
@@ -87,6 +88,17 @@
             android:layout_toRightOf="@+id/generate_self_avatar"
             android:typeface="sans"
             android:textSize="16dip" />
+
+        <Button
+            android:id="@+id/generate_self_edit_button"
+            android:text="@string/text_generate_self_edit_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/generate_self_hidden_service_hostname_text"
+            android:layout_alignParentRight="true"
+            android:typeface="sans"
+            android:textSize="16dip"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/generate_self_save_button"

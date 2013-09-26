@@ -4,12 +4,14 @@
     <string name="app_name">Ploggy</string>
     <string name="hello_world">Hello world!</string><string name="foreground_service_notification_id">ploggy_service</string>
     <string name="default_foreground_service_notification_message">Ploggy is running</string>
+    <string name="action_generate_self">Your identity</string>
     <string name="action_add_friend">Add friend</string>
     <string name="action_settings">Settings</string>
     <string name="title_friend_list_fragment">Friends</string>
     <string name="title_log_fragment">Log</string>
     <string name="text_generate_self_preamble">Create your identity!</string>
     <string name="text_generate_self_nickname">Nickname</string>
+    <string name="text_generate_self_edit_button">Edit</string>
     <string name="text_generate_self_save_button">Save</string>
     <string name="text_generate_progress">Generating...</string>
     <string name="text_add_friend_preamble">Touch devices to exchange identities!</string>
