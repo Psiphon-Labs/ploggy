@@ -99,6 +99,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         if (self == null) {
             startGenerating();
         } else {
+            Robohash.setRobohashImage(this, mAvatarImage, self);
             showKeyMaterial(self.mTransportKeyMaterial, self.mHiddenServiceKeyMaterial);
             mNicknameEdit.setText(self.mNickname);
             mEditButton.setEnabled(true);

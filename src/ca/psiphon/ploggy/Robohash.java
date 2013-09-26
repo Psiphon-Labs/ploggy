@@ -78,6 +78,18 @@ public class Robohash {
 
     private static JSONObject mConfig = null;
 
+    public static void setRobohashImage(Context context, ImageView imageView, Data.Self self) {
+        Data.Friend friend = null;
+        if (self != null) {
+            try {
+                friend = self.getFriend();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log
+            }
+        }
+        setRobohashImage(context, imageView, friend);
+    }
+    
     public static void setRobohashImage(Context context, ImageView imageView, Data.Friend friend) {
         if (friend != null) {
             try {

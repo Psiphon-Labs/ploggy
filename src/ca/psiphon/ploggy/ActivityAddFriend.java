@@ -114,7 +114,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     private void showSelf() {
         try {
             Data.Self self = Data.getInstance().getSelf();
-            Robohash.setRobohashImage(this, mSelfAvatarImage, self.getFriend());
+            Robohash.setRobohashImage(this, mSelfAvatarImage, self);
             mSelfNicknameText.setText(self.mNickname);        
             mSelfTransportPublicKeyFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
             mSelfTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(self.mTransportKeyMaterial.getCertificate().getTimestamp()));        
@@ -125,7 +125,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         } catch (Data.DataNotFoundException e) {
             // TODO: log?
         }
-        Robohash.setRobohashImage(this, mSelfAvatarImage, null);
+        Robohash.setRobohashImage(this, mSelfAvatarImage, (Data.Self)null);
         mSelfNicknameText.setText("");    
         mSelfTransportPublicKeyFingerprintText.setText("");        
         mSelfTransportPublicKeyTimestampText.setText("");        
