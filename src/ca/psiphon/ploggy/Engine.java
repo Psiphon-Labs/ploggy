@@ -58,7 +58,7 @@ public class Engine {
     }    
 
     public synchronized void start() throws Utils.ApplicationError {
-        Events.bus.register(this);
+        Events.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
         mTimer = new Timer();
         mLocationMonitor = new LocationMonitor(Utils.getApplicationContext());
@@ -71,7 +71,7 @@ public class Engine {
     }
 
     public synchronized void stop() {
-        Events.bus.unregister(this);
+        Events.unregister(this);
         stopSharingService();
         if (mLocationMonitor != null) {
         	mLocationMonitor.stop();
@@ -176,9 +176,9 @@ public class Engine {
                                 TransportSecurity.KeyMaterial.generate(),
                                 HiddenService.KeyMaterial.generate());
                         Data.getInstance().updateSelf(self);
-                        Events.bus.post(new Events.GeneratedSelf(self));
+                        Events.post(new Events.GeneratedSelf(self));
                     } catch (/*TEMP*/Exception e) {
-                        Events.bus.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId, e.getMessage()));
+                        Events.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId, e.getMessage()));
                     } finally {
                         // Apply new transport and hidden service credentials, or restart with old settings on error
                         try {
@@ -252,7 +252,7 @@ public class Engine {
                             Protocol.GET_STATUS_REQUEST_PATH,
                             null);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    Events.bus.post(new Events.NewFriendStatus(friendStatus));
+                    Events.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll
                     Engine.getInstance().schedulePollFriend(taskFriendId, false);
                 } catch (Data.DataNotFoundException e) {

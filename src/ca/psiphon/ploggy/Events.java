@@ -21,17 +21,41 @@ package ca.psiphon.ploggy;
 
 import android.location.Address;
 import android.location.Location;
+import android.os.Handler;
 
 import com.squareup.otto.Bus;
 import com.squareup.otto.ThreadEnforcer;
 
 public class Events {
 
-    // TODO: post-on-MAIN-thread helper: runOnUiThread?
+    // TODO: final?
+	private static Bus mBus;
+	private static Handler mHandler;
+
+	public static void initialize() {
+	    mBus = new Bus(ThreadEnforcer.MAIN);
+	    mHandler = new Handler();
+	}
+	
+    public static void register(Object object) {
+        mBus.register(object);
+    }
     
-    //public static final Bus bus = new Bus(ThreadEnforcer.MAIN);
-	public static final Bus bus = new Bus(ThreadEnforcer.ANY);
+    public static void unregister(Object object) {
+        mBus.unregister(object);
+    }
     
+    public static void post(Object object) {
+        final Object postObject = object;
+        mHandler.post(
+            new Runnable() {
+                @Override
+                public void run() {
+                    mBus.post(postObject);
+                }
+            });
+    }
+
     public static class Request {
         private static long mNextRequestId = 0;        
         public final long mRequestId;

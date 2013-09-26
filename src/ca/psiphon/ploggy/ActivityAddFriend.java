@@ -168,7 +168,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     @Override
     public void onResume() {
         super.onResume();
-        Events.bus.register(this);
+        Events.register(this);
         // TODO: handle intent? or is onNewIntent always called?
         setupForegroundDispatch();
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
@@ -178,7 +178,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     @Override
     public void onPause() {
         super.onPause();
-        Events.bus.unregister(this);
+        Events.unregister(this);
         mNfcAdapter.disableForegroundDispatch(this);
     }
 

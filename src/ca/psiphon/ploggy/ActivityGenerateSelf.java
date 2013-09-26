@@ -28,6 +28,7 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -92,7 +93,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     @Override
     public void onResume() {
         super.onResume();
-        Events.bus.register(this);
+        Events.register(this);
         
         // TODO: ...two modes (1) self already exists; (2) no self exists
         Data.Self self = getSelf();
@@ -106,10 +107,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             mEditButton.setVisibility(View.VISIBLE);
             mSaveButton.setEnabled(false);
             mSaveButton.setVisibility(View.GONE);
+
         }
+        // TODO: ...don't show keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
     
     private void startGenerating() {
+        Robohash.setRobohashImage(this, mAvatarImage, (Data.Self)null);
         mNicknameEdit.setText("");
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
@@ -122,7 +127,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     @Override
     public void onPause() {
         super.onPause();
-        Events.bus.unregister(this);
+        Events.unregister(this);
         // TODO: http://stackoverflow.com/questions/1875670/what-to-do-with-asynctask-in-onpause
         if (mGenerateTask != null) {
             mGenerateTask.cancel(true);

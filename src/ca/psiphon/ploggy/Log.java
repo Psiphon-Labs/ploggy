@@ -41,20 +41,12 @@ public class Log {
     private static List<Entry> mEntries = Collections.synchronizedList(new ArrayList<Entry>());
 
     public static List<Entry> getEntries() {
-    	// TODO: temporary
-    	if (mEntries.size() == 0) {
-    		addEntry("tag1", "message1");
-    		addEntry("tag2", "message2");
-    		addEntry("tag3", "message3");
-    		addEntry("tag4", "message4");
-    	}
-    	
     	return mEntries;
     }
     
     public static void addEntry(String tag, String message) {
     	mEntries.add(new Entry(tag, message));
     	// TODO: truncate
-    	Events.bus.post(new Events.AddedLogEntry());
+    	Events.post(new Events.AddedLogEntry());
     }
 }

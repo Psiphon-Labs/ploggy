@@ -177,13 +177,13 @@ public class LocationMonitor implements android.location.LocationListener {
 					// http://code.google.com/p/osmdroid/source/browse/trunk/osmdroid-android/src/main/java/org/osmdroid/tileprovider/MapTileProviderBasic.java
 					
 					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
-					Events.bus.post(new Events.NewSelfLocation(mLastReportedLocation, address));
+					Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
             };
             Engine.getInstance().submitTask(task);
     		
     	} else {
-    		Events.bus.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+    		Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
     	}
     }
 

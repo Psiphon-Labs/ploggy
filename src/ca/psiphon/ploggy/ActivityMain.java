@@ -34,6 +34,7 @@ import android.app.FragmentTransaction;
 import android.app.ListFragment;
 import android.content.Context;
 import android.content.Intent;
+import android.database.DataSetObserver;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -42,6 +43,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.TextView;
 
 public class ActivityMain extends Activity {
@@ -113,14 +115,14 @@ public class ActivityMain extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        Events.bus.register(this);
+        Events.register(this);
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
     }
     
     @Override
     protected void onPause() {
         super.onPause();
-        Events.bus.unregister(this);
+        Events.unregister(this);
     }
     
     @Override
@@ -231,13 +233,37 @@ public class ActivityMain extends Activity {
 
             mLogAdapter = new LogAdapter(getActivity(), Log.getEntries());
     		setListAdapter(mLogAdapter);
-    		
-    		// TODO: ensure last entry visible
-    		// -- http://stackoverflow.com/questions/3606530/listview-scroll-to-the-end-of-the-list-after-updating-the-list
     	}
 
+        @Override
+        public void onStart() {
+            super.onStart();
+            // TODO: ensure last entry visible
+            getListView().setTranscriptMode(ListView.TRANSCRIPT_MODE_ALWAYS_SCROLL);
+            mLogAdapter.registerDataSetObserver(
+                    new DataSetObserver() {
+                        @Override
+                        public void onChanged() {
+                            super.onChanged();
+                            getListView().setSelection(mLogAdapter.getCount() - 1);    
+                        }
+                    });
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            Events.register(this);
+        }
+
+        @Override
+        public void onPause() {
+            super.onPause();
+            Events.unregister(this);
+        }
+
         @Subscribe
-        private void onAddedLogEntry(Events.AddedLogEntry addedLogEntry) {
+        public void onAddedLogEntry(Events.AddedLogEntry addedLogEntry) {
         	mLogAdapter.notifyDataSetChanged();
         }    	
     }

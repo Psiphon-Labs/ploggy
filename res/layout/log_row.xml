@@ -9,7 +9,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:typeface="sans"
-        android:textSize="12dip" />
+        android:textSize="12dip"
+        android:layout_marginRight="4dp" />
  
     <TextView
         android:id="@+id/log_tag_text"
@@ -17,14 +18,14 @@
         android:layout_height="wrap_content"
         android:layout_toRightOf="@id/log_timestamp_text"
         android:typeface="sans"
-        android:textSize="12dip" />
+        android:textSize="12dip"
+        android:layout_marginRight="5dp" />
  
     <TextView
         android:id="@+id/log_message_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_toRightOf="@id/log_tag_text"
-        android:gravity="right"
         android:typeface="sans"
         android:textSize="12dip"/>
 

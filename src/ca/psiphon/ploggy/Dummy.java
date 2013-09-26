@@ -29,22 +29,6 @@ public class Dummy {
 	public static void doDummyData() {
 		try {
 			Data data = Data.getInstance();
-
-	        //data.insertOrUpdateFriend(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
-	        //data.insertOrUpdateFriend(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
-	        //data.insertOrUpdateFriend(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
-			/*
-            data.getFriends().add(new Data.Friend("Nickname0", new TransportSecurity.Certificate("", "Certificate0"), new HiddenService.Identity("", "Hostname0")));
-	        data.getFriends().add(new Data.Friend("Nickname1", new TransportSecurity.Certificate("", "Certificate1"), new HiddenService.Identity("", "Hostname1")));
-	        data.getFriends().add(new Data.Friend("Nickname2", new TransportSecurity.Certificate("", "Certificate2"), new HiddenService.Identity("", "Hostname2")));
-            data.getFriends().add(new Data.Friend("Nickname3", new TransportSecurity.Certificate("", "Certificate3"), new HiddenService.Identity("", "Hostname3")));
-            data.getFriends().add(new Data.Friend("Nickname4", new TransportSecurity.Certificate("", "Certificate4"), new HiddenService.Identity("", "Hostname4")));
-            data.getFriends().add(new Data.Friend("Nickname5", new TransportSecurity.Certificate("", "Certificate5"), new HiddenService.Identity("", "Hostname5")));
-            data.getFriends().add(new Data.Friend("Nickname6", new TransportSecurity.Certificate("", "Certificate6"), new HiddenService.Identity("", "Hostname6")));
-            data.getFriends().add(new Data.Friend("Nickname7", new TransportSecurity.Certificate("", "Certificate7"), new HiddenService.Identity("", "Hostname7")));
-            data.getFriends().add(new Data.Friend("Nickname8", new TransportSecurity.Certificate("", "Certificate8"), new HiddenService.Identity("", "Hostname8")));
-            data.getFriends().add(new Data.Friend("Nickname9", new TransportSecurity.Certificate("", "Certificate9"), new HiddenService.Identity("", "Hostname9")));
-            */
 			for (int i = 0; i < 10; i++) {
 			    String nickname = String.format("Nickname%02d", i);
 			    data.insertOrUpdateFriend(

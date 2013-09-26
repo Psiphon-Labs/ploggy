@@ -26,6 +26,7 @@ public class PloggyApplication extends Application {
 	@Override
 	public void onCreate() {
 		Utils.setApplicationContext(this);
+		Events.initialize();
 		Dummy.doDummyData();
 	}
 }
