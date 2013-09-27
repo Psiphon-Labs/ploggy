@@ -75,12 +75,18 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mAvatarTimer = new Timer();
     }
 
-    // TODO: showFingerprint; fingerprint includes Nickname (change workflow)
-    private void showKeyMaterial(
-            TransportSecurity.KeyMaterial transportKeyMaterial,
-            HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
-        // TODO: real fingerprint
-        mFingerprintText.setText(transportKeyMaterial.getCertificate().getFingerprint());        
+    private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
+        if (publicIdentity.mNickname.length() > 0) {
+            try {
+                Robohash.setRobohashImage(this, mAvatarImage, publicIdentity);
+                mFingerprintText.setText(Utils.byteArrayToHexString(publicIdentity.getFingerprint()));        
+                return;
+            } catch (Utils.ApplicationError e) {
+                // TODO: log
+            }
+        }
+        Robohash.setRobohashImage(this, mAvatarImage, null);
+        mFingerprintText.setText("");        
     }
     
     @Override
@@ -92,9 +98,8 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         if (self == null) {
             startGenerating();
         } else {
-            Robohash.setRobohashImage(this, mAvatarImage, self);
-            showKeyMaterial(self.mTransportKeyMaterial, self.mHiddenServiceKeyMaterial);
-            mNicknameEdit.setText(self.mNickname);
+            showAvatarAndFingerprint(self.mPublicIdentity);
+            mNicknameEdit.setText(self.mPublicIdentity.mNickname);
             mEditButton.setEnabled(true);
             mEditButton.setVisibility(View.VISIBLE);
             mSaveButton.setEnabled(false);
@@ -106,7 +111,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
     
     private void startGenerating() {
-        Robohash.setRobohashImage(this, mAvatarImage, (Data.Self)null);
+        Robohash.setRobohashImage(this, mAvatarImage, null);
         mNicknameEdit.setText("");
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
@@ -143,7 +148,15 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 return;
             }            
             try {
-                Data.getInstance().updateSelf(new Data.Self(nickname, mGenerateResult.mTransportKeyMaterial, mGenerateResult.mHiddenServiceKeyMaterial));
+                Data.getInstance().updateSelf(
+                        new Data.Self(
+                                Identity.makeSignedPublicIdentity(
+                                        nickname,
+                                        mGenerateResult.mX509KeyMaterial,
+                                        mGenerateResult.mHiddenServiceKeyMaterial),
+                                Identity.makePrivateIdentity(
+                                        mGenerateResult.mX509KeyMaterial,
+                                        mGenerateResult.mHiddenServiceKeyMaterial)));
                 finish();
             } catch (Utils.ApplicationError e) {
                 // TODO: log?
@@ -152,13 +165,13 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
 
     private static class GenerateResult {
-        public final TransportSecurity.KeyMaterial mTransportKeyMaterial;
+        public final X509.KeyMaterial mX509KeyMaterial;
         public final HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
 
         public GenerateResult(
-                TransportSecurity.KeyMaterial transportKeyMaterial,
+                X509.KeyMaterial x509KeyMaterial,
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
-            mTransportKeyMaterial = transportKeyMaterial;
+            mX509KeyMaterial = x509KeyMaterial;
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
         }
     }
@@ -167,9 +180,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         @Override
         protected GenerateResult doInBackground(Void... params) {
             // TODO: check isCancelled()
-            return new GenerateResult(
-                    TransportSecurity.KeyMaterial.generate(),
-                    HiddenService.KeyMaterial.generate());
+            try {
+                return new GenerateResult(
+                        X509.generateKeyMaterial(),
+                        HiddenService.generateKeyMaterial());
+            } catch (Utils.ApplicationError e) {
+                // TODO: log
+            }
+            return null;
         }        
 
         @Override
@@ -182,15 +200,22 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             if (mProgressDialog.isShowing()) {
                 mProgressDialog.dismiss();
             }
-            mGenerateResult = result;
-            showKeyMaterial(mGenerateResult.mTransportKeyMaterial, mGenerateResult.mHiddenServiceKeyMaterial);
-            mNicknameEdit.setEnabled(true);
+            if (result != null) {
+                mGenerateResult = result;
+                // TODO: ...temporary publicIdentity
+                showAvatarAndFingerprint(
+                        new Identity.PublicIdentity(
+                                mNicknameEdit.getText().toString(),
+                                mGenerateResult.mX509KeyMaterial.mCertificate,
+                                mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                null));
+                mNicknameEdit.setEnabled(true);
+            }
         }
     }
 
     private TextWatcher getNicknameTextChangedListener() {
         // TODO: ...refresh  robohash 1 second after stop typing nickname
-        final Context context = this;
         return new TextWatcher() {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -216,15 +241,12 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                             @Override
                             public void run() {
                                 if (mGenerateResult != null) {                                    
-                                    Data.Friend friend = null;
-                                    if (nickname.length() > 0) {
-                                        try {
-                                            friend = new Data.Friend(nickname, mGenerateResult.mTransportKeyMaterial.getCertificate(), mGenerateResult.mHiddenServiceKeyMaterial.getIdentity());
-                                        } catch (Utils.ApplicationError e) {
-                                            // TODO: log
-                                        }
-                                        Robohash.setRobohashImage(context, mAvatarImage, friend);
-                                    }
+                                    showAvatarAndFingerprint(
+                                            new Identity.PublicIdentity(
+                                                    nickname,
+                                                    mGenerateResult.mX509KeyMaterial.mCertificate,
+                                                    mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                                    null));
                                 }
                             }
                         });

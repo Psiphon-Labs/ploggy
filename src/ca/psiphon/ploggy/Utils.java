@@ -24,9 +24,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 import android.content.Context;
@@ -45,27 +42,6 @@ public class Utils {
             super(e);
         }
     }
-
-    public static String makeId(String nickname, String transportPublicKey, String hiddenServiceHostname) throws Utils.ApplicationError {
-        try {
-            MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            sha1.update(nickname.getBytes("UTF-8"));
-            sha1.update(transportPublicKey.getBytes("UTF-8"));
-            sha1.update(hiddenServiceHostname.getBytes("UTF-8"));
-            return byteArrayToHexString(sha1.digest());
-        } catch (NoSuchAlgorithmException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (UnsupportedEncodingException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        }
-    }
-    
-    public static String makeIdenticon(String id) {        
-        // TODO: ...
-        return null;
-    }    
 
     public static String inputStreamToString(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));

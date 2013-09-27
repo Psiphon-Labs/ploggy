@@ -1,0 +1,102 @@
+/*
+ * Copyright (c) 2013, Psiphon Inc.
+ * All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+package ca.psiphon.ploggy;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+import android.util.Base64;
+
+public class Identity {
+
+    // TODO: distinct root cert and server (transport) cert
+    
+    public static class PublicIdentity {
+        public final String mNickname;
+        public final String mX509Certificate;
+        public final String mHiddenServiceHostname;
+        public final String mSignature;
+        
+        public PublicIdentity(String nickname, String x509Certificate, String hiddenServiceHostname, String signature) {        
+            mNickname = nickname;
+            mX509Certificate = x509Certificate;
+            mHiddenServiceHostname = hiddenServiceHostname;
+            mSignature = signature;
+        }
+        
+        public byte[] getFingerprint() throws Utils.ApplicationError {
+            return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
+        }
+    }
+
+    public static class PrivateIdentity {
+        public final String mX509PrivateKey;
+        public final String mHiddenServicePrivateKey;
+        
+        public PrivateIdentity(String x509PrivateKey, String hiddenServicePrivateKey) {        
+            mX509PrivateKey = x509PrivateKey;
+            mHiddenServicePrivateKey = hiddenServicePrivateKey;
+        }
+    }
+
+    private static byte[] getPublicSigningData(
+            String nickname,
+            String rootCertificate,
+            String hiddenServiceHostname) throws Utils.ApplicationError {
+        try {
+            ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
+            byteArray.write(nickname.getBytes("UTF-8"));
+            byteArray.write(rootCertificate.getBytes("UTF-8"));
+            byteArray.write(hiddenServiceHostname.getBytes("UTF-8"));
+            return byteArray.toByteArray();
+        } catch (IOException e) {
+            throw new Utils.ApplicationError(e);
+        }
+    }
+    
+    public static PublicIdentity makeSignedPublicIdentity(
+            String nickname,
+            X509.KeyMaterial x509KeyMaterial,
+            HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws Utils.ApplicationError {        
+        byte[] signature = X509.sign(
+                x509KeyMaterial,
+                getPublicSigningData(
+                        nickname,
+                        x509KeyMaterial.mCertificate,
+                        hiddenServiceKeyMaterial.mHostname));
+        return new PublicIdentity(
+                nickname,
+                x509KeyMaterial.mCertificate,
+                hiddenServiceKeyMaterial.mHostname,
+                Base64.encodeToString(signature, Base64.NO_WRAP));
+    }
+
+    public static boolean verifyPublicIdentity(PublicIdentity publicIdentity) {
+        // TODO: ...
+        
+        return false;
+    }
+
+    public static PrivateIdentity makePrivateIdentity(X509.KeyMaterial x509KeyMaterial, HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
+        return new PrivateIdentity(
+                x509KeyMaterial.mPrivateKey,
+                hiddenServiceKeyMaterial.mPrivateKey);
+    }
+}

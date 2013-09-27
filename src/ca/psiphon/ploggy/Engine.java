@@ -122,9 +122,12 @@ public class Engine {
         try {
             Data.Self self = Data.getInstance().getSelf();
             stopSharingService();
-            mWebServer = new WebServer(self.mTransportKeyMaterial);
+            mWebServer = new WebServer(
+                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey));
             mWebServer.start();
-            mTorWrapper = new TorWrapper(self.mHiddenServiceKeyMaterial, mWebServer.getListeningPort());
+            mTorWrapper = new TorWrapper(
+                    new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
+                    mWebServer.getListeningPort());
             mTorWrapper.start();
         } catch (Data.DataNotFoundException e) {
             throw new Utils.ApplicationError(e);
@@ -171,12 +174,14 @@ public class Engine {
                         // TODO: validate nickname?
                         // TODO: cancellable generation?
                         stopSharingService();
+                        /*
                         Data.Self self = new Data.Self(
                                 taskRequestGenerateSelf.mNickname,
                                 TransportSecurity.KeyMaterial.generate(),
                                 HiddenService.KeyMaterial.generate());
                         Data.getInstance().updateSelf(self);
                         Events.post(new Events.GeneratedSelf(self));
+                        */
                     } catch (/*TEMP*/Exception e) {
                         Events.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId, e.getMessage()));
                     } finally {
@@ -246,9 +251,9 @@ public class Engine {
                     Data.Self self = Data.getInstance().getSelf();
                     Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
                     String response = WebClient.makeGetRequest(
-                            self.mTransportKeyMaterial,
-                            friend.mTransportCertificate,
-                            friend.mHiddenServiceIdentity,
+                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                            friend.mPublicIdentity.mX509Certificate,
+                            friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.GET_STATUS_REQUEST_PATH,
                             null);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);

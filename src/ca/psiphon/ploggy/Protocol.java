@@ -33,7 +33,8 @@ public class Protocol {
     }
 
     public static boolean isValidFriend(Data.Friend friend) {
-        // TODO: check nickname, cert, etc.
+        // TODO: Nickname valid, cert valid, hostname valid
+        // Identity.verifyPublicIdentity(friend.mPublicIdentity);
         return true;
     }
 }

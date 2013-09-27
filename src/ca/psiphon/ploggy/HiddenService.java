@@ -22,42 +22,22 @@ package ca.psiphon.ploggy;
 public class HiddenService {
     
     public static class KeyMaterial {
-        public final String mType; // TODO: "TORv1"?
         public final String mHostname;
         public final String mPrivateKey;
 
-        public KeyMaterial(String type, String hostname, String privateKey) {        
-            mType = type;
+        public KeyMaterial(String hostname, String privateKey) {        
             mHostname = hostname;
             mPrivateKey = privateKey;
         }
-        
-        public static KeyMaterial generate() {
-            // TODO: temp!
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return new KeyMaterial("", Utils.getRandomHexString(64), Utils.getRandomHexString(1024));
+    }
+    
+    public static KeyMaterial generateKeyMaterial() {
+        // TODO: really generate
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
-
-        public Identity getIdentity() {
-            return new Identity(mType, mHostname);
-        }
-    }    
-
-    public static class Identity {
-        public final String mType;
-        public final String mHostname;
-
-        public Identity(String type, String hostname) {        
-            mType = type;
-            mHostname = hostname;
-        }
-        
-        public Identity getIdentity() {
-            return new Identity(mType, mHostname);
-        }
-    }    
+        return new KeyMaterial(Utils.getRandomHexString(64), Utils.getRandomHexString(1024));
+    }
 }

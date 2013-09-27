@@ -23,12 +23,12 @@ public class TorWrapper {
 
     public static final String SOCKS_PROXY_HOSTNAME = "127.0.0.1";
     
-	private HiddenService.KeyMaterial mHiddenServiceIdentity;
+	private HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
 	private int mWebServerPort;
 	private int mSocksProxyPort; // TODO: where selected?
 	
-	public TorWrapper(HiddenService.KeyMaterial hiddenServiceIdentity, int webServerPort) {
-		mHiddenServiceIdentity = hiddenServiceIdentity;
+	public TorWrapper(HiddenService.KeyMaterial hiddenServiceKeyMaterial, int webServerPort) {
+	    mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
 		mWebServerPort = webServerPort;
 	}
 	

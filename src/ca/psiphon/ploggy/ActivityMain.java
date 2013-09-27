@@ -209,8 +209,8 @@ public class ActivityMain extends Activity {
     			TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
     			TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
     			
-    			Robohash.setRobohashImage(mContext, avatarImage, friend);
-    			nicknameText.setText(friend.mNickname);
+    			Robohash.setRobohashImage(mContext, avatarImage, friend.mPublicIdentity);
+    			nicknameText.setText(friend.mPublicIdentity.mNickname);
     			// TODO: load status
     			streetAddressText.setText("123 Streetname St.\nCity\nState\nCountry");
     			timestampText.setText("2013-09-13 22:52:00");

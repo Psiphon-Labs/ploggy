@@ -30,11 +30,13 @@ import java.util.HashMap;
 import java.util.List;
 
 import android.content.Context;
+import android.util.Base64;
 
 public class Data {
     
     // ... immutable POJOs
     // TODO: rename mFieldName --> fieldName (since using object mapper for json)
+    // TODO: http://google-gson.googlecode.com/svn/trunk/gson/docs/javadocs/com/google/gson/FieldNamingPolicy.html
 
     public static class Preferences {
         public final int mLocationUpdatePeriodInSeconds = 600;
@@ -54,38 +56,28 @@ public class Data {
     }
     
     public static class Self {
-        public final String mNickname;
-        public final TransportSecurity.KeyMaterial mTransportKeyMaterial;
-        public final HiddenService.KeyMaterial mHiddenServiceKeyMaterial;
+        public final Identity.PublicIdentity mPublicIdentity;
+        public final Identity.PrivateIdentity mPrivateIdentity;
 
         public Self(
-                String nickname,
-                TransportSecurity.KeyMaterial transportKeyMaterial,
-                HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
-            mNickname = nickname;
-            mTransportKeyMaterial = transportKeyMaterial;
-            mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
+                Identity.PublicIdentity publicIdentity,
+                Identity.PrivateIdentity privateIdentity) {
+            mPublicIdentity = publicIdentity;
+            mPrivateIdentity = privateIdentity;
         }
         
         public Friend getFriend() throws Utils.ApplicationError {
-        	return new Friend(mNickname, mTransportKeyMaterial.getCertificate(), mHiddenServiceKeyMaterial.getIdentity());
+        	return new Friend(mPublicIdentity);
         }
     }
     
     public static class Friend {
-        public final String mId;
-        public final String mNickname;
-        public final TransportSecurity.Certificate mTransportCertificate;
-        public final HiddenService.Identity mHiddenServiceIdentity;
+        public String mId;
+        public final Identity.PublicIdentity mPublicIdentity;
 
-        public Friend(
-                String nickname,
-                TransportSecurity.Certificate transportCertificate,
-                HiddenService.Identity hiddenServiceIdentity) throws Utils.ApplicationError {
-            mId = Utils.makeId(nickname, transportCertificate.mCertificate, hiddenServiceIdentity.mHostname);
-            mNickname = nickname;
-            mTransportCertificate = transportCertificate;
-            mHiddenServiceIdentity = hiddenServiceIdentity;            
+        public Friend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+            mId = Base64.encodeToString(publicIdentity.getFingerprint(), Base64.NO_WRAP);
+            mPublicIdentity = publicIdentity;
         }
     }
     

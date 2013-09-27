@@ -21,26 +21,16 @@ package ca.psiphon.ploggy;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.StringWriter;
-import java.math.BigInteger;
 import java.net.ServerSocket;
-import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
-import java.security.Security;
-import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.Date;
 import java.util.Scanner;
 
 import javax.net.ssl.KeyManager;
@@ -49,121 +39,13 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
-import javax.security.auth.x500.X500Principal;
-
-import org.spongycastle.openssl.PEMWriter;
-import org.spongycastle.x509.X509V3CertificateGenerator;
-
-import ca.psiphon.ploggy.HiddenService.KeyMaterial;
 
 import android.util.Base64;
 
 public class TransportSecurity {
 
-    public static class KeyMaterial {
-        public final String mType;
-        public final String mCertificate;
-        public final String mPrivateKey;
-        
-        public KeyMaterial(String type, String certificate, String privateKey) {        
-            mType = type;
-            mCertificate = certificate;
-            mPrivateKey = privateKey;
-        }
-        
-        public static KeyMaterial generate() {
-            // TODO: temp!
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            return new KeyMaterial("", Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
-        }
-
-        public Certificate getCertificate() {
-            return new Certificate(mType, mCertificate);
-        }
-    }
-
-    public static class Certificate {
-        public final String mType;
-        public final String mCertificate;
-        
-        public Certificate(String type, String certificate) {        
-            mType = type;
-            mCertificate = certificate;
-        }
-        
-        public String getFingerprint() {
-            // TODO: temp!
-            return "CE1D32CE0CFFD121E9FE74B94F366A8368A3A6890F2228A9E2B103196313BB22";
-        }
-        
-        public Date getTimestamp() {
-            // TODO: temp!
-            return new Date();
-        }
-    }
-
-    static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
-        
-        // from: http://code.google.com/p/xebia-france/wiki/HowToGenerateaSelfSignedX509CertificateInJava
-        
-        try {
-            // TODO: validity dates?
-            Date validityBeginDate = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-            Date validityEndDate = new Date(System.currentTimeMillis() + 10 * 365 * 24 * 60 * 60 * 1000);
-        
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "BC");
-            keyPairGenerator.initialize(RSA_KEY_SIZE, new SecureRandom());
-            KeyPair keyPair = keyPairGenerator.generateKeyPair();
-    
-            // TODO: us http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
-            X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
-            X500Principal dnName = new X500Principal(Utils.getRandomHexString(128));
-        
-            certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
-            certificateGenerator.setSubjectDN(dnName);
-            certificateGenerator.setIssuerDN(dnName);
-            certificateGenerator.setNotBefore(validityBeginDate);
-            certificateGenerator.setNotAfter(validityEndDate);
-            certificateGenerator.setPublicKey(keyPair.getPublic());
-            certificateGenerator.setSignatureAlgorithm("SHA256WithRSAEncryption");
-        
-            X509Certificate certificate = certificateGenerator.generate(keyPair.getPrivate(), "BC");
-    
-            StringWriter pemCertificate = new StringWriter();
-            PEMWriter pemWriter = new PEMWriter(pemCertificate);
-            pemWriter.writeObject(certificate);
-            pemWriter.flush();
-            pemWriter.close(); // TODO: finally?
-    
-            StringWriter pemPrivateKey = new StringWriter();
-            pemWriter = new PEMWriter(pemPrivateKey);
-            pemWriter.writeObject(keyPair.getPrivate());
-            pemWriter.flush();
-            pemWriter.close();
-            
-            return new KeyMaterial(KEY_MATERIAL_TYPE, pemCertificate.toString(), pemPrivateKey.toString());
-        } catch (NoSuchProviderException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (NoSuchAlgorithmException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (CertificateEncodingException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (InvalidKeyException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (IllegalStateException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (SignatureException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(e);            
-        }
-    }
-    
-    public static ServerSocket makeServerSocket(TransportSecurity.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
+    public static ServerSocket makeServerSocket(
+            X509.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
         try {
             SSLServerSocket sslServerSocket =
                     (SSLServerSocket)(TransportSecurity.getSSLContext(transportKeyMaterial, null).getServerSocketFactory().createServerSocket());
@@ -177,22 +59,22 @@ public class TransportSecurity {
     }
 
     public static SSLContext getSSLContext(
-            TransportSecurity.KeyMaterial transportKeyMaterial,
-            TransportSecurity.Certificate serverPublicKey) throws Utils.ApplicationError {
+            X509.KeyMaterial x509KeyMaterial,
+            String friendCertificate) throws Utils.ApplicationError {
         try {
             KeyStore privateKeyStore = KeyStore.getInstance( "PKCS12");
-            privateKeyStore.load(new ByteArrayInputStream(transportKeyMaterial.mPrivateKey.getBytes()), null);
+            privateKeyStore.load(new ByteArrayInputStream(x509KeyMaterial.mPrivateKey.getBytes()), null);
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509"); 
             keyManagerFactory.init(privateKeyStore, null);
             KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
             
             KeyStore certificateStore = KeyStore.getInstance(KeyStore.getDefaultType());
             certificateStore.load(null);
-            if (serverPublicKey != null) {
-                loadCertificateStore(certificateStore, serverPublicKey);
+            if (friendCertificate != null) {
+                loadCertificateStore(certificateStore, friendCertificate);
             } else {
                 for (Data.Friend friend : Data.getInstance().getFriends()) {
-                    loadCertificateStore(certificateStore, friend.mTransportCertificate);                    
+                    loadCertificateStore(certificateStore, friend.mPublicIdentity.mX509Certificate);                    
                 }
             }
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("X509");
@@ -220,10 +102,10 @@ public class TransportSecurity {
 
     private static void loadCertificateStore(
             KeyStore certificateStore,
-            TransportSecurity.Certificate certificate) throws IOException, CertificateException, KeyStoreException {
+            String certificate) throws IOException, CertificateException, KeyStoreException {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         X509Certificate x509certificate = (X509Certificate)certificateFactory.generateCertificate(
-                new ByteArrayInputStream(pemToDer(certificate.mCertificate)));
+                new ByteArrayInputStream(pemToDer(certificate)));
         String alias = x509certificate.getSubjectX500Principal().getName();
         certificateStore.setCertificateEntry(alias, x509certificate);        
     }
@@ -240,12 +122,6 @@ public class TransportSecurity {
         return Base64.decode(buffer.toString(), Base64.DEFAULT);
     }
 
-    static {
-        Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
-    }
-
-    private static final String KEY_MATERIAL_TYPE = "1";
-    private static final int RSA_KEY_SIZE = 4096;
     private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "DH-RSA-AES128-GCM-SHA256" };
     private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
     // TODO: "ECDHE-ECDSA-AES128-GCM-SHA256"; Android support for ECC in TLS... (no JCCE for BC/SC)?

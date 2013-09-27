@@ -29,21 +29,20 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
     
-    private TransportSecurity.KeyMaterial mTransportKeyMaterial;
+    private X509.KeyMaterial mX509KeyMaterial;
 	
-    public WebServer(TransportSecurity.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
+    public WebServer(X509.KeyMaterial x509KeyMaterial) throws Utils.ApplicationError {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
-        mTransportKeyMaterial = transportKeyMaterial;
+        mX509KeyMaterial = x509KeyMaterial;
         setServerSocketFactory(this);
         setAsyncRunner(this);
     }
 
-
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            return TransportSecurity.makeServerSocket(mTransportKeyMaterial);
+            return TransportSecurity.makeServerSocket(mX509KeyMaterial);
         } catch (Utils.ApplicationError e) {
             throw new IOException(e);
         }

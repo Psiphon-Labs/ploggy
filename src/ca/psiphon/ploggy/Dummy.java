@@ -31,11 +31,10 @@ public class Dummy {
 			Data data = Data.getInstance();
 			for (int i = 0; i < 10; i++) {
 			    String nickname = String.format("Nickname%02d", i);
+                X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
 			    data.insertOrUpdateFriend(
-			            new Data.Friend(
-			                    nickname,
-			                    new TransportSecurity.Certificate("", Utils.getRandomHexString(1024)),
-			                    new HiddenService.Identity("", Utils.getRandomHexString(64))));
+			            new Data.Friend(new Identity.PublicIdentity(nickname, x509KeyMaterial.mCertificate, hiddenServiceKeyMaterial.mHostname, "")));
 			}
 		} catch (Utils.ApplicationError e) {
 			// TODO: ...

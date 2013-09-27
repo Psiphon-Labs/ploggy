@@ -20,7 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.nio.charset.Charset;
-import java.text.DateFormat;
 
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -106,33 +105,35 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     private void showSelf() {
         try {
             Data.Self self = Data.getInstance().getSelf();
-            Robohash.setRobohashImage(this, mSelfAvatarImage, self);
-            mSelfNicknameText.setText(self.mNickname);
-            // TODO: real fingerprint
-            mSelfFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
+            Robohash.setRobohashImage(this, mSelfAvatarImage, self.mPublicIdentity);
+            mSelfNicknameText.setText(self.mPublicIdentity.mNickname);
+            mSelfFingerprintText.setText(Utils.byteArrayToHexString(self.mPublicIdentity.getFingerprint()));        
             return;
         } catch (Utils.ApplicationError e) {
             // TODO: log?
         } catch (Data.DataNotFoundException e) {
             // TODO: log?
         }
-        Robohash.setRobohashImage(this, mSelfAvatarImage, (Data.Self)null);
+        Robohash.setRobohashImage(this, mSelfAvatarImage, null);
         mSelfNicknameText.setText("");    
         mSelfFingerprintText.setText("");        
     }
 
     private void showFriend() {
         if (mReceivedFriend != null) {
-            Robohash.setRobohashImage(this, mFriendAvatarImage, mReceivedFriend);
-            mFriendNicknameText.setText(mReceivedFriend.mNickname);        
-            // TODO: real fingerprint
-            mFriendFingerprintText.setText(mReceivedFriend.mTransportCertificate.getFingerprint());        
-            mFriendAddButton.setEnabled(mPushComplete);
-            mFriendSectionLayout.setVisibility(View.VISIBLE);
-        } else {
-            mFriendAddButton.setEnabled(false);
-            mFriendSectionLayout.setVisibility(View.GONE);
+            try {
+                Robohash.setRobohashImage(this, mFriendAvatarImage, mReceivedFriend.mPublicIdentity);
+                mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);        
+                mFriendFingerprintText.setText(Utils.byteArrayToHexString(mReceivedFriend.mPublicIdentity.getFingerprint()));        
+                mFriendAddButton.setEnabled(mPushComplete);
+                mFriendSectionLayout.setVisibility(View.VISIBLE);
+                return;
+            } catch (Utils.ApplicationError e) {
+                // TODO: log?
+            }
         }
+        mFriendAddButton.setEnabled(false);
+        mFriendSectionLayout.setVisibility(View.GONE);
     }
 
     private void setupForegroundDispatch() {
