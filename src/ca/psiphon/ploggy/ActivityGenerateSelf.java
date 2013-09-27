@@ -93,7 +93,6 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     @Override
     public void onResume() {
         super.onResume();
-        Events.register(this);
         
         // TODO: ...two modes (1) self already exists; (2) no self exists
         Data.Self self = getSelf();
@@ -127,7 +126,6 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     @Override
     public void onPause() {
         super.onPause();
-        Events.unregister(this);
         // TODO: http://stackoverflow.com/questions/1875670/what-to-do-with-asynctask-in-onpause
         if (mGenerateTask != null) {
             mGenerateTask.cancel(true);

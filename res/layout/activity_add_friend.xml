@@ -10,8 +10,17 @@
     tools:context=".ActivityAddFriend" >
 
     <TextView
-        android:id="@+id/add_friend_preamble_text"
-        android:text="@string/text_add_friend_preamble"
+        android:id="@+id/add_friend_title_text"
+        android:text="@string/text_add_friend_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:typeface="sans"
+        android:textSize="48dip"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/add_friend_description_text"
+        android:text="@string/text_add_friend_description"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:typeface="sans"

@@ -115,14 +115,12 @@ public class ActivityMain extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        Events.register(this);
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
     }
     
     @Override
     protected void onPause() {
         super.onPause();
-        Events.unregister(this);
     }
     
     @Override
@@ -166,13 +164,25 @@ public class ActivityMain extends Activity {
 			}
     	}
 
+        @Override
+        public void onResume() {
+            super.onResume();
+            Events.register(this);
+        }
+
+        @Override
+        public void onPause() {
+            super.onPause();
+            Events.unregister(this);
+        }
+
         @Subscribe
-        private void onAddedFriend(Events.AddedFriend addedFriend) {
+        public void onAddedFriend(Events.AddedFriend addedFriend) {
         	mFriendAdapter.notifyDataSetChanged();
         }    	
 
         @Subscribe
-        private void onDeletedFriend(Events.DeletedFriend deletedFriend) {
+        public void onDeletedFriend(Events.DeletedFriend deletedFriend) {
         	mFriendAdapter.notifyDataSetChanged();
         }    	
     }
