@@ -12,21 +12,21 @@
 
     <TextView
         android:id="@+id/generate_self_title_text"
-        android:text="@string/text_generate_self_title"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:text="@string/text_generate_self_title"
         android:typeface="sans"
-        android:textSize="48dip"
+        android:textSize="32dip"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/generate_self_description_text"
-        android:text="@string/text_generate_self_description"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="12dip"
+        android:text="@string/text_generate_self_description"
         android:typeface="sans"
-        android:textSize="12dip"
-        android:textStyle="bold" />
+        android:textSize="12dip" />
 
     <RelativeLayout
     	android:id="@+id/generate_self_main_section"
@@ -49,78 +49,67 @@
         </LinearLayout>
  
         <TextView
-            android:id="@+id/generate_self_nickname_text"
-            android:text="@string/text_generate_self_nickname"
-            android:layout_width="wrap_content"
+            android:id="@+id/generate_self_nickname_label"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignTop="@+id/generate_self_avatar"
             android:layout_toRightOf="@+id/generate_self_avatar"
+            android:text="@string/label_generate_self_nickname"
             android:typeface="sans"
             android:textSize="24dip"
             android:textStyle="bold" />
  
         <EditText
             android:id="@+id/generate_self_nickname_edit"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_alignBottom="@+id/generate_self_nickname_text"
-            android:layout_toRightOf="@+id/generate_self_nickname_text"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:layout_below="@+id/generate_self_nickname_label"
             android:typeface="sans"
             android:textSize="24dip"
-            android:textStyle="bold"
             android:singleLine="true" />
  
         <TextView
-            android:id="@+id/generate_self_transport_public_key_fingerprint_text"
-            android:layout_width="fill_parent"
+            android:id="@+id/generate_self_fingerprint_label"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/generate_self_nickname_text"
-            android:layout_marginTop="1dip"
             android:layout_toRightOf="@+id/generate_self_avatar"
+            android:layout_below="@+id/generate_self_nickname_edit"
+            android:text="@string/label_generate_self_fingerprint"
             android:typeface="sans"
-            android:textSize="16dip" />
-
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
         <TextView
-            android:id="@+id/generate_self_transport_public_key_timestamp_text"
-            android:layout_width="fill_parent"
+            android:id="@+id/generate_self_fingerprint_text"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/generate_self_transport_public_key_fingerprint_text"
-            android:layout_marginTop="1dip"
             android:layout_toRightOf="@+id/generate_self_avatar"
+            android:layout_below="@+id/generate_self_fingerprint_label"
             android:typeface="sans"
-            android:textSize="16dip" />
-
-        <TextView
-            android:id="@+id/generate_self_hidden_service_hostname_text"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/generate_self_transport_public_key_timestamp_text"
-            android:layout_marginTop="1dip"
-            android:layout_toRightOf="@+id/generate_self_avatar"
-            android:typeface="sans"
-            android:textSize="16dip" />
+            android:textSize="12dip" />
 
         <Button
             android:id="@+id/generate_self_edit_button"
-            android:text="@string/text_generate_self_edit_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/generate_self_hidden_service_hostname_text"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:layout_below="@+id/generate_self_fingerprint_text"
             android:layout_alignParentRight="true"
+            android:text="@string/text_generate_self_edit_button"
             android:typeface="sans"
-            android:textSize="16dip"
-            android:textStyle="bold" />
+            android:textSize="16dip" />
 
         <Button
             android:id="@+id/generate_self_save_button"
-            android:text="@string/text_generate_self_save_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_below="@id/generate_self_hidden_service_hostname_text"
+            android:layout_toRightOf="@+id/generate_self_avatar"
+            android:layout_below="@id/generate_self_fingerprint_text"
             android:layout_alignParentRight="true"
+            android:text="@string/text_generate_self_save_button"
             android:typeface="sans"
-            android:textSize="16dip"
-            android:textStyle="bold" />
+            android:textSize="16dip" />
 
     </RelativeLayout>
 

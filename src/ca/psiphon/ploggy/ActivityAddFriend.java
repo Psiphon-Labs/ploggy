@@ -53,16 +53,12 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
 
     ImageView mSelfAvatarImage;
     TextView mSelfNicknameText;
-    TextView mSelfTransportPublicKeyFingerprintText;
-    TextView mSelfTransportPublicKeyTimestampText;
-    TextView mSelfHiddenServiceHostnameText;
+    TextView mSelfFingerprintText;
     
     private RelativeLayout mFriendSectionLayout;
     private ImageView mFriendAvatarImage;
     private TextView mFriendNicknameText;
-    private TextView mFriendTransportPublicKeyFingerprintText;
-    private TextView mFriendTransportPublicKeyTimestampText;
-    private TextView mFriendHiddenServiceHostnameText;
+    private TextView mFriendFingerprintText;
     private Button mFriendAddButton;
         
     @Override
@@ -78,16 +74,12 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         
         mSelfAvatarImage = (ImageView)findViewById(R.id.add_friend_self_avatar_image);
         mSelfNicknameText = (TextView)findViewById(R.id.add_friend_self_nickname_text);
-        mSelfTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_fingerprint_text);
-        mSelfTransportPublicKeyTimestampText = (TextView)findViewById(R.id.add_friend_self_transport_public_key_timestamp_text);
-        mSelfHiddenServiceHostnameText = (TextView)findViewById(R.id.add_friend_self_hidden_service_hostname_text);
+        mSelfFingerprintText = (TextView)findViewById(R.id.add_friend_self_fingerprint_text);
         
         mFriendSectionLayout = (RelativeLayout)findViewById(R.id.add_friend_friend_section);
         mFriendAvatarImage = (ImageView)findViewById(R.id.add_friend_friend_avatar_image);
         mFriendNicknameText = (TextView)findViewById(R.id.add_friend_friend_nickname_text);
-        mFriendTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.add_friend_friend_transport_public_key_fingerprint_text);
-        mFriendTransportPublicKeyTimestampText = (TextView)findViewById(R.id.add_friend_friend_transport_public_key_timestamp_text);
-        mFriendHiddenServiceHostnameText = (TextView)findViewById(R.id.add_friend_friend_hidden_service_hostname_text);
+        mFriendFingerprintText = (TextView)findViewById(R.id.add_friend_friend_fingerprint_text);
         mFriendAddButton = (Button)findViewById(R.id.add_friend_add_button);
         mFriendAddButton.setOnClickListener(this);
         showFriend();
@@ -115,10 +107,9 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         try {
             Data.Self self = Data.getInstance().getSelf();
             Robohash.setRobohashImage(this, mSelfAvatarImage, self);
-            mSelfNicknameText.setText(self.mNickname);        
-            mSelfTransportPublicKeyFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
-            mSelfTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(self.mTransportKeyMaterial.getCertificate().getTimestamp()));        
-            mSelfHiddenServiceHostnameText.setText(self.mHiddenServiceKeyMaterial.mHostname);
+            mSelfNicknameText.setText(self.mNickname);
+            // TODO: real fingerprint
+            mSelfFingerprintText.setText(self.mTransportKeyMaterial.getCertificate().getFingerprint());        
             return;
         } catch (Utils.ApplicationError e) {
             // TODO: log?
@@ -127,18 +118,15 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         }
         Robohash.setRobohashImage(this, mSelfAvatarImage, (Data.Self)null);
         mSelfNicknameText.setText("");    
-        mSelfTransportPublicKeyFingerprintText.setText("");        
-        mSelfTransportPublicKeyTimestampText.setText("");        
-        mSelfHiddenServiceHostnameText.setText("");        
+        mSelfFingerprintText.setText("");        
     }
 
     private void showFriend() {
         if (mReceivedFriend != null) {
             Robohash.setRobohashImage(this, mFriendAvatarImage, mReceivedFriend);
             mFriendNicknameText.setText(mReceivedFriend.mNickname);        
-            mFriendTransportPublicKeyFingerprintText.setText(mReceivedFriend.mTransportCertificate.getFingerprint());        
-            mFriendTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(mReceivedFriend.mTransportCertificate.getTimestamp()));        
-            mFriendHiddenServiceHostnameText.setText(mReceivedFriend.mHiddenServiceIdentity.mHostname);
+            // TODO: real fingerprint
+            mFriendFingerprintText.setText(mReceivedFriend.mTransportCertificate.getFingerprint());        
             mFriendAddButton.setEnabled(mPushComplete);
             mFriendSectionLayout.setVisibility(View.VISIBLE);
         } else {
@@ -197,6 +185,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
                 }
                 mReceivedFriend = friend;
                 showFriend();
+                // TODO: update add_friend_description_text as well?
                 int promptId = mPushComplete ? R.string.prompt_nfc_friend_received_and_push_complete : R.string.prompt_nfc_friend_received_without_push_complete;
                 Toast.makeText(this, promptId, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
@@ -236,6 +225,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
                 vibe.vibrate(100);
                 mPushComplete = true;
                 showFriend();
+                // TODO: update add_friend_description_text as well?
                 int promptId = (mReceivedFriend != null) ? R.string.prompt_nfc_push_complete_and_friend_received : R.string.prompt_nfc_push_complete_without_friend_received;
                 Toast.makeText(context, promptId, Toast.LENGTH_LONG).show();
             }});

@@ -19,7 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.text.DateFormat;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,9 +41,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
 
     private ImageView mAvatarImage;
     private EditText mNicknameEdit;
-    private TextView mTransportPublicKeyFingerprintText;
-    private TextView mTransportPublicKeyTimestampText;
-    private TextView mHiddenServiceHostnameText;
+    private TextView mFingerprintText;
     private Button mEditButton;
     private Button mSaveButton;
     private ProgressDialog mProgressDialog;
@@ -63,9 +60,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mNicknameEdit = (EditText)findViewById(R.id.generate_self_nickname_edit);
         mNicknameEdit.addTextChangedListener(getNicknameTextChangedListener());
         mNicknameEdit.setEnabled(false);
-        mTransportPublicKeyFingerprintText = (TextView)findViewById(R.id.generate_self_transport_public_key_fingerprint_text);
-        mTransportPublicKeyTimestampText = (TextView)findViewById(R.id.generate_self_transport_public_key_timestamp_text);
-        mHiddenServiceHostnameText = (TextView)findViewById(R.id.generate_self_hidden_service_hostname_text);
+        mFingerprintText = (TextView)findViewById(R.id.generate_self_fingerprint_text);
         mEditButton = (Button)findViewById(R.id.generate_self_edit_button);
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
@@ -75,19 +70,17 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mSaveButton.setVisibility(View.GONE);
         mSaveButton.setOnClickListener(this);
         mProgressDialog = new ProgressDialog(this);
-        mProgressDialog.setMessage(getText(R.string.text_generate_progress));
+        mProgressDialog.setMessage(getText(R.string.text_generate_self_progress));
         mProgressDialog.setCancelable(true);
         mAvatarTimer = new Timer();
     }
 
+    // TODO: showFingerprint; fingerprint includes Nickname (change workflow)
     private void showKeyMaterial(
             TransportSecurity.KeyMaterial transportKeyMaterial,
             HiddenService.KeyMaterial hiddenServiceKeyMaterial) {
-        TransportSecurity.Certificate transportCertificate = transportKeyMaterial.getCertificate();
-        HiddenService.Identity hiddenServiceIdentity = hiddenServiceKeyMaterial.getIdentity();
-        mTransportPublicKeyFingerprintText.setText(transportCertificate.getFingerprint());        
-        mTransportPublicKeyTimestampText.setText(DateFormat.getDateInstance().format(transportCertificate.getTimestamp()));        
-        mHiddenServiceHostnameText.setText(hiddenServiceIdentity.mHostname);        
+        // TODO: real fingerprint
+        mFingerprintText.setText(transportKeyMaterial.getCertificate().getFingerprint());        
     }
     
     @Override
