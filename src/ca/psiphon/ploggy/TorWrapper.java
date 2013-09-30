@@ -66,7 +66,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 	private int mWebServerPort;
     private int mControlServerPort;
     private int mSocksProxyPort;
-	private File mRootDirectory;
+    private File mRootDirectory;
+    private File mDataDirectory;
 	private File mExecutableFile;
 	private File mConfigFile;
 	private File mControlAuthCookieFile;
@@ -85,12 +86,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 	    mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
 		mWebServerPort = webServerPort;
 		Context context = Utils.getApplicationContext();
-		mRootDirectory = context.getDir("tor", Context.MODE_PRIVATE);
+        mRootDirectory = context.getDir("tor", Context.MODE_PRIVATE);
+        mDataDirectory = new File(mRootDirectory, "data");
         mExecutableFile = new File(mRootDirectory, "tor");
-        mConfigFile = new File(mRootDirectory, "torrc");
-        mControlAuthCookieFile = new File(mRootDirectory, ".tor/control_auth_cookie");
-        mPidFile = new File(mRootDirectory, ".tor/pid");
-        mHostnameFile = new File(mRootDirectory, "hostname");
+        mConfigFile = new File(mRootDirectory, "config");
+        mControlAuthCookieFile = new File(mDataDirectory, "control_auth_cookie");
+        mPidFile = new File(mDataDirectory, "pid");
+        mHostnameFile = new File(mDataDirectory, "hostname");
     }
 	
 	public void start() throws Utils.ApplicationError {
@@ -143,8 +145,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection.setEvents(Arrays.asList("NOTICE", "WARN", "ERR"));
 	    } catch (IOException e) {
             Log.addEntry(LOG_TAG, "Error starting Tor: " + e.getLocalizedMessage());
-	        //throw new Utils.ApplicationError(e);
-            throw new RuntimeException(e);
+	        throw new Utils.ApplicationError(e);
 	    } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
@@ -207,13 +208,18 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 	    final String configuration =
 	            String.format(
                     (Locale)null,
-    	            "ControlPort %d\n" +
-    	            "SocksPort %d\n" +
-    	            "CookieAuthentication 1\n" +
-    	            "PidFile pid\n" +
-    	            "RunAsDaemon 1\n" +
-    	            "SafeSocks 1\n",
-	                mControlServerPort,
+                        "DataDirectory %s\n" +
+                        "RunAsDaemon 1\n" +
+                        "PidFile %s\n" +
+                        "CookieAuthentication 1\n" +
+                        "CookieAuthFile %s\n" +
+                        "ControlPort %d\n" +
+        	            "SocksPort %d\n" +
+        	            "SafeSocks 1\n",
+    	            mDataDirectory.getAbsolutePath(),
+    	            mPidFile.getAbsolutePath(),
+    	            mControlAuthCookieFile.getAbsolutePath(),
+    	            mControlServerPort,
 	                mSocksProxyPort);
 	            
         Utils.copyStream(
