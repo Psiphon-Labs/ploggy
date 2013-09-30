@@ -21,10 +21,18 @@ package ca.psiphon.ploggy;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
+import java.util.List;
 
 import android.content.Context;
 
@@ -43,6 +51,15 @@ public class Utils {
         }
     }
 
+    public static String fileToString(File file) throws IOException {
+        FileInputStream fileInputStream = new FileInputStream(file);
+        try {
+            return inputStreamToString(fileInputStream);
+        } finally {
+            fileInputStream.close();
+        }
+    }
+
     public static String inputStreamToString(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder value = new StringBuilder();
@@ -51,6 +68,15 @@ public class Utils {
             value.append(line);
         }
         return value.toString();
+    }
+
+    public static byte[] fileToBytes(File file) throws IOException {
+        FileInputStream fileInputStream = new FileInputStream(file);
+        try {
+            return inputStreamToBytes(fileInputStream);
+        } finally {
+            fileInputStream.close();
+        }
     }
 
     public static byte[] inputStreamToBytes(InputStream inputStream) throws IOException {
@@ -64,6 +90,19 @@ public class Utils {
         return outputStream.toByteArray();
     }
 
+    public static void copyStream(InputStream inputStream, OutputStream outputStream) throws IOException {
+        try {
+            byte[] buffer = new byte[16384];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0 , length);
+            }
+        } finally {
+            inputStream.close();
+            outputStream.close();
+        }
+    }
+    
     public static void initSecureRandom() {
         new LinuxSecureRandom();
     }
@@ -84,6 +123,49 @@ public class Utils {
         byte[] buffer = new byte[bits/4];
         new SecureRandom().nextBytes(buffer);
         return byteArrayToHexString(buffer);
+    }
+
+    public static boolean isLocalPortAvailable(int port)
+    {
+        int timeoutMilliseconds = 50;
+        Socket socket = new Socket();
+        SocketAddress sockaddr = new InetSocketAddress("127.0.0.1", port);
+        
+        try  {
+            socket.connect(sockaddr, timeoutMilliseconds);
+            return false;
+        }
+        catch (SocketTimeoutException e) {
+            return false;
+        }
+        catch (IOException e) {
+            return true;
+        } finally {
+            if (socket != null) {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+    }
+
+    public static int selectAvailableLocalPort(List<Integer> exclude)
+    {
+        // TODO: ...race condition
+        int startPort = 1024;
+        int maxPort = 65534;
+        
+        for(int port = startPort; port <= maxPort; port++) {
+            if (exclude != null && exclude.contains(port)) {
+                continue;
+            }
+            if (isLocalPortAvailable(port)) {
+                return port;
+            }
+        }
+
+        return 0;
     }
     
     private static Context mApplicationContext;

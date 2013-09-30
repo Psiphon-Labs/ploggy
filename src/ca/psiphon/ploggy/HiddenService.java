@@ -33,11 +33,6 @@ public class HiddenService {
     
     public static KeyMaterial generateKeyMaterial() {
         // TODO: really generate
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
         return new KeyMaterial(Utils.getRandomHexString(64), Utils.getRandomHexString(1024));
     }
 }

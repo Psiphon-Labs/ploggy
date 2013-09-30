@@ -286,7 +286,7 @@ public class ActivityMain extends Activity {
     	public LogAdapter(Context context, List<Log.Entry> entries) {
     		mContext = context;
     		mEntries = entries;
-    		mDateFormat = DateFormat.getDateInstance();
+    		mDateFormat = DateFormat.getDateTimeInstance();
     	}
 
     	@Override

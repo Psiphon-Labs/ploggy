@@ -72,7 +72,7 @@ public class X509 {
     
             // TODO: us http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
             X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
-            X500Principal dnName = new X500Principal(Utils.getRandomHexString(128));
+            X500Principal dnName = new X500Principal("CN="+Utils.getRandomHexString(128));
         
             certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
             certificateGenerator.setSubjectDN(dnName);
