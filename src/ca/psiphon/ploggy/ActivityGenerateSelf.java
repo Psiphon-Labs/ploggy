@@ -180,6 +180,8 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         @Override
         protected GenerateResult doInBackground(Void... params) {
             // TODO: check isCancelled()
+            // TODO: temp!
+            /*
             try {
                 return new GenerateResult(
                         X509.generateKeyMaterial(),
@@ -188,6 +190,10 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 // TODO: log
             }
             return null;
+            */
+            return new GenerateResult(
+                    new X509.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024)),
+                    new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024)));
         }        
 
         @Override

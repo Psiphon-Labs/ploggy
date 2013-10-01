@@ -48,15 +48,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
 
 import android.content.Context;
 import android.os.Build;
-import android.os.FileObserver;
 
 public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
@@ -68,11 +65,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private int mSocksProxyPort;
     private File mRootDirectory;
     private File mDataDirectory;
+    private File mHiddenServiceDirectory;
 	private File mExecutableFile;
 	private File mConfigFile;
 	private File mControlAuthCookieFile;
 	private File mPidFile;
-	private File mHostnameFile;
+	private File mHiddenServiceHostnameFile;
 
     private Process mProcess = null;
     private int mPid = -1;
@@ -80,7 +78,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private TorControlConnection mControlConnection = null;
 	
     private static final String LOG_TAG = "Tor";
-    private static final int COMMAND_AUTH_COOKIE_TIMEOUT_MILLISECONDS = 5000;
+    private static final int AUTH_COOKIE_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
+    private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
     
 	public TorWrapper(HiddenService.KeyMaterial hiddenServiceKeyMaterial, int webServerPort) {
 	    mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
@@ -88,14 +87,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 		Context context = Utils.getApplicationContext();
         mRootDirectory = context.getDir("tor", Context.MODE_PRIVATE);
         mDataDirectory = new File(mRootDirectory, "data");
+        mHiddenServiceDirectory = new File(mRootDirectory, "hidden_service");
         mExecutableFile = new File(mRootDirectory, "tor");
         mConfigFile = new File(mRootDirectory, "config");
         mControlAuthCookieFile = new File(mDataDirectory, "control_auth_cookie");
         mPidFile = new File(mDataDirectory, "pid");
-        mHostnameFile = new File(mDataDirectory, "hostname");
+        mHiddenServiceHostnameFile = new File(mHiddenServiceDirectory, "hostname");
     }
 	
 	public void start() throws Utils.ApplicationError {
+	    stop();
         mControlServerPort = Utils.selectAvailableLocalPort(null);
         mSocksProxyPort = Utils.selectAvailableLocalPort(Arrays.asList(mControlServerPort));
 	    try {
@@ -103,11 +104,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             writeConfigFile();
             writeHiddenServiceFiles();
 
-            mControlAuthCookieFile.mkdirs();
-            mControlAuthCookieFile.createNewFile();
-            CountDownLatch latch = new CountDownLatch(1);
-            FileObserver fileObserver = new WriteObserver(mControlAuthCookieFile, latch);
-            fileObserver.startWatching();
+            mControlAuthCookieFile.delete();
+            Utils.FileInitializedObserver authCookieInitializedObserver = new Utils.FileInitializedObserver(mControlAuthCookieFile);
+            authCookieInitializedObserver.startWatching();
+
+            Utils.FileInitializedObserver hiddenServiceInitializedObserver = new Utils.FileInitializedObserver(mHiddenServiceHostnameFile);
+            hiddenServiceInitializedObserver.startWatching();
 
             ProcessBuilder processBuilder =
                     new ProcessBuilder(mExecutableFile.getAbsolutePath(), "-f", mConfigFile.getAbsolutePath());
@@ -129,20 +131,29 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 throw new Utils.ApplicationError();
             }
             
-            if (!latch.await(COMMAND_AUTH_COOKIE_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS)) {
+            if (!authCookieInitializedObserver.await(AUTH_COOKIE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
                 Log.addEntry(LOG_TAG, "Timeout waiting for Tor command auth cookie");
                 throw new Utils.ApplicationError();
             }
                 
-            mControlSocket = new Socket("127.0.0.1", mControlServerPort);
-
             // TODO: catch NumberFormatException
             mPid = Integer.parseInt(Utils.fileToString(mPidFile).trim());
 
+            mControlSocket = new Socket("127.0.0.1", mControlServerPort);
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.fileToBytes(mControlAuthCookieFile));
             mControlConnection.setEventHandler(this);
             mControlConnection.setEvents(Arrays.asList("NOTICE", "WARN", "ERR"));
+
+            /*
+             * TODO: HS keygen mode: no daemon, await hostname file, then terminate
+             * 
+            if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
+                Log.addEntry(LOG_TAG, "Timeout waiting for Tor hidden service initialization");
+                throw new Utils.ApplicationError();
+            }
+            */
+                
 	    } catch (IOException e) {
             Log.addEntry(LOG_TAG, "Error starting Tor: " + e.getLocalizedMessage());
 	        throw new Utils.ApplicationError(e);
@@ -171,12 +182,22 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         } catch (IOException e) {
             // TODO: log
         }
+
         if (mProcess != null) {
             mProcess.destroy();
+        }
+        
+        if (mPid == -1 && mPidFile.exists()) {
+            // TODO: use output of ps command when missing pid file...?
+            try {
+                mPid = Integer.parseInt(Utils.fileToString(mPidFile).trim());
+            } catch (IOException e) {
+            }
         }
         if (mPid != -1) {
             android.os.Process.killProcess(mPid);
         }
+
         mControlConnection = null;
         mControlSocket = null;
         mProcess = null;
@@ -215,12 +236,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "CookieAuthFile %s\n" +
                         "ControlPort %d\n" +
         	            "SocksPort %d\n" +
-        	            "SafeSocks 1\n",
+        	            "SafeSocks 1\n" +
+                        "HiddenServiceDir %s\n" +
+                        "HiddenServicePort 443 127.0.0.1:%d\n",
     	            mDataDirectory.getAbsolutePath(),
     	            mPidFile.getAbsolutePath(),
     	            mControlAuthCookieFile.getAbsolutePath(),
     	            mControlServerPort,
-	                mSocksProxyPort);
+	                mSocksProxyPort,
+	                mHiddenServiceDirectory.getAbsolutePath(),
+	                mWebServerPort);
 	            
         Utils.copyStream(
                 new ByteArrayInputStream(configuration.getBytes("UTF-8")),
@@ -228,20 +253,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 	}
 	
 	private void writeHiddenServiceFiles() throws IOException {
+	    mHiddenServiceDirectory.mkdirs();
 	    // TODO: ...
 	}
-
-    private static class WriteObserver extends FileObserver {
-        private final CountDownLatch latch;
-        private WriteObserver(File file, CountDownLatch latch) {
-            super(file.getAbsolutePath(), FileObserver.CLOSE_WRITE);
-            this.latch = latch;
-        }
-        public void onEvent(int event, String path) {
-            stopWatching();
-            latch.countDown();
-        }
-    }
 
     @Override
     public void circuitStatus(String status, String circID, String path) {

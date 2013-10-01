@@ -117,7 +117,7 @@ public class X509 {
 
     static byte[] sign(KeyMaterial keyMaterial, byte[] data) throws Utils.ApplicationError {
         // TODO: ...
-        return null;
+        return Utils.getRandomHexString(1024).getBytes();
     }
     
     static byte[] verify(String certificate, byte[] data) throws Utils.ApplicationError {

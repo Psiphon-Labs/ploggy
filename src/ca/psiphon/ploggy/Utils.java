@@ -33,8 +33,11 @@ import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import android.content.Context;
+import android.os.FileObserver;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -102,7 +105,35 @@ public class Utils {
             outputStream.close();
         }
     }
-    
+
+    public static class FileInitializedObserver extends FileObserver {
+        private final CountDownLatch mLatch;
+        private final String mTargetFilename;
+
+        public FileInitializedObserver(File file) {
+            // TODO: ...Tor creates <target>.tmp, writes, then renames
+            super(
+                file.getParentFile().getAbsolutePath(),
+                FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE);
+            mTargetFilename = file.getName();
+            mLatch = new CountDownLatch(1);
+        }
+
+        @Override
+        public void onEvent(int event, String path) {
+            if (path != null) {
+                if (path.equals(mTargetFilename)) {
+                    stopWatching();
+                    mLatch.countDown();
+                }
+            }
+        }
+
+        public boolean await(long timeoutMilliseconds) throws InterruptedException {
+            return mLatch.await(timeoutMilliseconds, TimeUnit.MILLISECONDS);
+        }
+    }
+
     public static void initSecureRandom() {
         new LinuxSecureRandom();
     }
