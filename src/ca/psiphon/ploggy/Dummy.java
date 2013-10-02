@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -59,10 +60,22 @@ public class Dummy {
                     @Override
                     public void run() {
                         try {
-                            HiddenService.KeyMaterial keyMaterial = HiddenService.generateKeyMaterial();
-                            TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_RUN_HIDDEN_SERVICE, keyMaterial, 8443);
+                            Log.addEntry("DUMMY", "generate X509 material");
+                            X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                            Log.addEntry("DUMMY", "start web server");
+                            WebServer webServer = new WebServer(x509KeyMaterial);
+                            try {
+                                webServer.start();
+                            } catch (IOException e) {
+                                throw new Utils.ApplicationError(e);
+                            }
+                            Log.addEntry("DUMMY", "generate hidden service key material");
+                            HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                            Log.addEntry("DUMMY", "start hidden service");
+                            TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_RUN_SERVICES, hiddenServiceKeyMaterial, 8443);
                             tor.start();
                         } catch (Utils.ApplicationError e) {
+                            Log.addEntry("DUMMY", e.getMessage());
                         }
                     }
                 },

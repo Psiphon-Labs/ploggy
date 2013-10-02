@@ -126,7 +126,7 @@ public class Engine {
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey));
             mWebServer.start();
             mTorWrapper = new TorWrapper(
-                    TorWrapper.Mode.MODE_RUN_HIDDEN_SERVICE,
+                    TorWrapper.Mode.MODE_RUN_SERVICES,
                     new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
             mTorWrapper.start();

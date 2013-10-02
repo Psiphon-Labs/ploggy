@@ -78,6 +78,14 @@ public class Utils {
         }
     }
 
+    public static int readFileToInt(File file) throws IOException {
+        try {
+            return Integer.parseInt(Utils.readFileToString(file).trim());
+        } catch (NumberFormatException e) {
+            throw new IOException(e);
+        }
+    }
+
     public static String readInputStreamToString(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder value = new StringBuilder();
@@ -177,49 +185,6 @@ public class Utils {
         byte[] buffer = new byte[bits/4];
         new SecureRandom().nextBytes(buffer);
         return byteArrayToHexString(buffer);
-    }
-
-    public static boolean isLocalPortAvailable(int port)
-    {
-        int timeoutMilliseconds = 50;
-        Socket socket = new Socket();
-        SocketAddress sockaddr = new InetSocketAddress("127.0.0.1", port);
-        
-        try  {
-            socket.connect(sockaddr, timeoutMilliseconds);
-            return false;
-        }
-        catch (SocketTimeoutException e) {
-            return false;
-        }
-        catch (IOException e) {
-            return true;
-        } finally {
-            if (socket != null) {
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                }
-            }
-        }
-    }
-
-    public static int selectAvailableLocalPort(List<Integer> exclude)
-    {
-        // TODO: ...race condition
-        int startPort = 1024;
-        int maxPort = 65534;
-        
-        for(int port = startPort; port <= maxPort; port++) {
-            if (exclude != null && exclude.contains(port)) {
-                continue;
-            }
-            if (isLocalPortAvailable(port)) {
-                return port;
-            }
-        }
-
-        return 0;
     }
     
     private static Context mApplicationContext;

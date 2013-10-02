@@ -50,6 +50,7 @@ import java.util.Locale;
 import java.util.Scanner;
 import java.util.zip.ZipInputStream;
 
+import net.freehaven.tor.control.ConfigEntry;
 import net.freehaven.tor.control.TorControlConnection;
 
 import android.content.Context;
@@ -59,19 +60,18 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     public enum Mode {
         MODE_GENERATE_KEY_MATERIAL,
-        MODE_RUN_HIDDEN_SERVICE
+        MODE_RUN_SERVICES
     }
 
     private Mode mMode;
     private HiddenService.KeyMaterial mKeyMaterial;
-    private int mWebServerPort;
-    private int mControlServerPort;
-    private int mSocksProxyPort;
+    private int mWebServerPort = -1;
     private File mRootDirectory;
     private File mDataDirectory;
     private File mHiddenServiceDirectory;
     private File mExecutableFile;
     private File mConfigFile;
+    private File mControlPortFile;
     private File mControlAuthCookieFile;
     private File mPidFile;
     private File mHiddenServiceHostnameFile;
@@ -79,11 +79,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
     private Process mProcess = null;
     private int mPid = -1;
+    private int mControlPort = -1;
+    private int mSocksProxyPort = -1;
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
     
     private static final String LOG_TAG = "Tor";
-    private static final int AUTH_COOKIE_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
+    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
     
     public TorWrapper(Mode mode) {
@@ -102,6 +104,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mHiddenServiceDirectory = new File(mRootDirectory, "hidden_service");
         mExecutableFile = new File(mRootDirectory, "tor");
         mConfigFile = new File(mRootDirectory, "config");
+        mControlPortFile = new File(mDataDirectory, "control_port_file");
         mControlAuthCookieFile = new File(mDataDirectory, "control_auth_cookie");
         mPidFile = new File(mDataDirectory, "pid");
         mHiddenServiceHostnameFile = new File(mHiddenServiceDirectory, "hostname");
@@ -111,16 +114,14 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     public void start() throws Utils.ApplicationError {
         if (mMode == Mode.MODE_GENERATE_KEY_MATERIAL) {
             startGenerateKeyMaterial();
-        } else if (mMode == Mode.MODE_RUN_HIDDEN_SERVICE) {
-            startRunHiddenService();
+        } else if (mMode == Mode.MODE_RUN_SERVICES) {
+            startRunServices();
         }
     }
     
     private void startGenerateKeyMaterial() throws Utils.ApplicationError {
         stop();
         try {
-            mControlServerPort = Utils.selectAvailableLocalPort(null);
-            mSocksProxyPort = -1;
             // TODO: don't need two copies of the executable
             writeExecutableFile();
             writeGenerateKeyMaterialConfigFile();
@@ -141,7 +142,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             hiddenServiceInitializedObserver.startWatching();
             startDaemon();
             if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                Log.addEntry(LOG_TAG, "Timeout waiting for hidden service hostname");
+                Log.addEntry(LOG_TAG, "Timeout waiting for Tor hidden service initialization");
                 throw new Utils.ApplicationError();
             }
             String hostname = Utils.readFileToString(mHiddenServiceHostnameFile);
@@ -159,29 +160,46 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
     }
     
-    private void startRunHiddenService() throws Utils.ApplicationError {
+    private void startRunServices() throws Utils.ApplicationError {
         stop();
+        boolean startCompleted = false;
         try {
-            mControlServerPort = Utils.selectAvailableLocalPort(null);
-            mSocksProxyPort = Utils.selectAvailableLocalPort(Arrays.asList(mControlServerPort));
             writeExecutableFile();
-            writeRunHiddenServiceConfigFile();
+            writeRunServicesConfigFile();
             writeHiddenServiceFiles();
             startDaemon();
+            for (ConfigEntry configEntry : mControlConnection.getConf("SOCKSPort")) {
+                if (configEntry.key.equals("SOCKSPort")) {
+                    try {
+                        mSocksProxyPort = Integer.parseInt(configEntry.value);
+                    } catch (NumberFormatException e) {
+                        throw new Utils.ApplicationError(e);
+                    }                                        
+                }
+            }
+            startCompleted = true;
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, "Error starting Tor: " + e.getLocalizedMessage());
             throw new Utils.ApplicationError(e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            if (!startCompleted) {
+                stop();
+            }
         }
     }
     
     private void startDaemon() throws Utils.ApplicationError, IOException, InterruptedException {
         try {
             mControlAuthCookieFile.delete();
-            Utils.FileInitializedObserver authCookieInitializedObserver =
-                    new Utils.FileInitializedObserver(mControlAuthCookieFile.getParentFile(), mControlAuthCookieFile.getName());
-            authCookieInitializedObserver.startWatching();
+            Utils.FileInitializedObserver controlInitializedObserver =
+                    new Utils.FileInitializedObserver(
+                            mRootDirectory,
+                            mPidFile.getName(),
+                            mControlPortFile.getName(),
+                            mControlAuthCookieFile.getName());
+            controlInitializedObserver.startWatching();
 
             ProcessBuilder processBuilder =
                     new ProcessBuilder(mExecutableFile.getAbsolutePath(), "-f", mConfigFile.getAbsolutePath());
@@ -203,15 +221,14 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 throw new Utils.ApplicationError();
             }
             
-            if (!authCookieInitializedObserver.await(AUTH_COOKIE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                Log.addEntry(LOG_TAG, "Timeout waiting for Tor command auth cookie");
+            if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS)) {
+                Log.addEntry(LOG_TAG, "Timeout waiting for Tor control initialization");
                 throw new Utils.ApplicationError();
             }
                 
-            // TODO: catch NumberFormatException
-            mPid = Integer.parseInt(Utils.readFileToString(mPidFile).trim());
-
-            mControlSocket = new Socket("127.0.0.1", mControlServerPort);
+            mPid = Utils.readFileToInt(mPidFile);
+            mControlPort = Utils.readFileToInt(mControlPortFile);
+            mControlSocket = new Socket("127.0.0.1", mControlPort);
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.readFileToBytes(mControlAuthCookieFile));
             mControlConnection.setEventHandler(this);
@@ -255,6 +272,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             android.os.Process.killProcess(mPid);
         }
 
+        mSocksProxyPort = -1;
+        mControlPort = -1;
         mControlConnection = null;
         mControlSocket = null;
         mProcess = null;
@@ -293,15 +312,18 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        "ControlPort auto\n" +
+                        "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
                         "CookieAuthFile %s\n" +
-                        "ControlPort %d\n" +
+                        "SocksPort 0\n" +
+                        // TODO: won't generate without HiddenServicePort set... prevent publish?
                         //"HiddenServiceDir %s\n",
                         "HiddenServiceDir %s\nHiddenServicePort 443 127.0.0.1:8443\n",                        
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
+                    mControlPortFile.getAbsolutePath(),
                     mControlAuthCookieFile.getAbsolutePath(),
-                    mControlServerPort,
                     mHiddenServiceDirectory.getAbsolutePath());
                 
         Utils.copyStream(
@@ -309,25 +331,25 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 new FileOutputStream(mConfigFile));
     }
     
-    private void writeRunHiddenServiceConfigFile() throws IOException {
+    private void writeRunServicesConfigFile() throws IOException {
         final String configuration =
                 String.format(
                     (Locale)null,
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        "ControlPort auto\n" +
+                        "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
                         "CookieAuthFile %s\n" +
-                        "ControlPort %d\n" +
-                        "SocksPort %d\n" +
+                        "SocksPort auto\n" +
                         "SafeSocks 1\n" +
                         "HiddenServiceDir %s\n" +
                         "HiddenServicePort 443 127.0.0.1:%d\n",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
+                    mControlPortFile.getAbsolutePath(),
                     mControlAuthCookieFile.getAbsolutePath(),
-                    mControlServerPort,
-                    mSocksProxyPort,
                     mHiddenServiceDirectory.getAbsolutePath(),
                     mWebServerPort);
                 
