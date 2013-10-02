@@ -45,6 +45,10 @@ public class Log {
     }
     
     public static void addEntry(String tag, String message) {
+        // TODO: fix
+        // java.lang.IllegalStateException: The content of the adapter has changed but ListView did not receive a notification.
+        // Make sure the content of your adapter is not modified from a background thread, but only from the UI thread.
+        // [in ListView(16908298, class android.widget.ListView) with Adapter(class ca.psiphon.ploggy.ActivityMain$LogAdapter)]
     	mEntries.add(new Entry(tag, message));
     	// TODO: truncate
     	Events.post(new Events.AddedLogEntry());
