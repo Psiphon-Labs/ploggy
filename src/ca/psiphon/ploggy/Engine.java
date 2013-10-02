@@ -126,6 +126,7 @@ public class Engine {
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey));
             mWebServer.start();
             mTorWrapper = new TorWrapper(
+                    TorWrapper.Mode.MODE_RUN_HIDDEN_SERVICE,
                     new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
             mTorWrapper.start();
@@ -149,7 +150,7 @@ public class Engine {
         if (mTorWrapper != null) {
             return new Proxy(
                     Proxy.Type.SOCKS,
-                    new InetSocketAddress(TorWrapper.SOCKS_PROXY_HOSTNAME, mTorWrapper.getSocksProxyPort()));
+                    new InetSocketAddress("127.0.0.1", mTorWrapper.getSocksProxyPort()));
         }
         throw new Utils.ApplicationError();
     }

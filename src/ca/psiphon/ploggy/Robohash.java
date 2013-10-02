@@ -150,7 +150,7 @@ public class Robohash {
         InputStream inputStream = null;
         try {
             inputStream = assetManager.open(new File(ASSETS_SUBDIRECTORY, assetName).getPath());            
-            return Utils.inputStreamToString(inputStream);
+            return Utils.readInputStreamToString(inputStream);
         } finally {
             if (inputStream != null) {
                 inputStream.close();

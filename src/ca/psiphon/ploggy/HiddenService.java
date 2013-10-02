@@ -30,9 +30,10 @@ public class HiddenService {
             mPrivateKey = privateKey;
         }
     }
-    
-    public static KeyMaterial generateKeyMaterial() {
-        // TODO: really generate
-        return new KeyMaterial(Utils.getRandomHexString(64), Utils.getRandomHexString(1024));
+
+    public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
+        TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
+        tor.start();
+        return tor.getKeyMaterial();
     }
 }

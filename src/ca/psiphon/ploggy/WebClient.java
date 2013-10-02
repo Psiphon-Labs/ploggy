@@ -51,7 +51,7 @@ public class WebClient {
             
             // TODO: stream larger responses to files, etc.
             // TODO: finally { connection.close(); }
-            return Utils.inputStreamToString(connection.getInputStream());
+            return Utils.readInputStreamToString(connection.getInputStream());
         } catch (MalformedURLException e) {
             throw new Utils.ApplicationError(e);
         } catch (ProtocolException e) {

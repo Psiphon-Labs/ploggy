@@ -23,15 +23,19 @@ import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -54,16 +58,27 @@ public class Utils {
         }
     }
 
-    public static String fileToString(File file) throws IOException {
+    public static void writeStringToFile(String data, File file) throws IOException {
+        FileOutputStream fileOutputStream = new FileOutputStream(file);
+        try {
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(fileOutputStream);
+            outputStreamWriter.write(data);
+            outputStreamWriter.close();
+        } finally {
+            fileOutputStream.close();
+        }
+    }
+
+    public static String readFileToString(File file) throws IOException {
         FileInputStream fileInputStream = new FileInputStream(file);
         try {
-            return inputStreamToString(fileInputStream);
+            return readInputStreamToString(fileInputStream);
         } finally {
             fileInputStream.close();
         }
     }
 
-    public static String inputStreamToString(InputStream inputStream) throws IOException {
+    public static String readInputStreamToString(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         StringBuilder value = new StringBuilder();
         String line;
@@ -73,16 +88,16 @@ public class Utils {
         return value.toString();
     }
 
-    public static byte[] fileToBytes(File file) throws IOException {
+    public static byte[] readFileToBytes(File file) throws IOException {
         FileInputStream fileInputStream = new FileInputStream(file);
         try {
-            return inputStreamToBytes(fileInputStream);
+            return readInputStreamToBytes(fileInputStream);
         } finally {
             fileInputStream.close();
         }
     }
 
-    public static byte[] inputStreamToBytes(InputStream inputStream) throws IOException {
+    public static byte[] readInputStreamToBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         int readCount;
         byte[] buffer = new byte[16384];
@@ -105,26 +120,34 @@ public class Utils {
             outputStream.close();
         }
     }
-
+    
     public static class FileInitializedObserver extends FileObserver {
         private final CountDownLatch mLatch;
-        private final String mTargetFilename;
+        private ArrayList<String> mTargetFilenames;
 
-        public FileInitializedObserver(File file) {
+        public FileInitializedObserver(File directory, String ... filenames) {
             // TODO: ...Tor creates <target>.tmp, writes, then renames
+            // TODO: ...https://groups.google.com/forum/#!msg/android-developers/hk6c7lj0Ga0/aLNbOfxjF-oJ
             super(
-                file.getParentFile().getAbsolutePath(),
+                directory.getAbsolutePath(),
                 FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE);
-            mTargetFilename = file.getName();
-            mLatch = new CountDownLatch(1);
+            mTargetFilenames = new ArrayList<String>(Arrays.asList(filenames));
+            mLatch = new CountDownLatch(mTargetFilenames.size());
         }
 
         @Override
         public void onEvent(int event, String path) {
             if (path != null) {
-                if (path.equals(mTargetFilename)) {
-                    stopWatching();
-                    mLatch.countDown();
+                // TEMP: android.util.Log.e("TEMP", String.format("event: %d for %s", event, path));
+                for (int i = 0; i < mTargetFilenames.size(); i++) {
+                    if (path.equals(mTargetFilenames.get(i))) {
+                        mTargetFilenames.remove(i);
+                        mLatch.countDown();
+                        if (mTargetFilenames.size() == 0) {
+                            stopWatching();
+                        }
+                        break;
+                    }
                 }
             }
         }

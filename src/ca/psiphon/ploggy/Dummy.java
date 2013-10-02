@@ -58,8 +58,9 @@ public class Dummy {
                 new TimerTask() {          
                     @Override
                     public void run() {
-                        TorWrapper tor = new TorWrapper(HiddenService.generateKeyMaterial(), 8443);
                         try {
+                            HiddenService.KeyMaterial keyMaterial = HiddenService.generateKeyMaterial();
+                            TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_RUN_HIDDEN_SERVICE, keyMaterial, 8443);
                             tor.start();
                         } catch (Utils.ApplicationError e) {
                         }

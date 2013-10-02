@@ -292,7 +292,7 @@ public class Data {
         	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
         	replaceFileIfExists(commitFilename, filename);
             inputStream = Utils.getApplicationContext().openFileInput(filename);
-            return Utils.inputStreamToString(inputStream);
+            return Utils.readInputStreamToString(inputStream);
         } catch (FileNotFoundException e) {
             throw new DataNotFoundException();
         } catch (IOException e) {
