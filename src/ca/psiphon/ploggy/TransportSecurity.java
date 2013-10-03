@@ -92,7 +92,6 @@ public class TransportSecurity {
     }
 
     // TODO: ...no GCM-SHA256 built-in; no JCCE for SpongyCastle
-    //private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
-    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_DHE_RSA_WITH_AES_128_CBC_SHA" };
+    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
     private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
 }

@@ -76,7 +76,7 @@ public class Data {
         public final Identity.PublicIdentity mPublicIdentity;
 
         public Friend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
-            mId = Base64.encodeToString(publicIdentity.getFingerprint(), Base64.NO_WRAP);
+            mId = Utils.encodeBase64(publicIdentity.getFingerprint());
             mPublicIdentity = publicIdentity;
         }
     }

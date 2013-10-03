@@ -29,13 +29,17 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
+import java.security.Signature;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Calendar;
 import java.util.Date;
@@ -43,8 +47,6 @@ import java.util.Date;
 import javax.security.auth.x500.X500Principal;
 
 import org.spongycastle.x509.X509V3CertificateGenerator;
-
-import android.util.Base64;
 
 public class X509 {
 
@@ -64,7 +66,7 @@ public class X509 {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
     }
 
-    static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
+    public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KEY_TYPE, "SC");
             keyPairGenerator.initialize(KEY_SPEC, new SecureRandom());
@@ -91,8 +93,8 @@ public class X509 {
             X509Certificate x509certificate = certificateGenerator.generate(keyPair.getPrivate(), "SC");
 
             return new KeyMaterial(
-                    Base64.encodeToString(x509certificate.getEncoded(), Base64.NO_WRAP),
-                    Base64.encodeToString(keyPair.getPrivate().getEncoded(), Base64.NO_WRAP));
+                    Utils.encodeBase64(x509certificate.getEncoded()),
+                    Utils.encodeBase64(keyPair.getPrivate().getEncoded()));
         } catch (GeneralSecurityException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
@@ -102,14 +104,32 @@ public class X509 {
         }
     }
 
-    static byte[] sign(KeyMaterial keyMaterial, byte[] data) throws Utils.ApplicationError {
-        // TODO: ...
-        return Utils.getRandomHexString(1024).getBytes();
+    public static String sign(KeyMaterial keyMaterial, byte[] data) throws Utils.ApplicationError {
+        return sign(keyMaterial.mPrivateKey, data);
     }
     
-    static byte[] verify(String certificate, byte[] data) throws Utils.ApplicationError {
-        // TODO: ...
-        return null;
+    public static String sign(String privateKey, byte[] data) throws Utils.ApplicationError {
+        try {
+            Signature signer = java.security.Signature.getInstance(SIGNATURE_TYPE);
+            signer.initSign(decodePrivateKey(privateKey));
+            signer.update(data);
+            return Utils.encodeBase64(signer.sign());
+        } catch (GeneralSecurityException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        }
+    }
+    
+    public static boolean verify(String certificate, byte[] data, String signature) throws Utils.ApplicationError {
+        try {
+            Signature verifier = java.security.Signature.getInstance(SIGNATURE_TYPE);
+            verifier.initVerify(decodeCertificate(certificate));
+            verifier.update(data);
+            return verifier.verify(Utils.decodeBase64(signature));
+        } catch (GeneralSecurityException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        }
     }
     
     public static byte[] getFingerprint(String ...params) throws Utils.ApplicationError {
@@ -144,18 +164,18 @@ public class X509 {
     }
     
     public static void loadKeyMaterial(
+            KeyStore keyStore, KeyMaterial keyMaterial) throws Utils.ApplicationError {
+        loadKeyMaterial(keyStore, keyMaterial.mCertificate, keyMaterial.mPrivateKey);
+    }
+
+    public static void loadKeyMaterial(
             KeyStore keyStore, String certificate, String privateKey) throws Utils.ApplicationError {
         try {
-            CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-            X509Certificate x509certificate = (X509Certificate)certificateFactory.generateCertificate(
-                    new ByteArrayInputStream(Base64.decode(certificate, Base64.DEFAULT)));
+            X509Certificate x509certificate = decodeCertificate(certificate);
             String alias = x509certificate.getSubjectDN().getName();
             keyStore.setCertificateEntry(alias, x509certificate);    
             if (privateKey != null) {
-                KeyFactory privateKeyFactory = KeyFactory.getInstance(KEY_TYPE);
-                PrivateKey decodedPrivateKey = 
-                        privateKeyFactory.generatePrivate(
-                                new PKCS8EncodedKeySpec(Base64.decode(privateKey, Base64.DEFAULT)));
+                PrivateKey decodedPrivateKey = decodePrivateKey(privateKey); 
                 keyStore.setKeyEntry(alias, decodedPrivateKey, null, new X509Certificate[] {x509certificate});
             }
         } catch (GeneralSecurityException e) {
@@ -171,11 +191,19 @@ public class X509 {
         }
     }
     
-    public static void loadKeyMaterial(
-            KeyStore keyStore, KeyMaterial keyMaterial) throws Utils.ApplicationError {
-        loadKeyMaterial(keyStore, keyMaterial.mCertificate, keyMaterial.mPrivateKey);
+    private static X509Certificate decodeCertificate(String certificate)
+            throws Utils.ApplicationError, CertificateException {
+        CertificateFactory certificateFactory = CertificateFactory.getInstance(CERTIFICATE_TYPE);
+        return (X509Certificate)certificateFactory.generateCertificate(new ByteArrayInputStream(Utils.decodeBase64(certificate)));
+    }
+
+    private static PrivateKey decodePrivateKey(String privateKey)
+            throws Utils.ApplicationError, NoSuchAlgorithmException, InvalidKeySpecException {
+        KeyFactory privateKeyFactory = KeyFactory.getInstance(KEY_TYPE);
+        return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));        
     }
     
+    private static final String CERTIFICATE_TYPE = "X.509";
     private static final String KEY_TYPE = "EC";
     private static final AlgorithmParameterSpec KEY_SPEC = new ECGenParameterSpec("secp256r1");
     private static final String SIGNATURE_TYPE = "SHA256withECDSA";

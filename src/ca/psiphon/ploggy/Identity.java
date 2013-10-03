@@ -75,7 +75,7 @@ public class Identity {
             String nickname,
             X509.KeyMaterial x509KeyMaterial,
             HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws Utils.ApplicationError {        
-        byte[] signature = X509.sign(
+        String signature = X509.sign(
                 x509KeyMaterial,
                 getPublicSigningData(
                         nickname,
@@ -85,7 +85,7 @@ public class Identity {
                 nickname,
                 x509KeyMaterial.mCertificate,
                 hiddenServiceKeyMaterial.mHostname,
-                Base64.encodeToString(signature, Base64.NO_WRAP));
+                signature);
     }
 
     public static boolean verifyPublicIdentity(PublicIdentity publicIdentity) {

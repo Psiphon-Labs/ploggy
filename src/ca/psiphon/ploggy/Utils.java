@@ -29,19 +29,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketTimeoutException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+//import org.spongycastle.util.encoders.Base64;
+
 import android.content.Context;
 import android.os.FileObserver;
+import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -169,6 +167,12 @@ public class Utils {
         new LinuxSecureRandom();
     }
     
+    public static String getRandomHexString(int bits) {
+        byte[] buffer = new byte[bits/4];
+        new SecureRandom().nextBytes(buffer);
+        return byteArrayToHexString(buffer);
+    }
+    
     // from:
     // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
     public static String byteArrayToHexString(byte[] bytes) {
@@ -181,10 +185,17 @@ public class Utils {
         return new String(hexChars);
     }
 
-    public static String getRandomHexString(int bits) {
-        byte[] buffer = new byte[bits/4];
-        new SecureRandom().nextBytes(buffer);
-        return byteArrayToHexString(buffer);
+    public static String encodeBase64(byte[] data) {
+        return Base64.encodeToString(data, Base64.NO_WRAP);
+    }
+    
+    public static byte[] decodeBase64(String data) throws Utils.ApplicationError {
+        try {
+            return Base64.decode(data, Base64.DEFAULT);
+        } catch (IllegalArgumentException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        }
     }
     
     private static Context mApplicationContext;
