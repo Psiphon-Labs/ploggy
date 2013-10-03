@@ -23,25 +23,26 @@ import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import ca.psiphon.ploggy.HiddenService.KeyMaterial;
-
 public class Dummy {
 	
 	private static Timer mTimer;
 
 	public static void doDummyData() {
+	    /*
 		try {
 			Data data = Data.getInstance();
 			for (int i = 0; i < 10; i++) {
 			    String nickname = String.format("Nickname%02d", i);
                 X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
-                HiddenService.KeyMaterial hiddenServiceKeyMaterial = /* HiddenService.generateKeyMaterial(); */ new KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
+                //HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                HiddenService.KeyMaterial hiddenServiceKeyMaterial = new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
 			    data.insertOrUpdateFriend(
 			            new Data.Friend(new Identity.PublicIdentity(nickname, x509KeyMaterial.mCertificate, hiddenServiceKeyMaterial.mHostname, "")));
 			}
 		} catch (Utils.ApplicationError e) {
 			// TODO: ...
 		}
+		*/
 
 		mTimer = new Timer();
 		/*
@@ -54,7 +55,7 @@ public class Dummy {
                 },
                 1000,
                 1000);
-        */        
+        */
         mTimer.schedule(
                 new TimerTask() {          
                     @Override

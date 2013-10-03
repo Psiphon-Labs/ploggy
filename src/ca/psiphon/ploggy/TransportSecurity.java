@@ -21,12 +21,9 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.security.KeyManagementException;
+import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.security.UnrecoverableKeyException;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -62,7 +59,7 @@ public class TransportSecurity {
         try {
             KeyStore selfKeyStore = X509.makeKeyStore();
             X509.loadKeyMaterial(selfKeyStore, x509KeyMaterial);
-            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509"); 
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509");
             keyManagerFactory.init(selfKeyStore, null);
             KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
             
@@ -85,21 +82,17 @@ public class TransportSecurity {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagers, trustManagers, new SecureRandom());
             return sslContext;
-
-        } catch (KeyStoreException e) {
+        } catch (GeneralSecurityException e) {
+            // TODO: log
             throw new Utils.ApplicationError(e);
-        } catch (NoSuchAlgorithmException e) {
+        } catch (IllegalArgumentException e) {
+            // TODO: log ...
             throw new Utils.ApplicationError(e);
-        } catch (UnrecoverableKeyException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (KeyManagementException e) {
-            throw new Utils.ApplicationError(e);
-        }        
+        }
     }
 
+    // TODO: ...no GCM-SHA256 built-in; no JCCE for SpongyCastle
+    //private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
     private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_DHE_RSA_WITH_AES_128_CBC_SHA" };
-    // TODO: DH-RSA-AES128-GCM-SHA256 not supported... no GCM or SHA256?
-    // TODO: "ECDHE-ECDSA-AES128-GCM-SHA256"; Android support for ECC in TLS... (no JCCE for BC/SC)?
-    // TODO: use TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
     private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
 }

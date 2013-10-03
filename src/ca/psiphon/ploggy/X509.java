@@ -21,35 +21,27 @@ package ca.psiphon.ploggy;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
-import java.security.InvalidKeyException;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Principal;
+import java.security.PrivateKey;
 import java.security.SecureRandom;
 import java.security.Security;
-import java.security.SignatureException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.InvalidKeySpecException;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.ECGenParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Calendar;
 import java.util.Date;
-import java.util.Scanner;
 
 import javax.security.auth.x500.X500Principal;
 
-import org.spongycastle.openssl.PEMWriter;
 import org.spongycastle.x509.X509V3CertificateGenerator;
 
 import android.util.Base64;
@@ -73,60 +65,40 @@ public class X509 {
     }
 
     static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
-        
-        // from: http://code.google.com/p/xebia-france/wiki/HowToGenerateaSelfSignedX509CertificateInJava
-        
         try {
-            // TODO: validity dates?
-            Date validityBeginDate = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-            Date validityEndDate = new Date(System.currentTimeMillis() + 10 * 365 * 24 * 60 * 60 * 1000);
-        
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "BC");
-            keyPairGenerator.initialize(RSA_KEY_SIZE, new SecureRandom());
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KEY_TYPE, "SC");
+            keyPairGenerator.initialize(KEY_SPEC, new SecureRandom());
             KeyPair keyPair = keyPairGenerator.generateKeyPair();
     
-            // TODO: us http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
+            // TODO: use http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
             X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
-            X500Principal subjectDN = new X500Principal("CN="+Utils.getRandomHexString(128));
-        
+            // TODO: validity dates?
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(System.currentTimeMillis());
+            calendar.add(Calendar.DATE, 1);
+            Date validityBeginDate = calendar.getTime();
+            calendar.setTimeInMillis(System.currentTimeMillis());
+            calendar.add(Calendar.YEAR, 30);
+            Date validityEndDate = calendar.getTime();        
+            X500Principal subjectDN = new X500Principal("CN=" + Utils.getRandomHexString(128));
             certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
             certificateGenerator.setSubjectDN(subjectDN);
             certificateGenerator.setIssuerDN(subjectDN);
             certificateGenerator.setNotBefore(validityBeginDate);
             certificateGenerator.setNotAfter(validityEndDate);
             certificateGenerator.setPublicKey(keyPair.getPublic());
-            certificateGenerator.setSignatureAlgorithm("SHA256WithRSAEncryption");
-        
-            X509Certificate certificate = certificateGenerator.generate(keyPair.getPrivate(), "BC");
-    
-            StringWriter pemCertificate = new StringWriter();
-            PEMWriter pemWriter = new PEMWriter(pemCertificate);
-            pemWriter.writeObject(certificate);
-            pemWriter.flush();
-            pemWriter.close(); // TODO: finally?
-    
-            StringWriter pemPrivateKey = new StringWriter();
-            pemWriter = new PEMWriter(pemPrivateKey);
-            pemWriter.writeObject(keyPair.getPrivate());
-            pemWriter.flush();
-            pemWriter.close();
-            
-            return new KeyMaterial(pemCertificate.toString(), pemPrivateKey.toString());
+            certificateGenerator.setSignatureAlgorithm(SIGNATURE_TYPE);
+            X509Certificate x509certificate = certificateGenerator.generate(keyPair.getPrivate(), "SC");
 
-        } catch (NoSuchProviderException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (NoSuchAlgorithmException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (CertificateEncodingException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (InvalidKeyException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (IllegalStateException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (SignatureException e) {
-            throw new Utils.ApplicationError(e);            
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(e);            
+            return new KeyMaterial(
+                    Base64.encodeToString(x509certificate.getEncoded(), Base64.NO_WRAP),
+                    Base64.encodeToString(keyPair.getPrivate().getEncoded(), Base64.NO_WRAP));
+        } catch (GeneralSecurityException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        } catch (IllegalArgumentException e) {
+            // TODO: log... unsupported algo, etc.
+            throw new Utils.ApplicationError(e);
         }
     }
 
@@ -147,7 +119,7 @@ public class X509 {
                 hash.update(params[i].getBytes("UTF-8"));
             }
             return hash.digest();
-        } catch (NoSuchAlgorithmException e) {
+        } catch (GeneralSecurityException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
         } catch (UnsupportedEncodingException e) {
@@ -162,13 +134,7 @@ public class X509 {
             keyStore = KeyStore.getInstance("BKS");
             keyStore.load(null);
             return keyStore;
-        } catch (KeyStoreException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (NoSuchAlgorithmException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (CertificateException e) {
+        } catch (GeneralSecurityException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
         } catch (IOException e) {
@@ -182,34 +148,25 @@ public class X509 {
         try {
             CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
             X509Certificate x509certificate = (X509Certificate)certificateFactory.generateCertificate(
-                    new ByteArrayInputStream(pemToDer(certificate)));
+                    new ByteArrayInputStream(Base64.decode(certificate, Base64.DEFAULT)));
             String alias = x509certificate.getSubjectDN().getName();
             keyStore.setCertificateEntry(alias, x509certificate);    
             if (privateKey != null) {
-                KeyFactory privateKeyFactory = KeyFactory.getInstance("RSA");
-                RSAPrivateKey rsaPrivateKey = 
-                        (RSAPrivateKey)privateKeyFactory.generatePrivate(
-                                new PKCS8EncodedKeySpec(pemToDer(privateKey)));
-                keyStore.setKeyEntry(alias, rsaPrivateKey, null, new X509Certificate[] {x509certificate});
+                KeyFactory privateKeyFactory = KeyFactory.getInstance(KEY_TYPE);
+                PrivateKey decodedPrivateKey = 
+                        privateKeyFactory.generatePrivate(
+                                new PKCS8EncodedKeySpec(Base64.decode(privateKey, Base64.DEFAULT)));
+                keyStore.setKeyEntry(alias, decodedPrivateKey, null, new X509Certificate[] {x509certificate});
             }
+        } catch (GeneralSecurityException e) {
+            // TODO: log
+            throw new Utils.ApplicationError(e);
+        } catch (IllegalArgumentException e) {
+            // TODO: log... malformed public key (generatePrivate) or invalid Base64
+            throw new Utils.ApplicationError(e);
         } catch (NullPointerException e) {
             // TODO: ...getSubjectDN returns null and/or throws NPE on invalid input
             Log.addEntry(LOG_TAG, "invalid certificate");
-            throw new Utils.ApplicationError(e);
-        } catch (CertificateException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (KeyStoreException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (NoSuchAlgorithmException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (InvalidKeySpecException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
-        } catch (IOException e) {
-            // TODO: log
             throw new Utils.ApplicationError(e);
         }
     }
@@ -219,20 +176,8 @@ public class X509 {
         loadKeyMaterial(keyStore, keyMaterial.mCertificate, keyMaterial.mPrivateKey);
     }
     
-    private static byte[] pemToDer(String pemEncodedValue) throws IOException {
-        Scanner scanner = new Scanner(pemEncodedValue);
-        StringBuilder buffer = new StringBuilder();
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            if(!line.startsWith("--")){
-                buffer.append(line);
-            }
-        }
-        return Base64.decode(buffer.toString(), Base64.DEFAULT);
-    }
-
-    // TODO: slow
-    //private static final int RSA_KEY_SIZE = 4096;
-    private static final int RSA_KEY_SIZE = 1024;
+    private static final String KEY_TYPE = "EC";
+    private static final AlgorithmParameterSpec KEY_SPEC = new ECGenParameterSpec("secp256r1");
+    private static final String SIGNATURE_TYPE = "SHA256withECDSA";
     private static final String FINGERPRINT_ALGORITHM = "SHA-256";
 }

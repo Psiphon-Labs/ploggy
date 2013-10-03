@@ -183,9 +183,11 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             try {
                 return new GenerateResult(
                         X509.generateKeyMaterial(),
-                        HiddenService.generateKeyMaterial());
+                        // TODO: HiddenService.generateKeyMaterial());
+                        new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024)));
             } catch (Utils.ApplicationError e) {
                 // TODO: log
+                // TODO: can't dismiss Activity if can't generate initial self key material...?
             }
             return null;
         }        
