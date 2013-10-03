@@ -61,25 +61,40 @@ public class Dummy {
                     @Override
                     public void run() {
                         try {
-                            Log.addEntry("DUMMY", "generate X509 material");
+                            Log.addEntry("DUMMY", "GENERATE X509");
                             X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
-                            Log.addEntry("DUMMY", "start web server");
+                            Log.addEntry("DUMMY", "COMPLETED GENERATE X509");
+                            Log.addEntry("DUMMY", "START WEB SERVER");
                             WebServer webServer = new WebServer(x509KeyMaterial);
                             try {
                                 webServer.start();
                             } catch (IOException e) {
                                 throw new Utils.ApplicationError(e);
                             }
-                            Log.addEntry("DUMMY", "generate hidden service key material");
+                            Log.addEntry("DUMMY", "COMPLETED START WEB SERVER");
+                            Log.addEntry("DUMMY", "GENERATE HIDDEN SERVICE");
                             HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
-                            Log.addEntry("DUMMY", "start hidden service");
+                            Log.addEntry("DUMMY", "COMPLETED HIDDEN SERVICE");
+                            Log.addEntry("DUMMY", "START HIDDEN SERVICE");
                             TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_RUN_SERVICES, hiddenServiceKeyMaterial, 8443);
                             tor.start();
+                            Log.addEntry("DUMMY", "COMPLETED START HIDDEN SERVICE");
+                            try {
+                                Thread.sleep(10000);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                            Log.addEntry("DUMMY", "STOP HIDDEN SERVICE");
+                            tor.stop();
+                            Log.addEntry("DUMMY", "STOP WEB SERVER");
+                            webServer.stop();
+                            Log.addEntry("DUMMY", "COMPLETED");                            
                         } catch (Utils.ApplicationError e) {
                             Log.addEntry("DUMMY", e.getMessage());
                         }
                     }
                 },
-                2000);
+                2000,
+                60000);
 	}
 }

@@ -169,15 +169,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             writeRunServicesConfigFile();
             writeHiddenServiceFiles();
             startDaemon();
-            for (ConfigEntry configEntry : mControlConnection.getConf("SOCKSPort")) {
-                if (configEntry.key.equals("SOCKSPort")) {
-                    try {
-                        mSocksProxyPort = Integer.parseInt(configEntry.value);
-                    } catch (NumberFormatException e) {
-                        throw new Utils.ApplicationError(e);
-                    }                                        
-                }
-            }
+            mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
             startCompleted = true;
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, "Error starting Tor: " + e.getLocalizedMessage());
@@ -196,12 +188,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlAuthCookieFile.delete();
             Utils.FileInitializedObserver controlInitializedObserver =
                     new Utils.FileInitializedObserver(
-                            mRootDirectory,
+                            mDataDirectory,
                             mPidFile.getName(),
                             mControlPortFile.getName(),
                             mControlAuthCookieFile.getName());
             controlInitializedObserver.startWatching();
 
+            // TODO: --hush
             ProcessBuilder processBuilder =
                     new ProcessBuilder(mExecutableFile.getAbsolutePath(), "-f", mConfigFile.getAbsolutePath());
             processBuilder.environment().put("HOME", mRootDirectory.getAbsolutePath());
@@ -228,7 +221,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             }
                 
             mPid = Utils.readFileToInt(mPidFile);
-            mControlPort = Utils.readFileToInt(mControlPortFile);
+            mControlPort = getPortValue(Utils.readFileToString(mControlPortFile));
             mControlSocket = new Socket("127.0.0.1", mControlPort);
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.readFileToBytes(mControlAuthCookieFile));
@@ -344,7 +337,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "CookieAuthentication 1\n" +
                         "CookieAuthFile %s\n" +
                         "SocksPort auto\n" +
-                        "SafeSocks 1\n" +
                         "HiddenServiceDir %s\n" +
                         "HiddenServicePort 443 127.0.0.1:%d\n",
                     mDataDirectory.getAbsolutePath(),
@@ -365,6 +357,21 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         Utils.writeStringToFile(mKeyMaterial.mPrivateKey, mHiddenServicePrivateKeyFile);
     }
 
+    private int getPortValue(String data) throws Utils.ApplicationError {
+        try {
+            // TODO: ...PORT=127.0.0.1:<port>
+            String[] tokens = data.split(":");
+            if (tokens.length != 2) {
+                Log.addEntry(LOG_TAG, "Unexpected port value format");
+                throw new Utils.ApplicationError();                
+            }
+            return Integer.parseInt(tokens[1]);
+        } catch (NumberFormatException e) {
+            Log.addEntry(LOG_TAG, "Unexpected port value format");
+            throw new Utils.ApplicationError(e);
+        }        
+    }
+    
     @Override
     public void circuitStatus(String status, String circID, String path) {
         Log.addEntry(LOG_TAG, status);

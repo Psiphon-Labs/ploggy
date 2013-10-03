@@ -139,12 +139,15 @@ public class Utils {
                 FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE);
             mTargetFilenames = new ArrayList<String>(Arrays.asList(filenames));
             mLatch = new CountDownLatch(mTargetFilenames.size());
+            // TODO: TEMP!
+            //for (String filename : mTargetFilenames) {android.util.Log.e("TEMP", String.format("init observer for: %s in %s", filename, directory.getAbsolutePath()));}
         }
 
         @Override
         public void onEvent(int event, String path) {
             if (path != null) {
-                // TEMP: android.util.Log.e("TEMP", String.format("event: %d for %s", event, path));
+                // TODO: TEMP!
+                //android.util.Log.e("TEMP", String.format("event: %d for %s", event, path));
                 for (int i = 0; i < mTargetFilenames.size(); i++) {
                     if (path.equals(mTargetFilenames.get(i))) {
                         mTargetFilenames.remove(i);
