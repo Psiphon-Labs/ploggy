@@ -58,6 +58,8 @@ import android.os.Build;
 
 public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
+    private static final String LOG_TAG = "Tor";
+
     public enum Mode {
         MODE_GENERATE_KEY_MATERIAL,
         MODE_RUN_SERVICES
@@ -84,7 +86,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
     
-    private static final String LOG_TAG = "Tor";
     private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
     

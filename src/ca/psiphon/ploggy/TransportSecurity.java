@@ -19,7 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.security.KeyManagementException;
@@ -28,10 +27,6 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.Scanner;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -40,9 +35,9 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
-import android.util.Base64;
-
 public class TransportSecurity {
+
+    private static final String LOG_TAG = "Transport Security";
 
     public static ServerSocket makeServerSocket(
             X509.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
@@ -53,6 +48,9 @@ public class TransportSecurity {
             sslServerSocket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
             return sslServerSocket;
+        } catch (IllegalArgumentException e) {
+            // TODO: log... unsupported CipherSuite or Protocol
+            throw new Utils.ApplicationError(e);
         } catch (IOException e) {
             throw new Utils.ApplicationError(e);
         }
@@ -62,23 +60,26 @@ public class TransportSecurity {
             X509.KeyMaterial x509KeyMaterial,
             String friendCertificate) throws Utils.ApplicationError {
         try {
-            KeyStore privateKeyStore = KeyStore.getInstance( "PKCS12");
-            privateKeyStore.load(new ByteArrayInputStream(x509KeyMaterial.mPrivateKey.getBytes()), null);
+            KeyStore selfKeyStore = X509.makeKeyStore();
+            X509.loadKeyMaterial(selfKeyStore, x509KeyMaterial);
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509"); 
-            keyManagerFactory.init(privateKeyStore, null);
+            keyManagerFactory.init(selfKeyStore, null);
             KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
             
-            KeyStore certificateStore = KeyStore.getInstance(KeyStore.getDefaultType());
-            certificateStore.load(null);
+            KeyStore peerKeyStore = X509.makeKeyStore();
             if (friendCertificate != null) {
-                loadCertificateStore(certificateStore, friendCertificate);
+                X509.loadKeyMaterial(peerKeyStore, friendCertificate, null);
             } else {
                 for (Data.Friend friend : Data.getInstance().getFriends()) {
-                    loadCertificateStore(certificateStore, friend.mPublicIdentity.mX509Certificate);                    
+                    try {
+                        X509.loadKeyMaterial(peerKeyStore, friend.mPublicIdentity.mX509Certificate, null);
+                    } catch (Utils.ApplicationError e) {
+                        Log.addEntry(LOG_TAG, String.format("no certificate loaded for %s", friend.mPublicIdentity.mNickname));
+                    }
                 }
             }
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("X509");
-            trustManagerFactory.init(certificateStore);
+            trustManagerFactory.init(peerKeyStore);
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
 
             SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -93,36 +94,12 @@ public class TransportSecurity {
             throw new Utils.ApplicationError(e);
         } catch (KeyManagementException e) {
             throw new Utils.ApplicationError(e);
-        } catch (CertificateException e) {
-            throw new Utils.ApplicationError(e);
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
         }        
     }
 
-    private static void loadCertificateStore(
-            KeyStore certificateStore,
-            String certificate) throws IOException, CertificateException, KeyStoreException {
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate x509certificate = (X509Certificate)certificateFactory.generateCertificate(
-                new ByteArrayInputStream(pemToDer(certificate)));
-        String alias = x509certificate.getSubjectX500Principal().getName();
-        certificateStore.setCertificateEntry(alias, x509certificate);        
-    }
-    
-    private static byte[] pemToDer(String pemEncodedValue) throws IOException {
-        Scanner scanner = new Scanner(pemEncodedValue);
-        StringBuilder buffer = new StringBuilder();
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            if(!line.startsWith("--")){
-                buffer.append(line);
-            }
-        }
-        return Base64.decode(buffer.toString(), Base64.DEFAULT);
-    }
-
-    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "DH-RSA-AES128-GCM-SHA256" };
-    private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
+    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_DHE_RSA_WITH_AES_128_CBC_SHA" };
+    // TODO: DH-RSA-AES128-GCM-SHA256 not supported... no GCM or SHA256?
     // TODO: "ECDHE-ECDSA-AES128-GCM-SHA256"; Android support for ECC in TLS... (no JCCE for BC/SC)?
+    // TODO: use TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+    private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
 }
