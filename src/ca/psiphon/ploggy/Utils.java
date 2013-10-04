@@ -19,14 +19,12 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.security.SecureRandom;
@@ -85,13 +83,7 @@ public class Utils {
     }
 
     public static String readInputStreamToString(InputStream inputStream) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        StringBuilder value = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            value.append(line);
-        }
-        return value.toString();
+        return new String(readInputStreamToBytes(inputStream), "UTF-8");
     }
 
     public static byte[] readFileToBytes(File file) throws IOException {

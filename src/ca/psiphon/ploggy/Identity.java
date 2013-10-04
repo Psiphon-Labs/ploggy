@@ -22,8 +22,6 @@ package ca.psiphon.ploggy;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import android.util.Base64;
-
 public class Identity {
 
     // TODO: distinct root cert and server (transport) cert

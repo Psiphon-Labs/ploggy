@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.List;
 
 import android.content.Context;
-import android.util.Base64;
 
 public class Data {
     

@@ -74,13 +74,13 @@ public class Dummy {
                             Log.addEntry("DUMMY", "COMPLETED START WEB SERVER");
                             Log.addEntry("DUMMY", "GENERATE HIDDEN SERVICE");
                             HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
-                            Log.addEntry("DUMMY", "COMPLETED HIDDEN SERVICE");
-                            Log.addEntry("DUMMY", "START HIDDEN SERVICE");
+                            Log.addEntry("DUMMY", "COMPLETED GENERATE HIDDEN SERVICE");
+                            Log.addEntry("DUMMY", "RUN HIDDEN SERVICE");
                             TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_RUN_SERVICES, hiddenServiceKeyMaterial, 8443);
                             tor.start();
-                            Log.addEntry("DUMMY", "COMPLETED START HIDDEN SERVICE");
+                            Log.addEntry("DUMMY", "COMPLETED RUN HIDDEN SERVICE");
                             try {
-                                Thread.sleep(10000);
+                                Thread.sleep(30000);
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
                             }
@@ -95,6 +95,6 @@ public class Dummy {
                     }
                 },
                 2000,
-                60000);
+                300000);
 	}
 }

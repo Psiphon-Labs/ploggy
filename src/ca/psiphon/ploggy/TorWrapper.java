@@ -50,7 +50,6 @@ import java.util.Locale;
 import java.util.Scanner;
 import java.util.zip.ZipInputStream;
 
-import net.freehaven.tor.control.ConfigEntry;
 import net.freehaven.tor.control.TorControlConnection;
 
 import android.content.Context;
@@ -148,7 +147,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             }
             String hostname = Utils.readFileToString(mHiddenServiceHostnameFile);
             String privateKey = Utils.readFileToString(mHiddenServicePrivateKeyFile);
-            mKeyMaterial = new HiddenService.KeyMaterial(hostname, privateKey);
+            // TODO: ...encode to retain formatting (newlines)
+            mKeyMaterial = new HiddenService.KeyMaterial(
+                    Utils.encodeBase64(hostname.getBytes()),
+                    Utils.encodeBase64(privateKey.getBytes()));
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, "Error starting Tor: " + e.getLocalizedMessage());
             throw new Utils.ApplicationError(e);
@@ -221,7 +223,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             }
                 
             mPid = Utils.readFileToInt(mPidFile);
-            mControlPort = getPortValue(Utils.readFileToString(mControlPortFile));
+            mControlPort = getPortValue(Utils.readFileToString(mControlPortFile).trim());
             mControlSocket = new Socket("127.0.0.1", mControlPort);
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.readFileToBytes(mControlAuthCookieFile));
@@ -258,7 +260,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         if (mPid == -1 && mPidFile.exists()) {
             // TODO: use output of ps command when missing pid file...?
             try {
-                mPid = Integer.parseInt(Utils.readFileToString(mPidFile).trim());
+                mPid = Utils.readFileToInt(mPidFile);
             } catch (IOException e) {
             }
         }
@@ -311,9 +313,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "CookieAuthentication 1\n" +
                         "CookieAuthFile %s\n" +
                         "SocksPort 0\n" +
-                        // TODO: won't generate without HiddenServicePort set... prevent publish?
-                        //"HiddenServiceDir %s\n",
-                        "HiddenServiceDir %s\nHiddenServicePort 443 127.0.0.1:8443\n",                        
+                        "HiddenServiceDir %s\n" +
+                        // TODO: FIX! won't generate without HiddenServicePort set... ensure not published? run non-responding server?
+                        "HiddenServicePort 443 127.0.0.1:7\n",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
                     mControlPortFile.getAbsolutePath(),
@@ -351,16 +353,20 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 new FileOutputStream(mConfigFile));
     }
     
-    private void writeHiddenServiceFiles() throws IOException {
+    private void writeHiddenServiceFiles() throws Utils.ApplicationError, IOException {
         mHiddenServiceDirectory.mkdirs();
-        Utils.writeStringToFile(mKeyMaterial.mHostname, mHiddenServiceHostnameFile);
-        Utils.writeStringToFile(mKeyMaterial.mPrivateKey, mHiddenServicePrivateKeyFile);
+        Utils.writeStringToFile(
+                new String(Utils.decodeBase64(mKeyMaterial.mHostname)),
+                mHiddenServiceHostnameFile);
+        Utils.writeStringToFile(
+                new String(Utils.decodeBase64(mKeyMaterial.mPrivateKey)),
+                mHiddenServicePrivateKeyFile);
     }
 
     private int getPortValue(String data) throws Utils.ApplicationError {
         try {
-            // TODO: ...PORT=127.0.0.1:<port>
-            String[] tokens = data.split(":");
+            // TODO: ...PORT=127.0.0.1:<port>\n
+            String[] tokens = data.trim().split(":");
             if (tokens.length != 2) {
                 Log.addEntry(LOG_TAG, "Unexpected port value format");
                 throw new Utils.ApplicationError();                
