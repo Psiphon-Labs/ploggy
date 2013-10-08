@@ -28,6 +28,8 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Tests {
 	
@@ -69,10 +71,12 @@ public class Tests {
 	}
 	
 	public static void runComponentTests() {
+	    ExecutorService threadPool = null;
 	    WebServer webServer = null;
 	    TorWrapper tor = null;
         String response;
 	    try {
+	        threadPool = Executors.newCachedThreadPool();
 	        String selfNickname = "Me";
             Log.addEntry(LOG_TAG, "Generate X509 key material...");
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
@@ -111,7 +115,7 @@ public class Tests {
             Log.addEntry(LOG_TAG, "Start web server...");
             ArrayList<String> friendCertificates = new ArrayList<String>();
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
-            webServer = new WebServer(selfX509KeyMaterial, friendCertificates);
+            webServer = new WebServer(threadPool, selfX509KeyMaterial, friendCertificates);
             try {
                 webServer.start();
             } catch (IOException e) {
@@ -193,6 +197,10 @@ public class Tests {
 	        if (webServer != null) {
 	            webServer.stop();
 	        }
+	        if (threadPool != null) {
+	            Utils.shutdownExecutorService(threadPool);
+	        }
+	        Log.addEntry(LOG_TAG, "Component test run completed");
 	    }
 	}
 }

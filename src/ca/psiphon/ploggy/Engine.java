@@ -79,18 +79,7 @@ public class Engine {
         	mLocationMonitor = null;
         }
         if (mTaskThreadPool != null) {
-	        try
-	        {
-	            mTaskThreadPool.shutdown();
-	            if (!mTaskThreadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
-	                mTaskThreadPool.shutdownNow();
-	                mTaskThreadPool.awaitTermination(100, TimeUnit.MILLISECONDS);                
-	            }
-	        }
-	        catch (InterruptedException e)
-	        {
-	            Thread.currentThread().interrupt();
-	        }
+            Utils.shutdownExecutorService(mTaskThreadPool);
 	        mTaskThreadPool = null;
         }
         if (mTimer != null) {
@@ -128,6 +117,7 @@ public class Engine {
             }
             stopSharingService();
             mWebServer = new WebServer(
+                    mTaskThreadPool,
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                     friendCertificates);
             mWebServer.start();

@@ -23,19 +23,29 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+
+import javax.net.ssl.SSLServerSocket;
 
 import fi.iki.elonen.NanoHTTPD;
 
 public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactory, NanoHTTPD.AsyncRunner {
 
+    private static final String LOG_TAG = "Web Server";
+
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
     
+    private ExecutorService mExecutorService;
     private X509.KeyMaterial mX509KeyMaterial;
     private ArrayList<String> mFriendCerficates;
 	
-    public WebServer(X509.KeyMaterial x509KeyMaterial, ArrayList<String> friendCertificates) throws Utils.ApplicationError {
+    public WebServer(
+            ExecutorService executorService,
+            X509.KeyMaterial x509KeyMaterial,
+            ArrayList<String> friendCertificates) throws Utils.ApplicationError {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
+        mExecutorService = executorService;
         mX509KeyMaterial = x509KeyMaterial;
         mFriendCerficates = friendCertificates;
         setServerSocketFactory(this);
@@ -45,7 +55,17 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            return TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCerficates);
+            SSLServerSocket sslServerSocket = (SSLServerSocket)TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCerficates);
+            // TODO: temp! =========
+            android.util.Log.e(LOG_TAG, "createServerSocket");
+            for (String cipherSuite : sslServerSocket.getEnabledCipherSuites()) {
+                android.util.Log.e(LOG_TAG, "enabled ciphersuite: " + cipherSuite);
+            }
+            for (String protocol : sslServerSocket.getEnabledProtocols()) {
+                android.util.Log.e(LOG_TAG, "enabled protocol: " + protocol);
+            }
+            //=======================
+            return sslServerSocket;
         } catch (Utils.ApplicationError e) {
             throw new IOException(e);
         }
@@ -54,7 +74,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public void exec(Runnable webRequestTask) {
         // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables        
-        Engine.getInstance().submitTask(webRequestTask);
+        mExecutorService.execute(webRequestTask);
     }
 
     @Override

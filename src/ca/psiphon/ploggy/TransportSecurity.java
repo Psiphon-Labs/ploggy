@@ -20,7 +20,10 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -30,6 +33,8 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
@@ -54,7 +59,67 @@ public class TransportSecurity {
             throw new Utils.ApplicationError(e);
         }
     }
+    
+    // TODO: SSLCertificateSocketFactory? SSLSessionCache?
+    public static class ClientSocketFactory extends SSLSocketFactory {
+        
+        SSLSocketFactory mSocketFactory;
+        
+        ClientSocketFactory(SSLContext sslContext) {
+            mSocketFactory = sslContext.getSocketFactory();
+        }
 
+        @Override
+        public String[] getDefaultCipherSuites() {
+            return mSocketFactory.getDefaultCipherSuites();
+        }
+
+        @Override
+        public String[] getSupportedCipherSuites() {
+            return mSocketFactory.getSupportedCipherSuites();
+        }
+
+        @Override
+        public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
+            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(s, host, port, autoClose);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
+            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port) throws IOException {
+            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException, UnknownHostException {
+            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port, localHost, localPort);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
+            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(address, port, localAddress, localPort);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
+            return socket;
+        }        
+    }
+    
     public static SSLContext getSSLContext(
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws Utils.ApplicationError {
@@ -73,8 +138,30 @@ public class TransportSecurity {
             trustManagerFactory.init(peerKeyStore);
             TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
 
-            SSLContext sslContext = SSLContext.getInstance("TLS");
+            SSLContext sslContext = SSLContext.getInstance(TLS_REQUIRED_PROTOCOL);
             sslContext.init(keyManagers, trustManagers, new SecureRandom());
+
+            /*
+            // TODO: temp! =========
+            android.util.Log.e(LOG_TAG, "getSSLContext");
+            android.util.Log.e(LOG_TAG, sslContext.getProtocol());
+            android.util.Log.e(LOG_TAG, sslContext.getProvider().getName());
+            for (String protocol : sslContext.getSupportedSSLParameters().getProtocols()) {
+                android.util.Log.e(LOG_TAG, "supported protocol: " + protocol);
+            }
+            for (String cipherSuite : sslContext.getSupportedSSLParameters().getCipherSuites()) {
+                android.util.Log.e(LOG_TAG, "supported cipher suite: " + cipherSuite);
+            }
+            for (String protocol : sslContext.getDefaultSSLParameters().getProtocols()) {
+                android.util.Log.e(LOG_TAG, "default protocol: " + protocol);
+            }
+            for (String cipherSuite : sslContext.getDefaultSSLParameters().getCipherSuites()) {
+                android.util.Log.e(LOG_TAG, "default cipher suite: " + cipherSuite);
+            }
+            android.util.Log.e(LOG_TAG, "need client auth: " + (sslContext.getDefaultSSLParameters().getNeedClientAuth() ? "yes" : "no"));
+            //=======================
+            */
+            
             return sslContext;
         } catch (GeneralSecurityException e) {
             // TODO: log
@@ -87,5 +174,8 @@ public class TransportSecurity {
 
     // TODO: ...no GCM-SHA256 built-in; no JCCE for SpongyCastle
     private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
-    private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { "TLSv1.2" };
+    // TODO: TLS 1.2 not available on Android 4.0, only 4.1+?
+    //private static final String TLS_REQUIRED_PROTOCOL = "TLSv1.2";
+    private static final String TLS_REQUIRED_PROTOCOL = "SSLv3";
+    private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { TLS_REQUIRED_PROTOCOL };
 }

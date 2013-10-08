@@ -31,6 +31,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 //import org.spongycastle.util.encoders.Base64;
@@ -190,6 +191,21 @@ public class Utils {
         } catch (IllegalArgumentException e) {
             // TODO: log
             throw new Utils.ApplicationError(e);
+        }
+    }
+
+    public static void shutdownExecutorService(ExecutorService threadPool) {
+        try
+        {
+            threadPool.shutdown();
+            if (!threadPool.awaitTermination(1000, TimeUnit.MILLISECONDS)) {
+                threadPool.shutdownNow();
+                threadPool.awaitTermination(100, TimeUnit.MILLISECONDS);                
+            }
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
         }
     }
     

@@ -51,7 +51,8 @@ public class WebClient {
                 client.setProxy(proxy);
             }
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
-            client.setSslSocketFactory(sslContext.getSocketFactory());
+            // TODO: SSLCertificateSocketFactory? SSLSessionCache?
+            client.setSslSocketFactory(new TransportSecurity.ClientSocketFactory(sslContext));
     
             HttpURLConnection connection = client.open(url);
             connection.setRequestMethod("GET");

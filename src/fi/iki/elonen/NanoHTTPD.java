@@ -7,6 +7,8 @@ import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import ca.psiphon.ploggy.Log;
+
 /**
  * A simple, tiny, nicely embeddable HTTP server in Java
  * <p/>
@@ -52,6 +54,9 @@ import java.util.*;
  * See the separate "LICENSE.md" file for the distribution license (Modified BSD licence)
  */
 public abstract class NanoHTTPD {
+    // ==== ploggy ====
+    private static final String LOG_TAG = "NanoHTTPD";
+    // ================
     /**
      * Common mime type for dynamic content: plain text
      */
@@ -92,7 +97,9 @@ public abstract class NanoHTTPD {
         this.myPort = port;
         setTempFileManagerFactory(new DefaultTempFileManagerFactory());
         setAsyncRunner(new DefaultAsyncRunner());
+        // ==== ploggy ====
         setServerSocketFactory(new DefaultServerSocketFactory());
+        // ================
     }
 
     private static final void safeClose(ServerSocket serverSocket) {
@@ -128,7 +135,9 @@ public abstract class NanoHTTPD {
      * @throws IOException if the socket is in use.
      */
     public void start() throws IOException {
+        // ==== ploggy ====
         myServerSocket = serverSocketFactory.createServerSocket();
+        // ================
         myServerSocket.bind((hostname != null) ? new InetSocketAddress(hostname, myPort) : new InetSocketAddress(myPort));
 
         myThread = new Thread(new Runnable() {
@@ -156,7 +165,9 @@ public abstract class NanoHTTPD {
                                         // When the socket is closed by the client, we throw our own SocketException
                                         // to break the  "keep alive" loop above.
                                         if (!(e instanceof SocketException && "NanoHttpd Shutdown".equals(e.getMessage()))) {
-                                            e.printStackTrace();
+                                            // ==== ploggy ====
+                                            Log.addEntry(LOG_TAG, e.getMessage());
+                                            // ================
                                         }
                                     } finally {
                                         safeClose(outputStream);
@@ -167,6 +178,9 @@ public abstract class NanoHTTPD {
                             });
                         }
                     } catch (IOException e) {
+                        // ==== ploggy ====
+                        Log.addEntry(LOG_TAG, e.getMessage());
+                        // ================
                     }
                 } while (!myServerSocket.isClosed());
             }
@@ -182,12 +196,16 @@ public abstract class NanoHTTPD {
     public void stop() {
         try {
             safeClose(myServerSocket);
-            myThread.join();
+            // ==== ploggy ====
+            if (myThread != null) {
+                myThread.join();
+                myThread = null;
+            }
+            // ================
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 
     public final int getListeningPort() {
         return myServerSocket == null ? -1 : myServerSocket.getLocalPort();
@@ -299,12 +317,7 @@ public abstract class NanoHTTPD {
         return parms;
     }
 
-    // ------------------------------------------------------------------------------- //
-    //
-    // SocketFactory Interface.
-    //
-    // ------------------------------------------------------------------------------- //
-
+    // ==== ploggy ====
     private ServerSocketFactory serverSocketFactory;
 
     public void setServerSocketFactory(ServerSocketFactory serverSocketFactory) {
@@ -321,6 +334,7 @@ public abstract class NanoHTTPD {
             return new ServerSocket();
         }
     }
+    // ================
 
     // ------------------------------------------------------------------------------- //
     //
