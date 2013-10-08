@@ -29,10 +29,12 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.List;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -61,11 +63,11 @@ public class TransportSecurity {
     }
     
     // TODO: SSLCertificateSocketFactory? SSLSessionCache?
-    public static class ClientSocketFactory extends SSLSocketFactory {
+    private static class CustomSSLSocketFactory extends SSLSocketFactory {
         
         SSLSocketFactory mSocketFactory;
         
-        ClientSocketFactory(SSLContext sslContext) {
+        CustomSSLSocketFactory(SSLContext sslContext) {
             mSocketFactory = sslContext.getSocketFactory();
         }
 
@@ -118,6 +120,22 @@ public class TransportSecurity {
             socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
             return socket;
         }        
+    }
+    
+    public static SSLSocketFactory getSSLSocketFactory(SSLContext sslContext) {
+        return new CustomSSLSocketFactory(sslContext);
+    }
+
+    private static class CustomHostnameVerifier implements HostnameVerifier {
+        @Override
+        public boolean verify(String hostname, SSLSession session) {
+            // TODO: ...ok as long as trust manager only has *one* peer certificate?
+            return true;
+        }        
+    }
+    
+    public static HostnameVerifier getHostnameVerifier() {
+        return new CustomHostnameVerifier();
     }
     
     public static SSLContext getSSLContext(
@@ -173,9 +191,13 @@ public class TransportSecurity {
     }
 
     // TODO: ...no GCM-SHA256 built-in; no JCCE for SpongyCastle
-    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
+    // TODO: TLS_..._CBC_SHA256 (requires TLS 1.2?)
     // TODO: TLS 1.2 not available on Android 4.0, only 4.1+?
+    //private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
     //private static final String TLS_REQUIRED_PROTOCOL = "TLSv1.2";
+    // TODO: temp!
+    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_DHE_RSA_WITH_AES_128_CBC_SHA" };
     private static final String TLS_REQUIRED_PROTOCOL = "SSLv3";
+
     private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { TLS_REQUIRED_PROTOCOL };
 }

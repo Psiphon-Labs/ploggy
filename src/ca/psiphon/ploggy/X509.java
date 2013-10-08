@@ -41,6 +41,7 @@ import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -203,9 +204,14 @@ public class X509 {
         return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));        
     }
     
-    private static final String CERTIFICATE_TYPE = "X.509";
-    private static final String KEY_TYPE = "EC";
-    private static final AlgorithmParameterSpec KEY_SPEC = new ECGenParameterSpec("secp256r1");
-    private static final String SIGNATURE_TYPE = "SHA256withECDSA";
     private static final String FINGERPRINT_ALGORITHM = "SHA-256";
+    private static final String CERTIFICATE_TYPE = "X.509";
+    //private static final String KEY_TYPE = "EC";
+    //private static final AlgorithmParameterSpec KEY_SPEC = new ECGenParameterSpec("secp256r1");
+    //private static final String SIGNATURE_TYPE = "SHA256withECDSA";
+
+    // TODO: temp!
+    private static final String KEY_TYPE = "RSA";
+    private static final AlgorithmParameterSpec KEY_SPEC = new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F0);
+    private static final String SIGNATURE_TYPE = "SHA256withRSA";
 }

@@ -87,7 +87,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
     private CountDownLatch mFirstCircuitBuiltLatch = null;
-    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
+    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 10000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
     private static final int CIRCUIT_BUILT_TIMEOUT_MILLISECONDS = 30000;
     

@@ -81,7 +81,7 @@ public class Tests {
             Log.addEntry(LOG_TAG, "Generate X509 key material...");
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Generate hidden service key material...");
-            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial =HiddenService.generateKeyMaterial();
+            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Make self...");
             Data.Self self = new Data.Self(
                     Identity.makeSignedPublicIdentity(

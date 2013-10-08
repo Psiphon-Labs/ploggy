@@ -20,13 +20,13 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.Arrays;
 
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 
 import com.squareup.okhttp.OkHttpClient;
@@ -52,9 +52,10 @@ public class WebClient {
             }
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
             // TODO: SSLCertificateSocketFactory? SSLSessionCache?
-            client.setSslSocketFactory(new TransportSecurity.ClientSocketFactory(sslContext));
+            client.setSslSocketFactory(TransportSecurity.getSSLSocketFactory(sslContext));
     
-            HttpURLConnection connection = client.open(url);
+            HttpsURLConnection connection = (HttpsURLConnection)client.open(url);
+            connection.setHostnameVerifier(TransportSecurity.getHostnameVerifier());
             connection.setRequestMethod("GET");
             
             // TODO: stream larger responses to files, etc.
