@@ -150,7 +150,8 @@ public class Tests {
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
                     torProxy,
-                    self.mPublicIdentity.mHiddenServiceHostname,
+                    // TODO: helper; and/or encode pubic identity differently?
+                    new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                     Protocol.GET_STATUS_REQUEST_PATH,
                     null);
@@ -166,7 +167,7 @@ public class Tests {
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         torProxy,
-                        self.mPublicIdentity.mHiddenServiceHostname,
+                        new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.GET_STATUS_REQUEST_PATH,
                         null);
