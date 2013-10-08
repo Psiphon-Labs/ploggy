@@ -98,7 +98,7 @@ public class Data {
         }
     }
     
-    public static class DataNotFoundException extends Exception {
+    public static class DataNotFoundException extends Utils.ApplicationError {
         private static final long serialVersionUID = -8736069103392081076L;        
     }
 

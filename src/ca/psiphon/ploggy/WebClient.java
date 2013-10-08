@@ -25,6 +25,9 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.URL;
+import java.util.Arrays;
+
+import javax.net.ssl.SSLContext;
 
 import com.squareup.okhttp.OkHttpClient;
 
@@ -32,19 +35,23 @@ public class WebClient {
 
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
-            String friendCertificate,
-            String friendHiddenServiceHostname,
+            String peerCertificate,
+            Proxy proxy,
+            String hostname,
+            int port,
             String requestPath,
             String body) throws Utils.ApplicationError {        
         try {            
-            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, friendHiddenServiceHostname, Protocol.WEB_SERVER_VIRTUAL_PORT, requestPath);
-            Proxy proxy = Engine.getInstance().getLocalProxy();
+            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, port, requestPath);
             
             // TODO: cache? or setConnectionPool(ConnectionPool connectionPool)?
             // ... see default connection pool params: http://square.github.io/okhttp/javadoc/com/squareup/okhttp/ConnectionPool.html
-            OkHttpClient client = new OkHttpClient();        
-            client.setProxy(proxy);
-            client.setSslSocketFactory(TransportSecurity.getSSLContext(x509KeyMaterial, friendCertificate).getSocketFactory());
+            OkHttpClient client = new OkHttpClient();
+            if (proxy != null) {
+                client.setProxy(proxy);
+            }
+            SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
+            client.setSslSocketFactory(sslContext.getSocketFactory());
     
             HttpURLConnection connection = client.open(url);
             connection.setRequestMethod("GET");
@@ -59,5 +66,22 @@ public class WebClient {
         } catch (IOException e) {
             throw new Utils.ApplicationError(e);
         }
-    }    
+    }
+    
+    public static String makeGetRequest(
+            X509.KeyMaterial x509KeyMaterial,
+            String friendCertificate,
+            String friendHiddenServiceHostname,
+            String requestPath,
+            String body) throws Utils.ApplicationError {
+        Proxy proxy = Engine.getInstance().getLocalProxy();
+        return makeGetRequest(
+                x509KeyMaterial,
+                friendCertificate,
+                proxy,
+                friendHiddenServiceHostname,
+                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                requestPath,
+                body);
+    }
 }

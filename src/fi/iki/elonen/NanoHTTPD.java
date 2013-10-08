@@ -308,7 +308,7 @@ public abstract class NanoHTTPD {
     private ServerSocketFactory serverSocketFactory;
 
     public void setServerSocketFactory(ServerSocketFactory serverSocketFactory) {
-        serverSocketFactory = serverSocketFactory;
+        this.serverSocketFactory = serverSocketFactory;
     }
 
     public interface ServerSocketFactory {

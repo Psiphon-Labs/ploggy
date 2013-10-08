@@ -265,7 +265,6 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             self = Data.getInstance().getSelf();
         } catch (Utils.ApplicationError e) {
             // TODO: log?
-        } catch (Data.DataNotFoundException e) {
         }
         return self;
     }

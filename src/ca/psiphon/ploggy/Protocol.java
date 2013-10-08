@@ -25,6 +25,8 @@ public class Protocol {
     
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
     
+    public static final String RESPONSE_MIME_TYPE = "application/json";
+    
     public static final String GET_STATUS_REQUEST_PATH = "/status";
 
     public static boolean isValidNickname(String nickname) {
@@ -32,9 +34,12 @@ public class Protocol {
         return nickname.length() > 0;
     }
 
-    public static boolean isValidFriend(Data.Friend friend) {
+    public static void validateFriend(Data.Friend friend) throws Utils.ApplicationError {
         // TODO: Nickname valid, cert valid, hostname valid
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
-        return true;
+    }
+
+    public static void validateStatus(Data.Status status) throws Utils.ApplicationError {
+        // TODO: timestamp, long, lat, street address
     }
 }

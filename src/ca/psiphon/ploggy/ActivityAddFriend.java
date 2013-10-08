@@ -111,8 +111,6 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             return;
         } catch (Utils.ApplicationError e) {
             // TODO: log?
-        } catch (Data.DataNotFoundException e) {
-            // TODO: log?
         }
         Robohash.setRobohashImage(this, mSelfAvatarImage, null);
         mSelfNicknameText.setText("");    
@@ -180,10 +178,8 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             String payload = new String(ndefMessage.getRecords()[0].getPayload());
             try {
                 Data.Friend friend = Json.fromJson(payload, Data.Friend.class);
-                if (!Protocol.isValidFriend(friend)) {
-                    // TODO: show error?
-                    return;
-                }
+                // TODO: display validation error?
+                Protocol.validateFriend(friend);
                 mReceivedFriend = friend;
                 showFriend();
                 // TODO: update add_friend_description_text as well?
@@ -211,7 +207,6 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             						NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
             // TODO: log?
-        } catch (Data.DataNotFoundException e) {
         }
         return null;
     }

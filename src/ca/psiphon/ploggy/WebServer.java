@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.Map;
 
 import fi.iki.elonen.NanoHTTPD;
@@ -30,11 +31,13 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
     
     private X509.KeyMaterial mX509KeyMaterial;
+    private ArrayList<String> mFriendCerficates;
 	
-    public WebServer(X509.KeyMaterial x509KeyMaterial) throws Utils.ApplicationError {
+    public WebServer(X509.KeyMaterial x509KeyMaterial, ArrayList<String> friendCertificates) throws Utils.ApplicationError {
         // Specifying port 0 so OS will pick any available ephemeral port
         super(0);
         mX509KeyMaterial = x509KeyMaterial;
+        mFriendCerficates = friendCertificates;
         setServerSocketFactory(this);
         setAsyncRunner(this);
     }
@@ -42,7 +45,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            return TransportSecurity.makeServerSocket(mX509KeyMaterial);
+            return TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCerficates);
         } catch (Utils.ApplicationError e) {
             throw new IOException(e);
         }
@@ -56,7 +59,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     @Override
     public Response serve(String uri, Method method, Map<String, String> headers, Map<String, String> parms, Map<String, String> files) {
-        // TODO: ...
-        return null;
+        try {
+            if (uri.equals(Protocol.GET_STATUS_REQUEST_PATH)) {
+                Data.Status status = Data.getInstance().getSelfStatus();
+                return new Response(NanoHTTPD.Response.Status.OK, Protocol.RESPONSE_MIME_TYPE, Json.toJson(status));
+            }
+        } catch (Utils.ApplicationError e) {
+            // TODO: log
+        }
+        return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }
 }

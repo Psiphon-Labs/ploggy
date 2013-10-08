@@ -24,6 +24,7 @@ import java.net.ServerSocket;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -37,10 +38,11 @@ public class TransportSecurity {
     private static final String LOG_TAG = "Transport Security";
 
     public static ServerSocket makeServerSocket(
-            X509.KeyMaterial transportKeyMaterial) throws Utils.ApplicationError {
+            X509.KeyMaterial transportKeyMaterial,
+            List<String> friendCertificates) throws Utils.ApplicationError {
         try {
-            SSLServerSocket sslServerSocket =
-                    (SSLServerSocket)(TransportSecurity.getSSLContext(transportKeyMaterial, null).getServerSocketFactory().createServerSocket());
+            SSLContext sslContext = TransportSecurity.getSSLContext(transportKeyMaterial, friendCertificates);
+            SSLServerSocket sslServerSocket = (SSLServerSocket)(sslContext.getServerSocketFactory().createServerSocket());
             sslServerSocket.setNeedClientAuth(true);
             sslServerSocket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
@@ -55,7 +57,7 @@ public class TransportSecurity {
 
     public static SSLContext getSSLContext(
             X509.KeyMaterial x509KeyMaterial,
-            String friendCertificate) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws Utils.ApplicationError {
         try {
             KeyStore selfKeyStore = X509.makeKeyStore();
             X509.loadKeyMaterial(selfKeyStore, x509KeyMaterial);
@@ -64,16 +66,8 @@ public class TransportSecurity {
             KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
             
             KeyStore peerKeyStore = X509.makeKeyStore();
-            if (friendCertificate != null) {
+            for (String friendCertificate : friendCertificates) {
                 X509.loadKeyMaterial(peerKeyStore, friendCertificate, null);
-            } else {
-                for (Data.Friend friend : Data.getInstance().getFriends()) {
-                    try {
-                        X509.loadKeyMaterial(peerKeyStore, friend.mPublicIdentity.mX509Certificate, null);
-                    } catch (Utils.ApplicationError e) {
-                        Log.addEntry(LOG_TAG, String.format("no certificate loaded for %s", friend.mPublicIdentity.mNickname));
-                    }
-                }
             }
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("X509");
             trustManagerFactory.init(peerKeyStore);

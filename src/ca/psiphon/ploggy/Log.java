@@ -52,5 +52,7 @@ public class Log {
     	mEntries.add(new Entry(tag, message));
     	// TODO: truncate
     	Events.post(new Events.AddedLogEntry());
+    	// TODO: temp
+    	android.util.Log.e(tag, message);
     }
 }

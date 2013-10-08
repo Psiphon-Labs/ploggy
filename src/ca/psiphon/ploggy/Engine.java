@@ -22,6 +22,7 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
@@ -121,17 +122,20 @@ public class Engine {
     private void startSharingService() throws Utils.ApplicationError {
         try {
             Data.Self self = Data.getInstance().getSelf();
+            ArrayList<String> friendCertificates = new ArrayList<String>();
+            for (Data.Friend friend : Data.getInstance().getFriends()) {
+                friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
+            }
             stopSharingService();
             mWebServer = new WebServer(
-                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey));
+                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                    friendCertificates);
             mWebServer.start();
             mTorWrapper = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
             mTorWrapper.start();
-        } catch (Data.DataNotFoundException e) {
-            throw new Utils.ApplicationError(e);
         } catch (IOException e) {
             throw new Utils.ApplicationError(e);
         }
@@ -262,7 +266,7 @@ public class Engine {
                     // Schedule next poll
                     Engine.getInstance().schedulePollFriend(taskFriendId, false);
                 } catch (Data.DataNotFoundException e) {
-                    // Next poll won't be scheduled
+                    // TODO: ...Deleted; Next poll won't be scheduled
                 } catch (Utils.ApplicationError e) {
                     // TODO: ...?
                 }

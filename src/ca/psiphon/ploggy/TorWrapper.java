@@ -48,6 +48,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
@@ -84,9 +86,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private int mSocksProxyPort = -1;
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
-    
+    private CountDownLatch mFirstCircuitBuiltLatch = null;
     private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 5000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
+    private static final int CIRCUIT_BUILT_TIMEOUT_MILLISECONDS = 30000;
     
     public TorWrapper(Mode mode) {
         this(mode, null, -1);
@@ -140,7 +143,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                             mHiddenServiceHostnameFile.getName(),
                             mHiddenServicePrivateKeyFile.getName());
             hiddenServiceInitializedObserver.startWatching();
-            startDaemon();
+            startDaemon(false);
             if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
                 Log.addEntry(LOG_TAG, "Timeout waiting for Tor hidden service initialization");
                 throw new Utils.ApplicationError();
@@ -170,7 +173,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             writeExecutableFile();
             writeRunServicesConfigFile();
             writeHiddenServiceFiles();
-            startDaemon();
+            startDaemon(true);
             mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
             startCompleted = true;
         } catch (IOException e) {
@@ -185,8 +188,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
     }
     
-    private void startDaemon() throws Utils.ApplicationError, IOException, InterruptedException {
+    private void startDaemon(boolean awaitFirstCircuit) throws Utils.ApplicationError, IOException, InterruptedException {
         try {
+            mFirstCircuitBuiltLatch = new CountDownLatch(1);
             mControlAuthCookieFile.delete();
             Utils.FileInitializedObserver controlInitializedObserver =
                     new Utils.FileInitializedObserver(
@@ -228,7 +232,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.readFileToBytes(mControlAuthCookieFile));
             mControlConnection.setEventHandler(this);
-            mControlConnection.setEvents(Arrays.asList("NOTICE", "WARN", "ERR"));
+            mControlConnection.setEvents(Arrays.asList("CIRC", "NOTICE", "WARN", "ERR"));
+            if (awaitFirstCircuit) {
+                mFirstCircuitBuiltLatch.await(CIRCUIT_BUILT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            }
         } finally {
             if (mProcess != null) {
                 try {
@@ -380,17 +387,17 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     @Override
     public void circuitStatus(String status, String circID, String path) {
-        Log.addEntry(LOG_TAG, status);
+        if (status.equals("BUILT")) {
+            mFirstCircuitBuiltLatch.countDown();
+        }
     }
 
     @Override
     public void streamStatus(String status, String streamID, String target) {
-        Log.addEntry(LOG_TAG, status);
     }
 
     @Override
     public void orConnStatus(String status, String orName) {
-        Log.addEntry(LOG_TAG, status);
     }
 
     @Override
@@ -402,12 +409,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
 
     @Override
-    public void message(String severity, String msg) {
-        Log.addEntry(LOG_TAG, msg);
+    public void message(String severity, String message) {
+        Log.addEntry(LOG_TAG, message);
     }
 
     @Override
-    public void unrecognized(String type, String msg) {
-        Log.addEntry(LOG_TAG, msg);
+    public void unrecognized(String type, String message) {
+        Log.addEntry(LOG_TAG, message);
     }
 }

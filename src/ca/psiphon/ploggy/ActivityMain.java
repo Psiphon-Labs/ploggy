@@ -211,9 +211,16 @@ public class ActivityMain extends Activity {
     			
     			Robohash.setRobohashImage(mContext, avatarImage, friend.mPublicIdentity);
     			nicknameText.setText(friend.mPublicIdentity.mNickname);
-    			// TODO: load status
-    			streetAddressText.setText("123 Streetname St.\nCity\nState\nCountry");
-    			timestampText.setText("2013-09-13 22:52:00");
+    			try {
+        			Data.Status status = Data.getInstance().getFriendStatus(friend.mId);
+        			// TODO: longitude, latitude, map, etc.
+        			streetAddressText.setText(status.mStreetAddress);
+        			timestampText.setText(status.mTimestamp);
+    			} catch (Utils.ApplicationError e) {
+    			    // TODO: treat DataNotFoundException differently?
+                    streetAddressText.setText("");
+                    timestampText.setText("");
+    			}
     		}    		
     		return view;
     	}
