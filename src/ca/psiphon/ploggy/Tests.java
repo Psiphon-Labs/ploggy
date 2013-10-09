@@ -142,10 +142,11 @@ public class Tests {
                     webServer.getListeningPort());
             selfTor.start();
             Log.addEntry(LOG_TAG, "Run friend Tor...");
+            // TODO: distinct web server
             friendTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-friend",
-                    selfHiddenServiceKeyMaterial,
+                    friendHiddenServiceKeyMaterial,
                     webServer.getListeningPort());
             friendTor.start();
             Proxy friendTorProxy = new Proxy(
