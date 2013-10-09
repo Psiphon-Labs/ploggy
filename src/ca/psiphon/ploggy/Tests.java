@@ -152,6 +152,28 @@ public class Tests {
             Proxy friendTorProxy = new Proxy(
                     Proxy.Type.SOCKS,
                     new InetSocketAddress("127.0.0.1", friendTor.getSocksProxyPort()));
+
+            // TODO: temp!
+            //===================
+            Log.addEntry(LOG_TAG, "Test request...");
+            response = WebClient.makeGetRequest(
+                    friendX509KeyMaterial,
+                    self.mPublicIdentity.mX509Certificate,
+                    friendTorProxy,
+                    "psiphon.ca",
+                    443,
+                    "/",
+                    null);
+            Log.addEntry(LOG_TAG, response);
+            //===================
+
+            // TODO: monitor via Tor control interface?
+            Log.addEntry(LOG_TAG, "Wait while hidden service is published...");
+            try {
+                Thread.sleep(60000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             Log.addEntry(LOG_TAG, "Request from valid friend...");
             response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,

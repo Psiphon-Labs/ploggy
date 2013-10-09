@@ -29,11 +29,12 @@ import java.util.Arrays;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 
-import com.squareup.okhttp.OkHttpClient;
-
 public class WebClient {
 
     private static final String LOG_TAG = "Web Client";
+
+    private static final int CONNECT_TIMEOUT_MILLISECONDS = 10000;
+    private static final int READ_TIMEOUT_MILLISECONDS = 10000;
 
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
@@ -43,32 +44,37 @@ public class WebClient {
             int port,
             String requestPath,
             String body) throws Utils.ApplicationError {        
+        HttpsURLConnection httpsUrlConnection = null;
         try {            
             URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, port, requestPath);
-            
-            // TODO: cache? or setConnectionPool(ConnectionPool connectionPool)?
-            // ... see default connection pool params: http://square.github.io/okhttp/javadoc/com/squareup/okhttp/ConnectionPool.html
-            OkHttpClient client = new OkHttpClient();
+
+            // TODO: connection pooling; OkHttp?
             if (proxy != null) {
-                client.setProxy(proxy);
+                httpsUrlConnection = (HttpsURLConnection)url.openConnection(proxy);
+            } else {
+                httpsUrlConnection = (HttpsURLConnection)url.openConnection();                
             }
+            httpsUrlConnection.setConnectTimeout(CONNECT_TIMEOUT_MILLISECONDS);
+            httpsUrlConnection.setReadTimeout(READ_TIMEOUT_MILLISECONDS);
+            httpsUrlConnection.setHostnameVerifier(TransportSecurity.getHostnameVerifier());
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
-            // TODO: SSLCertificateSocketFactory? SSLSessionCache?
-            client.setSslSocketFactory(TransportSecurity.getSSLSocketFactory(sslContext));
-    
-            HttpsURLConnection connection = (HttpsURLConnection)client.open(url);
-            connection.setHostnameVerifier(TransportSecurity.getHostnameVerifier());
-            connection.setRequestMethod("GET");
-            
+            httpsUrlConnection.setSSLSocketFactory(TransportSecurity.getSSLSocketFactory(sslContext));
+            httpsUrlConnection.setRequestMethod("GET");
+
             // TODO: stream larger responses to files, etc.
-            // TODO: finally { connection.close(); }
-            return Utils.readInputStreamToString(connection.getInputStream());
+            return Utils.readInputStreamToString(httpsUrlConnection.getInputStream());
         } catch (MalformedURLException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (ProtocolException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (UnsupportedOperationException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            if (httpsUrlConnection != null) {
+                httpsUrlConnection.disconnect();
+            }
         }
     }
     

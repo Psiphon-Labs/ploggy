@@ -88,9 +88,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
     private CountDownLatch mCircuitEstablishedLatch = null;
-    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
-    private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
-    private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 30000;
+    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 60000;
+    private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 60000;
+    private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 60000;
     
     public TorWrapper(Mode mode) {
         this(mode, null, -1);
@@ -333,7 +333,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "SocksPort 0\n" +
                         "HiddenServiceDir %s\n" +
                         // TODO: FIX! won't generate without HiddenServicePort set... ensure not published? run non-responding server?
-                        "HiddenServicePort 443 127.0.0.1:7\n",
+                        "HiddenServicePort 443 localhost:7\n",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
                     mControlPortFile.getAbsolutePath(),
@@ -358,7 +358,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "CookieAuthFile %s\n" +
                         "SocksPort auto\n" +
                         "HiddenServiceDir %s\n" +
-                        "HiddenServicePort 443 127.0.0.1:%d\n",
+                        "HiddenServicePort 443 localhost:%d\n",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
                     mControlPortFile.getAbsolutePath(),
