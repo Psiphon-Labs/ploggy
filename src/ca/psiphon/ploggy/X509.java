@@ -96,12 +96,10 @@ public class X509 {
             return new KeyMaterial(
                     Utils.encodeBase64(x509certificate.getEncoded()),
                     Utils.encodeBase64(keyPair.getPrivate().getEncoded()));
-        } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
         } catch (IllegalArgumentException e) {
-            // TODO: log... unsupported algo, etc.
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (GeneralSecurityException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 
@@ -116,8 +114,7 @@ public class X509 {
             signer.update(data);
             return Utils.encodeBase64(signer.sign());
         } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
@@ -128,8 +125,7 @@ public class X509 {
             verifier.update(data);
             return verifier.verify(Utils.decodeBase64(signature));
         } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
@@ -140,12 +136,10 @@ public class X509 {
                 hash.update(params[i].getBytes("UTF-8"));
             }
             return hash.digest();
-        } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
         } catch (UnsupportedEncodingException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (GeneralSecurityException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 
@@ -156,11 +150,9 @@ public class X509 {
             keyStore.load(null);
             return keyStore;
         } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (IOException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
@@ -179,16 +171,14 @@ public class X509 {
                 PrivateKey decodedPrivateKey = decodePrivateKey(privateKey); 
                 keyStore.setKeyEntry(alias, decodedPrivateKey, null, new X509Certificate[] {x509certificate});
             }
-        } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
         } catch (IllegalArgumentException e) {
-            // TODO: log... malformed public key (generatePrivate) or invalid Base64
-            throw new Utils.ApplicationError(e);
+            // TODO: ... malformed public key (generatePrivate) or invalid Base64
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (NullPointerException e) {
             // TODO: ...getSubjectDN returns null and/or throws NPE on invalid input
-            Log.addEntry(LOG_TAG, "invalid certificate");
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (GeneralSecurityException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     

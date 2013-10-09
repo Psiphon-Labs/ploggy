@@ -33,6 +33,8 @@ import android.content.Context;
 
 public class Data {
     
+    private static final String LOG_TAG = "Data";
+    
     // ... immutable POJOs
     // TODO: rename mFieldName --> fieldName (since using object mapper for json)
     // TODO: http://google-gson.googlecode.com/svn/trunk/gson/docs/javadocs/com/google/gson/FieldNamingPolicy.html
@@ -99,7 +101,11 @@ public class Data {
     }
     
     public static class DataNotFoundException extends Utils.ApplicationError {
-        private static final long serialVersionUID = -8736069103392081076L;        
+        private static final long serialVersionUID = -8736069103392081076L;
+        
+        public DataNotFoundException() {
+            super(LOG_TAG, "data not found");
+        }
     }
 
     // ---- Singleton ----
@@ -295,7 +301,7 @@ public class Data {
         } catch (FileNotFoundException e) {
             throw new DataNotFoundException();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
             if (inputStream != null) {
                 try {
@@ -315,7 +321,7 @@ public class Data {
             outputStream.close();
             replaceFileIfExists(commitFilename, filename);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
             if (outputStream != null) {
                 try {

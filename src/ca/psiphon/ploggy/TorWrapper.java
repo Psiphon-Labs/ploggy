@@ -143,12 +143,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             writeGenerateKeyMaterialConfigFile();
             mHiddenServiceDirectory.mkdirs();
             if (mHiddenServiceHostnameFile.exists() && !mHiddenServiceHostnameFile.delete()) {
-                Log.addEntry(logTag(), "Failed to delete existing hidden service hostname file");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service hostname file");
             }
             if (mHiddenServicePrivateKeyFile.exists() && !mHiddenServicePrivateKeyFile.delete()) {
-                Log.addEntry(logTag(), "Failed to delete existing hidden service private key file");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service private key file");
             }
             Utils.FileInitializedObserver hiddenServiceInitializedObserver =
                     new Utils.FileInitializedObserver(
@@ -158,8 +156,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             hiddenServiceInitializedObserver.startWatching();
             startDaemon(false);
             if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                Log.addEntry(logTag(), "Timeout waiting for Tor hidden service initialization");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(logTag(), "timeout waiting for Tor hidden service initialization");
             }
             String hostname = Utils.readFileToString(mHiddenServiceHostnameFile);
             String privateKey = Utils.readFileToString(mHiddenServicePrivateKeyFile);
@@ -168,8 +165,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                     Utils.encodeBase64(hostname.getBytes()),
                     Utils.encodeBase64(privateKey.getBytes()));
         } catch (IOException e) {
-            Log.addEntry(logTag(), "Error starting Tor: " + e.getLocalizedMessage());
-            throw new Utils.ApplicationError(e);
+            Log.addEntry(logTag(), "failed to start Tor");
+            throw new Utils.ApplicationError(logTag(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
@@ -190,8 +187,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
             startCompleted = true;
         } catch (IOException e) {
-            Log.addEntry(logTag(), "Error starting Tor: " + e.getLocalizedMessage());
-            throw new Utils.ApplicationError(e);
+            Log.addEntry(logTag(), "failed to start Tor");
+            throw new Utils.ApplicationError(logTag(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
@@ -232,13 +229,11 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
             int exit = mProcess.waitFor();
             if (exit != 0) {
-                Log.addEntry(logTag(), String.format("Tor exited with error %d", exit));
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(logTag(), String.format("Tor exited with error %d", exit));
             }
             
             if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                Log.addEntry(logTag(), "Timeout waiting for Tor control initialization");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(logTag(), "timeout waiting for Tor control initialization");
             }
                 
             mPid = Utils.readFileToInt(mPidFile);
@@ -391,13 +386,11 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             // TODO: ...PORT=127.0.0.1:<port>\n
             String[] tokens = data.trim().split(":");
             if (tokens.length != 2) {
-                Log.addEntry(logTag(), "Unexpected port value format");
-                throw new Utils.ApplicationError();                
+                throw new Utils.ApplicationError(logTag(), "unexpected port value format");                
             }
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
-            Log.addEntry(logTag(), "Unexpected port value format");
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(logTag(), e);
         }        
     }
     

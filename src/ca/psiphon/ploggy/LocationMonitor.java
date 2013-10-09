@@ -34,6 +34,8 @@ import android.os.Bundle;
 import com.squareup.otto.Subscribe;
 
 public class LocationMonitor implements android.location.LocationListener {
+    
+    private static final String LOG_TAG = "Location Monitor";
 
     // TODO: http://stackoverflow.com/questions/3145089/what-is-the-simplest-and-most-robust-way-to-get-the-users-current-location-in-a
     // TODO: http://developer.android.com/guide/topics/location/strategies.html
@@ -61,7 +63,7 @@ public class LocationMonitor implements android.location.LocationListener {
                 	try {
                 		startLocationListeners();
                 	} catch (Utils.ApplicationError e) {
-                		// TODO: ...log
+                		Log.addEntry(LOG_TAG, "failed to start location listeners");
                 	}
                 }
             },
@@ -92,7 +94,6 @@ public class LocationMonitor implements android.location.LocationListener {
     	try {
     		restart();
     	} catch (Utils.ApplicationError e) {
-    		// TODO: ...log?
     	}
     }    
     
@@ -132,7 +133,7 @@ public class LocationMonitor implements android.location.LocationListener {
 	                    reportLocation();
 	                    stopLocationListeners();
                 	} catch (Utils.ApplicationError e) {
-                		// TODO: ...log
+                        Log.addEntry(LOG_TAG, "failed location fix");
                 	}
                 }
             },
@@ -170,7 +171,7 @@ public class LocationMonitor implements android.location.LocationListener {
 								mLastReportedLocation.getLongitude(),
 								1);
 					} catch (IOException e) {
-						// TODO: report error
+					    Log.addEntry(LOG_TAG, "failed reverse geocode");
                     }
 					
 					// TODO: get tiles
@@ -197,7 +198,6 @@ public class LocationMonitor implements android.location.LocationListener {
     	try {
     		restart();
     	} catch (Utils.ApplicationError e) {
-    		// TODO: ...log?
     	}
     }
 
@@ -206,7 +206,6 @@ public class LocationMonitor implements android.location.LocationListener {
     	try {
     		restart();
     	} catch (Utils.ApplicationError e) {
-    		// TODO: ...log?
     	}
     }
 
@@ -215,7 +214,6 @@ public class LocationMonitor implements android.location.LocationListener {
     	try {
     		restart();
     	} catch (Utils.ApplicationError e) {
-    		// TODO: ...log?
     	}
     }
 

@@ -72,6 +72,8 @@ import android.graphics.Rect;
 import android.widget.ImageView;
 
 public class Robohash {
+    
+    private static final String LOG_TAG = "Robohash";
 
     private static final String ASSETS_SUBDIRECTORY = "robohash";
     private static final String CONFIG_FILENAME = "config.json";
@@ -135,14 +137,11 @@ public class Robohash {
             return monsterBitmap;
             
         } catch (IOException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (JSONException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (NoSuchAlgorithmException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 

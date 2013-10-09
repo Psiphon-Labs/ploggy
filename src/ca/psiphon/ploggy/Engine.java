@@ -33,6 +33,8 @@ import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
 
 public class Engine {
+    
+    private static final String LOG_TAG = "Engine";
 
     // ---- Singleton ----
     private static Engine instance = null;
@@ -127,7 +129,7 @@ public class Engine {
                     mWebServer.getListeningPort());
             mTorWrapper.start();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
@@ -146,7 +148,7 @@ public class Engine {
                     Proxy.Type.SOCKS,
                     new InetSocketAddress("127.0.0.1", mTorWrapper.getSocksProxyPort()));
         }
-        throw new Utils.ApplicationError();
+        throw new Utils.ApplicationError(LOG_TAG, "no local proxy");
     }
     
     @Subscribe

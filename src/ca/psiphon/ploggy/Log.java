@@ -25,6 +25,8 @@ import java.util.Date;
 import java.util.List;
 
 public class Log {
+    
+    private static final String LOG_TAG = "Log";
 
     public static class Entry {
         public final String mTag;

@@ -55,7 +55,7 @@ public class Tests {
                                         "")));
             }
 	    } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, String.format("insertMockFriends failed: %s", e.getMessage()));
+            Log.addEntry(LOG_TAG, "insertMockFriends failed");
 	    }
 	}
 	
@@ -119,7 +119,7 @@ public class Tests {
             try {
                 webServer.start();
             } catch (IOException e) {
-                throw new Utils.ApplicationError(e);
+                throw new Utils.ApplicationError(LOG_TAG, e);
             }
             Log.addEntry(LOG_TAG, "Direct request from valid friend...");
             String response = WebClient.makeGetRequest(
@@ -132,8 +132,7 @@ public class Tests {
                     null);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
-                Log.addEntry(LOG_TAG, "Unexpected status response value");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Run self Tor...");
             selfTor = new TorWrapper(
@@ -164,8 +163,7 @@ public class Tests {
                     null);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
-                Log.addEntry(LOG_TAG, "Unexpected status response value");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
             boolean failed = false;
@@ -185,8 +183,7 @@ public class Tests {
                 failed = true;
             }
             if (!failed) {
-                Log.addEntry(LOG_TAG, "Unexpected success");
-                throw new Utils.ApplicationError();
+                throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
             }
             Log.addEntry(LOG_TAG, "Request to invalid friend...");
             // TODO: implement (create a distinct hidden service)
@@ -194,7 +191,7 @@ public class Tests {
             // TODO: implement
             Log.addEntry(LOG_TAG, "Component test run success");
 	    } catch (Utils.ApplicationError e) {
-	        Log.addEntry(LOG_TAG, String.format("Test failed: %s", e.getMessage()));
+	        Log.addEntry(LOG_TAG, "Test failed");
 	    } finally {
             if (selfTor != null) {
                 selfTor.stop();

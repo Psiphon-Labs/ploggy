@@ -23,6 +23,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 public class Identity {
+    
+    private static final String LOG_TAG = "Identity";
 
     // TODO: distinct root cert and server (transport) cert
     
@@ -65,7 +67,7 @@ public class Identity {
             byteArray.write(hiddenServiceHostname.getBytes("UTF-8"));
             return byteArray.toByteArray();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     

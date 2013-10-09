@@ -21,6 +21,8 @@ package ca.psiphon.ploggy;
 
 public class HiddenService {
     
+    private static final String LOG_TAG = "Hidden Service";
+    
     public static class KeyMaterial {
         public final String mHostname;
         public final String mPrivateKey;

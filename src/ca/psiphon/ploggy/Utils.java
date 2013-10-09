@@ -44,14 +44,24 @@ import de.schildbach.wallet.util.LinuxSecureRandom;
 
 public class Utils {
 
+    private static final String LOG_TAG = "Utils";
+    
     public static class ApplicationError extends Exception {
         private static final long serialVersionUID = -3656367025650685613L;
 
-        public ApplicationError() {
+        public ApplicationError(String tag, String message) {
+            Log.addEntry(tag, message);
         }
 
-        public ApplicationError(Exception e) {
+        public ApplicationError(String tag, Exception e) {
+            // TODO: require message param as well?
             super(e);
+            String message = e.getLocalizedMessage();
+            if (message == null) {
+                message = "";
+            }
+            Log.addEntry(tag, e.getLocalizedMessage());
+            // TODO: log stack trace?
         }
     }
 
@@ -189,8 +199,7 @@ public class Utils {
         try {
             return Base64.decode(data, Base64.DEFAULT);
         } catch (IllegalArgumentException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 

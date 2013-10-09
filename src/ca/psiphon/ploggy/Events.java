@@ -27,6 +27,8 @@ import com.squareup.otto.Bus;
 import com.squareup.otto.ThreadEnforcer;
 
 public class Events {
+    
+    private static final String LOG_TAG = "Events";
 
     // TODO: final?
 	private static Bus mBus;

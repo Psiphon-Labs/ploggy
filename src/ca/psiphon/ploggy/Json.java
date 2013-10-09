@@ -31,6 +31,8 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 
 public class Json {
+    
+    private static final String LOG_TAG = "Json";
 
     private static final Gson mSerializer =
             new GsonBuilder().setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
@@ -43,7 +45,7 @@ public class Json {
         try {
             return mSerializer.fromJson(json, type);
         } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 
@@ -52,7 +54,7 @@ public class Json {
         	Type collectionType = new TypeToken<Collection<T>>(){}.getType();
             return mSerializer.fromJson(json, collectionType);
         } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 
@@ -62,7 +64,6 @@ public class Json {
         public String translateName(Field field) {
             // TODO: ... mFieldName --> fieldName
             return Character.toLowerCase(field.getName().charAt(1)) + field.getName().substring(2);
-        }
-        
+        }        
     }
 }

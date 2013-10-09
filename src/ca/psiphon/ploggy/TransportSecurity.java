@@ -55,10 +55,9 @@ public class TransportSecurity {
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
             return sslServerSocket;
         } catch (IllegalArgumentException e) {
-            // TODO: log... unsupported CipherSuite or Protocol
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
@@ -181,12 +180,10 @@ public class TransportSecurity {
             */
             
             return sslContext;
-        } catch (GeneralSecurityException e) {
-            // TODO: log
-            throw new Utils.ApplicationError(e);
         } catch (IllegalArgumentException e) {
-            // TODO: log ...
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (GeneralSecurityException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 

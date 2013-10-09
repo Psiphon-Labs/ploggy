@@ -33,6 +33,8 @@ import com.squareup.okhttp.OkHttpClient;
 
 public class WebClient {
 
+    private static final String LOG_TAG = "Web Client";
+
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
@@ -62,11 +64,11 @@ public class WebClient {
             // TODO: finally { connection.close(); }
             return Utils.readInputStreamToString(connection.getInputStream());
         } catch (MalformedURLException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (ProtocolException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(e);
+            throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
