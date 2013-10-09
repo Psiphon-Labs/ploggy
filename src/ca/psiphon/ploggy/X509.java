@@ -212,6 +212,6 @@ public class X509 {
 
     // TODO: temp!
     private static final String KEY_TYPE = "RSA";
-    private static final AlgorithmParameterSpec KEY_SPEC = new RSAKeyGenParameterSpec(4096, RSAKeyGenParameterSpec.F0);
+    private static final AlgorithmParameterSpec KEY_SPEC = new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F4);
     private static final String SIGNATURE_TYPE = "SHA256withRSA";
 }

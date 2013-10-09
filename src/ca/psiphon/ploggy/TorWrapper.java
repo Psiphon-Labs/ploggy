@@ -86,7 +86,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private int mSocksProxyPort = -1;
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
-    private CountDownLatch mFirstCircuitBuiltLatch = null;
+    private CountDownLatch mCircuitEstablishedLatch = null;
     private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 10000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 30000;
     private static final int CIRCUIT_BUILT_TIMEOUT_MILLISECONDS = 30000;
@@ -190,7 +190,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     private void startDaemon(boolean awaitFirstCircuit) throws Utils.ApplicationError, IOException, InterruptedException {
         try {
-            mFirstCircuitBuiltLatch = new CountDownLatch(1);
+            mCircuitEstablishedLatch = new CountDownLatch(1);
             mControlAuthCookieFile.delete();
             Utils.FileInitializedObserver controlInitializedObserver =
                     new Utils.FileInitializedObserver(
@@ -232,9 +232,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection = new TorControlConnection(mControlSocket);
             mControlConnection.authenticate(Utils.readFileToBytes(mControlAuthCookieFile));
             mControlConnection.setEventHandler(this);
-            mControlConnection.setEvents(Arrays.asList("CIRC", "NOTICE", "WARN", "ERR"));
+            mControlConnection.setEvents(Arrays.asList("STATUS_CLIENT", "NOTICE", "WARN", "ERR"));
             if (awaitFirstCircuit) {
-                mFirstCircuitBuiltLatch.await(CIRCUIT_BUILT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+                mCircuitEstablishedLatch.await(CIRCUIT_BUILT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
             }
         } finally {
             if (mProcess != null) {
@@ -387,9 +387,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     @Override
     public void circuitStatus(String status, String circID, String path) {
-        if (status.equals("BUILT")) {
-            mFirstCircuitBuiltLatch.countDown();
-        }
     }
 
     @Override
@@ -410,11 +407,14 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
     @Override
     public void message(String severity, String message) {
+        // TODO: log WARN/ERR only
         Log.addEntry(LOG_TAG, message);
     }
 
     @Override
     public void unrecognized(String type, String message) {
-        Log.addEntry(LOG_TAG, message);
+        if (type.equals("STATUS_CLIENT") && message.equals("NOTICE CIRCUIT_ESTABLISHED")) {
+            mCircuitEstablishedLatch.countDown();
+        }
     }
 }
