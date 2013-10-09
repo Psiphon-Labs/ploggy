@@ -73,8 +73,8 @@ public class Tests {
 	public static void runComponentTests() {
 	    ExecutorService threadPool = null;
 	    WebServer webServer = null;
-	    TorWrapper tor = null;
-        String response;
+        TorWrapper selfTor = null;
+        TorWrapper friendTor = null;
 	    try {
 	        threadPool = Executors.newCachedThreadPool();
 	        String selfNickname = "Me";
@@ -91,7 +91,7 @@ public class Tests {
                     Identity.makePrivateIdentity(
                             selfX509KeyMaterial,
                             selfHiddenServiceKeyMaterial));
-            // TODO: dependency injection
+            // TODO: dependency injection (vs. singleton Data)
             Data.Status selfStatus = new Data.Status(
                     DateFormat.getDateTimeInstance().format(new Date()),
                     "0",
@@ -122,7 +122,7 @@ public class Tests {
                 throw new Utils.ApplicationError(e);
             }
             Log.addEntry(LOG_TAG, "Direct request from valid friend...");
-            response = WebClient.makeGetRequest(
+            String response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
                     null,
@@ -135,21 +135,28 @@ public class Tests {
                 Log.addEntry(LOG_TAG, "Unexpected status response value");
                 throw new Utils.ApplicationError();
             }
-            Log.addEntry(LOG_TAG, "Run hidden service...");
-            tor = new TorWrapper(
+            Log.addEntry(LOG_TAG, "Run self Tor...");
+            selfTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
+                    "runComponentTests-self",
                     selfHiddenServiceKeyMaterial,
                     webServer.getListeningPort());
-            tor.start();
-            Proxy torProxy = new Proxy(
+            selfTor.start();
+            Log.addEntry(LOG_TAG, "Run friend Tor...");
+            friendTor = new TorWrapper(
+                    TorWrapper.Mode.MODE_RUN_SERVICES,
+                    "runComponentTests-friend",
+                    selfHiddenServiceKeyMaterial,
+                    webServer.getListeningPort());
+            friendTor.start();
+            Proxy friendTorProxy = new Proxy(
                     Proxy.Type.SOCKS,
-                    new InetSocketAddress("127.0.0.1", tor.getSocksProxyPort()));
-            // TODO: distinct Tor instance for friend?
+                    new InetSocketAddress("127.0.0.1", friendTor.getSocksProxyPort()));
             Log.addEntry(LOG_TAG, "Request from valid friend...");
             response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
-                    torProxy,
+                    friendTorProxy,
                     // TODO: helper; and/or encode pubic identity differently?
                     new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
@@ -166,7 +173,7 @@ public class Tests {
                 WebClient.makeGetRequest(
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
-                        torProxy,
+                        friendTorProxy,
                         new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.GET_STATUS_REQUEST_PATH,
@@ -185,23 +192,22 @@ public class Tests {
             // TODO: implement (create a distinct hidden service)
             Log.addEntry(LOG_TAG, "Invalid request from friend...");
             // TODO: implement
-            Log.addEntry(LOG_TAG, "Stop hidden service...");
-            tor.stop();
-            Log.addEntry(LOG_TAG, "Stop web server...");
-            webServer.stop();
+            Log.addEntry(LOG_TAG, "Component test run success");
 	    } catch (Utils.ApplicationError e) {
 	        Log.addEntry(LOG_TAG, String.format("Test failed: %s", e.getMessage()));
 	    } finally {
-	        if (tor != null) {
-	            tor.stop();
-	        }
+            if (selfTor != null) {
+                selfTor.stop();
+            }
+            if (friendTor != null) {
+                friendTor.stop();
+            }
 	        if (webServer != null) {
 	            webServer.stop();
 	        }
 	        if (threadPool != null) {
 	            Utils.shutdownExecutorService(threadPool);
 	        }
-	        Log.addEntry(LOG_TAG, "Component test run completed");
 	    }
 	}
 }
