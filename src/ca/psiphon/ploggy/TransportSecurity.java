@@ -20,10 +20,7 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -36,9 +33,10 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+
+import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 
 public class TransportSecurity {
 
@@ -61,82 +59,24 @@ public class TransportSecurity {
         }
     }
     
-    // TODO: SSLCertificateSocketFactory? SSLSessionCache?
-    private static class CustomSSLSocketFactory extends SSLSocketFactory {
-        
-        SSLSocketFactory mSocketFactory;
-        
-        CustomSSLSocketFactory(SSLContext sslContext) {
-            mSocketFactory = sslContext.getSocketFactory();
+    private static class ClientSSLSocketFactory extends SSLSocketFactory {
+
+        public ClientSSLSocketFactory(SSLContext sslContext) {
+            // TODO: ...ALLOW_ALL safe as long as only one peer (server) cert?
+            super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
         }
 
         @Override
-        public String[] getDefaultCipherSuites() {
-            return mSocketFactory.getDefaultCipherSuites();
-        }
-
-        @Override
-        public String[] getSupportedCipherSuites() {
-            return mSocketFactory.getSupportedCipherSuites();
-        }
-
-        @Override
-        public Socket createSocket(Socket s, String host, int port, boolean autoClose) throws IOException {
-            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(s, host, port, autoClose);
+        protected void prepareSocket(SSLSocket socket) throws IOException {
             socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return socket;
         }
-
-        @Override
-        public Socket createSocket(String host, int port) throws IOException, UnknownHostException {
-            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port);
-            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
-            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return socket;
-        }
-
-        @Override
-        public Socket createSocket(InetAddress host, int port) throws IOException {
-            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port);
-            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
-            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return socket;
-        }
-
-        @Override
-        public Socket createSocket(String host, int port, InetAddress localHost, int localPort) throws IOException, UnknownHostException {
-            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(host, port, localHost, localPort);
-            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
-            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return socket;
-        }
-
-        @Override
-        public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort) throws IOException {
-            SSLSocket socket = (SSLSocket)mSocketFactory.createSocket(address, port, localAddress, localPort);
-            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
-            socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return socket;
-        }        
     }
     
-    public static SSLSocketFactory getSSLSocketFactory(SSLContext sslContext) {
-        return new CustomSSLSocketFactory(sslContext);
+    public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext) {
+        return new ClientSSLSocketFactory(sslContext);
     }
 
-    private static class CustomHostnameVerifier implements HostnameVerifier {
-        @Override
-        public boolean verify(String hostname, SSLSession session) {
-            // TODO: ...ok as long as trust manager only has *one* peer certificate?
-            return true;
-        }        
-    }
-    
-    public static HostnameVerifier getHostnameVerifier() {
-        return new CustomHostnameVerifier();
-    }
-    
     public static SSLContext getSSLContext(
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws Utils.ApplicationError {

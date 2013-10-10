@@ -142,13 +142,11 @@ public class Engine {
     	}
     }
     
-    public synchronized Proxy getLocalProxy() throws Utils.ApplicationError {
+    public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
         if (mTorWrapper != null) {
-            return new Proxy(
-                    Proxy.Type.SOCKS,
-                    new InetSocketAddress("127.0.0.1", mTorWrapper.getSocksProxyPort()));
+            return mTorWrapper.getSocksProxyPort();
         }
-        throw new Utils.ApplicationError(LOG_TAG, "no local proxy");
+        throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
     }
     
     @Subscribe
@@ -251,8 +249,7 @@ public class Engine {
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.GET_STATUS_REQUEST_PATH,
-                            null);
+                            Protocol.GET_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
                     Events.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll

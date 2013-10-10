@@ -20,60 +20,92 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
-import java.net.URL;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+
+import ch.boye.httpclientandroidlib.HttpEntity;
+import ch.boye.httpclientandroidlib.HttpHost;
+import ch.boye.httpclientandroidlib.HttpResponse;
+import ch.boye.httpclientandroidlib.HttpStatus;
+import ch.boye.httpclientandroidlib.client.methods.HttpGet;
+import ch.boye.httpclientandroidlib.client.methods.HttpRequestBase;
+import ch.boye.httpclientandroidlib.conn.ClientConnectionManager;
+import ch.boye.httpclientandroidlib.conn.ClientConnectionOperator;
+import ch.boye.httpclientandroidlib.conn.OperatedClientConnection;
+import ch.boye.httpclientandroidlib.conn.scheme.Scheme;
+import ch.boye.httpclientandroidlib.conn.scheme.SchemeRegistry;
+import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
+import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
+import ch.boye.httpclientandroidlib.impl.conn.DefaultClientConnectionOperator;
+import ch.boye.httpclientandroidlib.impl.conn.PoolingClientConnectionManager;
+import ch.boye.httpclientandroidlib.params.HttpParams;
+import ch.boye.httpclientandroidlib.protocol.HttpContext;
 
 public class WebClient {
 
     private static final String LOG_TAG = "Web Client";
 
-    private static final int CONNECT_TIMEOUT_MILLISECONDS = 10000;
-    private static final int READ_TIMEOUT_MILLISECONDS = 10000;
+    public static final int UNTUNNELED_REQUEST = -1;
+    
+    private static final int LOCAL_SOCKS_PROXY_CONNECT_TIMEOUT_MILLISECONDS = 1000;
+    private static final int LOCAL_SOCKS_PROXY_READ_TIMEOUT_MILLISECONDS = 1000;
+    private static final int REMOTE_SERVER_CONNECT_TIMEOUT_MILLISECONDS = 10000;
+    private static final int REMOTE_SERVER_READ_TIMEOUT_MILLISECONDS = 10000;
 
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
-            Proxy proxy,
+            int localSocksProxyPort,
             String hostname,
             int port,
-            String requestPath,
-            String body) throws Utils.ApplicationError {        
-        HttpsURLConnection httpsUrlConnection = null;
-        try {            
-            URL url = new URL(Protocol.WEB_SERVER_PROTOCOL, hostname, port, requestPath);
-
-            // TODO: connection pooling; OkHttp?
-            if (proxy != null) {
-                httpsUrlConnection = (HttpsURLConnection)url.openConnection(proxy);
-            } else {
-                httpsUrlConnection = (HttpsURLConnection)url.openConnection();                
-            }
-            httpsUrlConnection.setConnectTimeout(CONNECT_TIMEOUT_MILLISECONDS);
-            httpsUrlConnection.setReadTimeout(READ_TIMEOUT_MILLISECONDS);
-            httpsUrlConnection.setHostnameVerifier(TransportSecurity.getHostnameVerifier());
+            String requestPath) throws Utils.ApplicationError {
+        HttpRequestBase request = null;
+        try {
+            URI uri = new URI(Protocol.WEB_SERVER_PROTOCOL, null, hostname, port, requestPath, null, null);
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
-            httpsUrlConnection.setSSLSocketFactory(TransportSecurity.getSSLSocketFactory(sslContext));
-            httpsUrlConnection.setRequestMethod("GET");
-
+            SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext);
+            // TODO: persistent connection manager, httpclient, etc.
+            SchemeRegistry registry = new SchemeRegistry();
+            registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
+            ClientConnectionManager connectionManager;
+            if (localSocksProxyPort == UNTUNNELED_REQUEST) {
+                connectionManager = new PoolingClientConnectionManager(registry);
+            } else {
+                connectionManager = new SocksProxyPoolingClientConnectionManager(registry, localSocksProxyPort);                
+            }
+            DefaultHttpClient client = new DefaultHttpClient(connectionManager);            
+            request = new HttpGet(uri);
+            HttpResponse response = client.execute(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != HttpStatus.SC_OK) {
+                throw new Utils.ApplicationError(LOG_TAG, String.format("HTTP request failed with %d", statusCode));
+            }
+            HttpEntity responseEntity = response.getEntity();
             // TODO: stream larger responses to files, etc.
-            return Utils.readInputStreamToString(httpsUrlConnection.getInputStream());
-        } catch (MalformedURLException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        } catch (ProtocolException e) {
+            return Utils.readInputStreamToString(responseEntity.getContent());
+        } catch (URISyntaxException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (UnsupportedOperationException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (IllegalStateException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (IllegalArgumentException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (NullPointerException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
-            if (httpsUrlConnection != null) {
-                httpsUrlConnection.disconnect();
+            if (request != null && !request.isAborted()) {
+                request.abort();
             }
         }
     }
@@ -82,16 +114,96 @@ public class WebClient {
             X509.KeyMaterial x509KeyMaterial,
             String friendCertificate,
             String friendHiddenServiceHostname,
-            String requestPath,
-            String body) throws Utils.ApplicationError {
-        Proxy proxy = Engine.getInstance().getLocalProxy();
+            String requestPath) throws Utils.ApplicationError {
         return makeGetRequest(
                 x509KeyMaterial,
                 friendCertificate,
-                proxy,
+                Engine.getInstance().getTorSocksProxyPort(),
                 friendHiddenServiceHostname,
                 Protocol.WEB_SERVER_VIRTUAL_PORT,
-                requestPath,
-                body);
+                requestPath);
+    }
+
+    private static class SocksProxyPoolingClientConnectionManager extends PoolingClientConnectionManager {
+        private final int mLocalSocksProxyPort;
+
+        public SocksProxyPoolingClientConnectionManager(SchemeRegistry registry, int localSocksProxyPort) {
+            super(registry);
+            mLocalSocksProxyPort = localSocksProxyPort;
+        }
+
+        @Override
+        protected ClientConnectionOperator createConnectionOperator(SchemeRegistry registry) {
+            return new SocksProxyClientConnectionOperator(registry, mLocalSocksProxyPort);
+        }
+    }
+
+    private static class SocksProxyClientConnectionOperator extends DefaultClientConnectionOperator {
+        private final int mLocalSocksProxyPort;
+
+        public SocksProxyClientConnectionOperator(SchemeRegistry registry, int localSocksProxyPort) {
+            super(registry);
+            mLocalSocksProxyPort = localSocksProxyPort;
+        }
+
+        // TODO: ...derived from the original DefaultClientConnectionOperator.java
+        @Override
+        public void openConnection(
+                final OperatedClientConnection conn,
+                final HttpHost target,
+                final InetAddress local,
+                final HttpContext context,
+                final HttpParams params) throws IOException {
+            if (conn == null || target == null || params == null) {
+                throw new IllegalArgumentException("Required argument may not be null");
+            }
+            if (conn.isOpen()) {
+                throw new IllegalStateException("Connection must not be open");
+            }
+
+            Scheme scheme = schemeRegistry.getScheme(target.getSchemeName());
+            SSLSocketFactory sslSocketFactory = (SSLSocketFactory)scheme.getSchemeSocketFactory();
+
+            Proxy proxy = new Proxy(
+                    Proxy.Type.SOCKS,
+                    new InetSocketAddress("127.0.0.1", mLocalSocksProxyPort));
+
+            int port = scheme.resolvePort(target.getPort());
+            InetSocketAddress unresolvedAddress = InetSocketAddress.createUnresolved(target.getHostName(), port);
+            
+            Socket socksSocket = new Socket(proxy);
+
+            conn.opening(socksSocket, target);
+            
+            // BROKEN: Android appears to support only SOCKS4 and throws on the unresolved address
+            
+            socksSocket.setSoTimeout(LOCAL_SOCKS_PROXY_CONNECT_TIMEOUT_MILLISECONDS);
+            socksSocket.connect(unresolvedAddress, LOCAL_SOCKS_PROXY_READ_TIMEOUT_MILLISECONDS);
+            
+            Socket socket = sslSocketFactory.createLayeredSocket(
+                    socksSocket, "127.0.0.1", mLocalSocksProxyPort, params);
+
+            conn.opening(socket, target);
+
+            socket.setSoTimeout(REMOTE_SERVER_CONNECT_TIMEOUT_MILLISECONDS);
+            socket.connect(unresolvedAddress, REMOTE_SERVER_READ_TIMEOUT_MILLISECONDS);
+
+            prepareSocket(socket, context, params);
+            conn.openCompleted(sslSocketFactory.isSecure(socket), params);
+        }
+
+        @Override
+        public void updateSecureConnection(
+                final OperatedClientConnection conn,
+                final HttpHost target,
+                final HttpContext context,
+                final HttpParams params) throws IOException {
+            throw new RuntimeException("operation not supported");
+        }
+
+        @Override
+        protected InetAddress[] resolveHostname(final String host) throws UnknownHostException {
+            throw new RuntimeException("operation not supported");
+        }
     }
 }

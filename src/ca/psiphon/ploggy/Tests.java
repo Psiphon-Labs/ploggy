@@ -125,11 +125,10 @@ public class Tests {
             String response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
-                    null,
+                    WebClient.UNTUNNELED_REQUEST,
                     "127.0.0.1",
                     webServer.getListeningPort(),
-                    Protocol.GET_STATUS_REQUEST_PATH,
-                    null);
+                    Protocol.GET_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
@@ -149,9 +148,6 @@ public class Tests {
                     friendHiddenServiceKeyMaterial,
                     webServer.getListeningPort());
             friendTor.start();
-            Proxy friendTorProxy = new Proxy(
-                    Proxy.Type.SOCKS,
-                    new InetSocketAddress("127.0.0.1", friendTor.getSocksProxyPort()));
 
             // TODO: temp!
             //===================
@@ -159,11 +155,10 @@ public class Tests {
             response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
-                    friendTorProxy,
+                    friendTor.getSocksProxyPort(),
                     "psiphon.ca",
                     443,
-                    "/",
-                    null);
+                    "/");
             Log.addEntry(LOG_TAG, response);
             //===================
 
@@ -178,12 +173,11 @@ public class Tests {
             response = WebClient.makeGetRequest(
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
-                    friendTorProxy,
+                    friendTor.getSocksProxyPort(),
                     // TODO: helper; and/or encode pubic identity differently?
                     new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
-                    Protocol.GET_STATUS_REQUEST_PATH,
-                    null);
+                    Protocol.GET_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
@@ -194,11 +188,10 @@ public class Tests {
                 WebClient.makeGetRequest(
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
-                        friendTorProxy,
+                        friendTor.getSocksProxyPort(),
                         new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
-                        Protocol.GET_STATUS_REQUEST_PATH,
-                        null);
+                        Protocol.GET_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
                 if (!e.getMessage().equals("TODO")) {
                     throw e;
