@@ -43,8 +43,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             ExecutorService executorService,
             X509.KeyMaterial x509KeyMaterial,
             ArrayList<String> friendCertificates) throws Utils.ApplicationError {
-        // Specifying port 0 so OS will pick any available ephemeral port
-        super(0);
+        // TODO: ...Specifying port 0 so OS will pick any available ephemeral port
+        //       ...Bind to loopback only
+        super("127.0.0.1", 0);
         mExecutorService = executorService;
         mX509KeyMaterial = x509KeyMaterial;
         mFriendCerficates = friendCertificates;
