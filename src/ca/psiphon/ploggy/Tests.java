@@ -149,6 +149,7 @@ public class Tests {
                     webServer.getListeningPort());
             friendTor.start();
 
+            /*
             // TODO: temp!
             //===================
             Log.addEntry(LOG_TAG, "Test request...");
@@ -161,11 +162,14 @@ public class Tests {
                     "/");
             Log.addEntry(LOG_TAG, response);
             //===================
+             *
+             */
 
             // TODO: monitor via Tor control interface?
-            Log.addEntry(LOG_TAG, "Wait while hidden service is published...");
+            int publishWaitMilliseconds = 120000;
+            Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
             try {
-                Thread.sleep(60000);
+                Thread.sleep(publishWaitMilliseconds);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

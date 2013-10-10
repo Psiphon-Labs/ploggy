@@ -58,9 +58,9 @@ public class Utils {
             super(e);
             String message = e.getLocalizedMessage();
             if (message == null) {
-                message = "";
+                message = "(null)";
             }
-            Log.addEntry(tag, e.getLocalizedMessage());
+            Log.addEntry(tag, String.format("%s: %s", e.getClass().toString(), message));
             // TODO: log stack trace?
         }
     }

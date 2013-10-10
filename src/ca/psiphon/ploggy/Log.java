@@ -47,6 +47,9 @@ public class Log {
     }
     
     public static void addEntry(String tag, String message) {
+        if (message == null) {
+            message = "(null)";
+        }
         // TODO: fix
         // java.lang.IllegalStateException: The content of the adapter has changed but ListView did not receive a notification.
         // Make sure the content of your adapter is not modified from a background thread, but only from the UI thread.
