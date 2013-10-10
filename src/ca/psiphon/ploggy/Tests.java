@@ -148,24 +148,7 @@ public class Tests {
                     friendHiddenServiceKeyMaterial,
                     webServer.getListeningPort());
             friendTor.start();
-
-            /*
-            // TODO: temp!
-            //===================
-            Log.addEntry(LOG_TAG, "Test request...");
-            response = WebClient.makeGetRequest(
-                    friendX509KeyMaterial,
-                    self.mPublicIdentity.mX509Certificate,
-                    friendTor.getSocksProxyPort(),
-                    "psiphon.ca",
-                    443,
-                    "/");
-            Log.addEntry(LOG_TAG, response);
-            //===================
-             *
-             */
-
-            // TODO: monitor via Tor control interface?
+            // TODO: monitor publication state via Tor control interface?
             int publishWaitMilliseconds = 120000;
             Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
             try {
@@ -197,7 +180,7 @@ public class Tests {
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.GET_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
-                if (!e.getMessage().equals("TODO")) {
+                if (!e.getMessage().contains("No peer certificate")) {
                     throw e;
                 }
                 failed = true;

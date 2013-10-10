@@ -59,10 +59,8 @@ public class WebClient {
     public static final int UNTUNNELED_REQUEST = -1;
     
     private static final String LOCAL_SOCKS_PROXY_PORT_PARAM_NAME = "localSocksProxyPort";
-    private static final int LOCAL_SOCKS_PROXY_CONNECT_TIMEOUT_MILLISECONDS = 60000;
-    private static final int LOCAL_SOCKS_PROXY_READ_TIMEOUT_MILLISECONDS = 60000;
-    private static final int REMOTE_SERVER_CONNECT_TIMEOUT_MILLISECONDS = 60000;
-    private static final int REMOTE_SERVER_READ_TIMEOUT_MILLISECONDS = 60000;
+    private static final int CONNECT_TIMEOUT_MILLISECONDS = 60000;
+    private static final int READ_TIMEOUT_MILLISECONDS = 60000;
 
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
@@ -86,8 +84,8 @@ public class WebClient {
                 connectionManager = new SocksProxyPoolingClientConnectionManager(registry);                
             }
             HttpParams params = new BasicHttpParams();
-            HttpConnectionParams.setConnectionTimeout(params, REMOTE_SERVER_CONNECT_TIMEOUT_MILLISECONDS);
-            HttpConnectionParams.setSoTimeout(params, REMOTE_SERVER_READ_TIMEOUT_MILLISECONDS);
+            HttpConnectionParams.setConnectionTimeout(params, CONNECT_TIMEOUT_MILLISECONDS);
+            HttpConnectionParams.setSoTimeout(params, READ_TIMEOUT_MILLISECONDS);
             params.setIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, localSocksProxyPort);
             DefaultHttpClient client = new DefaultHttpClient(connectionManager, params);            
             request = new HttpGet(uri);
@@ -171,13 +169,6 @@ public class WebClient {
             int port = scheme.resolvePort(target.getPort());
             String host = target.getHostName();
 
-            int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
-
-            Socket socket = new Socket();
-            conn.opening(socket, target);
-            socket.setSoTimeout(LOCAL_SOCKS_PROXY_READ_TIMEOUT_MILLISECONDS);
-            socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), LOCAL_SOCKS_PROXY_CONNECT_TIMEOUT_MILLISECONDS);
-            
             // TODO: ...explicit SOCKS4a
             // ... Android (Apache Harmony) Socket appears to support only SOCKS4 and throws on the unresolved address
 
@@ -192,6 +183,13 @@ public class WebClient {
             field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
             */
             
+            int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
+
+            Socket socket = new Socket();
+            conn.opening(socket, target);
+            socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
+            socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
+            
             DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
             outputStream.write((byte)0x04);
             outputStream.write((byte)0x01);
@@ -205,23 +203,12 @@ public class WebClient {
             if (inputStream.readByte() != (byte)0x00 || inputStream.readByte() != (byte)0x5a) {
                 throw new IOException("SOCKS4a connect failed");
             }
-            int socksResponsePort = inputStream.readShort();
-            int socksResponseIpAddress = inputStream.readInt();
-            InetSocketAddress remoteAddress = 
-                    new InetSocketAddress(
-                            InetAddress.getByAddress(
-                                    new byte[]{
-                                            (byte)socksResponseIpAddress,
-                                            (byte)(socksResponseIpAddress>>>8),
-                                            (byte)(socksResponseIpAddress>>>16),
-                                            (byte)(socksResponseIpAddress>>>24)}),
-                            socksResponsePort);
+            inputStream.readShort();
+            inputStream.readInt();
 
             Socket sslsocket = sslSocketFactory.createLayeredSocket(socket, host, port, params);
             conn.opening(sslsocket, target);
-            sslsocket.setSoTimeout(REMOTE_SERVER_READ_TIMEOUT_MILLISECONDS);
-            // TODO: java.io.IOException: Underlying socket is already connected
-            //sslsocket.connect(remoteAddress, REMOTE_SERVER_CONNECT_TIMEOUT_MILLISECONDS);
+            sslsocket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
             prepareSocket(sslsocket, context, params);
             conn.openCompleted(sslSocketFactory.isSecure(sslsocket), params);
             
