@@ -20,9 +20,7 @@
 package ca.psiphon.ploggy;
 
 import java.text.DateFormat;
-import java.util.List;
-
-import ca.psiphon.ploggy.Utils.ApplicationError;
+import java.util.ArrayList;
 
 import com.squareup.otto.Subscribe;
 
@@ -119,11 +117,6 @@ public class ActivityMain extends Activity {
     }
     
     @Override
-    protected void onPause() {
-        super.onPause();
-    }
-    
-    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
     	// TODO: ...
         //getMenuInflater().inflate(R.menu.main, menu);
@@ -157,43 +150,52 @@ public class ActivityMain extends Activity {
             super.onCreate(savedInstanceState);
 
             try {
-				mFriendAdapter = new FriendAdapter(getActivity(), Data.getInstance().getFriends());
+				mFriendAdapter = new FriendAdapter(getActivity());
 	    		setListAdapter(mFriendAdapter);
-			} catch (ApplicationError e) {
+			} catch (Utils.ApplicationError e) {
 				// TODO: ...
 			}
+
+            Events.register(this);
     	}
 
         @Override
-        public void onResume() {
-            super.onResume();
-            Events.register(this);
-        }
-
-        @Override
-        public void onPause() {
-            super.onPause();
+        public void onDestroy() {
+            super.onDestroy();
             Events.unregister(this);
         }
 
         @Subscribe
         public void onAddedFriend(Events.AddedFriend addedFriend) {
-        	mFriendAdapter.notifyDataSetChanged();
+            try {
+                mFriendAdapter.updateFriends();
+            } catch (Utils.ApplicationError e) {
+                // TODO: ...
+            }
         }    	
 
         @Subscribe
         public void onDeletedFriend(Events.DeletedFriend deletedFriend) {
-        	mFriendAdapter.notifyDataSetChanged();
+            try {
+                mFriendAdapter.updateFriends();
+            } catch (Utils.ApplicationError e) {
+                // TODO: ...
+            }
         }    	
     }
 
     private static class FriendAdapter extends BaseAdapter {
     	private Context mContext;
-    	private List<Data.Friend> mFriends;
+    	private ArrayList<Data.Friend> mFriends;
 
-    	public FriendAdapter(Context context, List<Data.Friend> friends) {
+    	public FriendAdapter(Context context) throws Utils.ApplicationError {
     		mContext = context;
-    		mFriends = friends;
+            mFriends = Data.getInstance().getFriends();
+    	}
+    	
+    	public void updateFriends() throws Utils.ApplicationError {
+            mFriends = Data.getInstance().getFriends();
+            notifyDataSetChanged();
     	}
 
     	@Override
@@ -247,10 +249,20 @@ public class ActivityMain extends Activity {
     	@Override
 		public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-
-            mLogAdapter = new LogAdapter(getActivity(), Log.getEntries());
+            
+            // TODO: use endless list (e.g., https://github.com/commonsguy/cwac-endless)
+            // and populate on scroll
+            mLogAdapter = new LogAdapter(getActivity(), Log.readEntries());
     		setListAdapter(mLogAdapter);
+
+    		Events.register(this);
     	}
+
+        @Override
+        public void onDestroy() {
+            super.onDestroy();
+            Events.unregister(this);
+        }
 
         @Override
         public void onStart() {
@@ -267,33 +279,26 @@ public class ActivityMain extends Activity {
                     });
         }
 
-        @Override
-        public void onResume() {
-            super.onResume();
-            Events.register(this);
-        }
-
-        @Override
-        public void onPause() {
-            super.onPause();
-            Events.unregister(this);
-        }
-
         @Subscribe
-        public void onAddedLogEntry(Events.AddedLogEntry addedLogEntry) {
-        	mLogAdapter.notifyDataSetChanged();
+        public void onLoggedEntry(Events.LoggedEntry loggedEntry) {
+            mLogAdapter.addEntry(loggedEntry.mEntry);
         }    	
     }
 
     private static class LogAdapter extends BaseAdapter {
     	private Context mContext;
-    	private List<Log.Entry> mEntries;
+    	private ArrayList<Log.Entry> mEntries;
     	private DateFormat mDateFormat;
 
-    	public LogAdapter(Context context, List<Log.Entry> entries) {
+    	public LogAdapter(Context context, ArrayList<Log.Entry> entries) {
     		mContext = context;
     		mEntries = entries;
     		mDateFormat = DateFormat.getDateTimeInstance();
+    	}
+    	
+    	public void addEntry(Log.Entry entry) {
+    	    mEntries.add(entry);
+    	    notifyDataSetChanged();
     	}
 
     	@Override

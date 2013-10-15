@@ -25,7 +25,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -73,7 +72,7 @@ public class Data {
     }
     
     public static class Friend {
-        public String mId;
+        public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
 
         public Friend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
@@ -191,15 +190,12 @@ public class Data {
 			}
 			*/
 	    	mFriends = new ArrayList<Friend>();
-
-	    	mFriends = Collections.synchronizedList(mFriends);
         }
     }
     
-    public synchronized final List<Friend> getFriends() throws Utils.ApplicationError {
+    public synchronized final ArrayList<Friend> getFriends() throws Utils.ApplicationError {
     	loadFriends();
-        // TODO: return immutable List?
-        return mFriends;
+        return new ArrayList<Friend>(mFriends);
     }
 
     public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundException {

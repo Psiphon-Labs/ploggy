@@ -177,7 +177,12 @@ public class Events {
         }
     }
 
-    public static class AddedLogEntry {
+    public static class LoggedEntry {
+        Log.Entry mEntry;
+
+        public LoggedEntry(Log.Entry entry) {
+            mEntry = entry;
+        }
     }
 
     public static class NewSelfLocation {

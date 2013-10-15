@@ -19,45 +19,94 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
+
+import android.content.Context;
 
 public class Log {
     
     private static final String LOG_TAG = "Log";
 
+    private static final String LOG_FILE_NAME = "log";    
+    
     public static class Entry {
+        public final Date mTimestamp;
         public final String mTag;
         public final String mMessage;
-        public final Date mTimestamp;
 
         public Entry(String tag, String message) {
+            mTimestamp = new Date();
             mTag = tag;
             mMessage = message;
-            mTimestamp = new Date();
         }
     }
-    
-    private static List<Entry> mEntries = Collections.synchronizedList(new ArrayList<Entry>());
 
-    public static List<Entry> getEntries() {
-    	return mEntries;
-    }
-    
     public static void addEntry(String tag, String message) {
         if (message == null) {
             message = "(null)";
         }
-        // TODO: fix
-        // java.lang.IllegalStateException: The content of the adapter has changed but ListView did not receive a notification.
-        // Make sure the content of your adapter is not modified from a background thread, but only from the UI thread.
-        // [in ListView(16908298, class android.widget.ListView) with Adapter(class ca.psiphon.ploggy.ActivityMain$LogAdapter)]
-    	mEntries.add(new Entry(tag, message));
-    	// TODO: truncate
-    	Events.post(new Events.AddedLogEntry());
-    	// TODO: temp
-    	android.util.Log.e(tag, message);
+        
+        Entry entry = new Entry(tag, message);
+
+        // TODO: consider using http://tony19.github.io/logback-android/
+        // TODO: only persist important entries -- added friend, etc.
+        //       maintain two files:
+        //       1. permanent logs (with sensitive info)
+        //       2. session logs (with no sessitive info -- can be sent as diagnostics)
+        //       session log rotates (or use ring buffer structure)
+        //       readEntries merges both files
+        try {
+            appendEntryToFile(entry);
+        } catch (IOException e) {
+            // TODO: ...
+        }
+        
+        Events.post(new Events.LoggedEntry(entry));
+
+        // TODO: temp
+        android.util.Log.e(tag, message);
+    }
+
+    public synchronized static ArrayList<Entry> readEntries() {
+        FileInputStream inputStream = null;
+        try {
+            Context context = Utils.getApplicationContext();
+            inputStream = context.openFileInput(LOG_FILE_NAME);
+            return Json.fromJsonStream(inputStream, Entry.class);
+        } catch (FileNotFoundException e) {
+            return new ArrayList<Entry>();
+        } catch (Utils.ApplicationError e) {
+            ArrayList<Entry> array = new ArrayList<Entry>();
+            array.add(new Entry(LOG_TAG, "failed to load log file"));
+            return array;
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    // TODO: ...
+                }
+            }
+        }        
+    }
+    
+    private synchronized static void appendEntryToFile(Entry entry) throws IOException {
+        FileOutputStream outputStream = null;
+        try {
+            Context context = Utils.getApplicationContext();
+            outputStream = context.openFileOutput(
+                    LOG_FILE_NAME,
+                    Context.MODE_PRIVATE|Context.MODE_APPEND);
+            outputStream.write(Json.toJson(entry).getBytes());
+        } finally {
+            if (outputStream != null) {
+                outputStream.close();
+            }
+        }        
     }
 }
