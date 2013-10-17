@@ -136,6 +136,7 @@ public class ActivityMain extends Activity {
             startActivity(new Intent(this, ActivityAddFriend.class));
             return true;
         case R.id.action_settings:
+            startActivity(new Intent(this, ActivitySettings.class));
             return true;
         default:
             return super.onOptionsItemSelected(item);
