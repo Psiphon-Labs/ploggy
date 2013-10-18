@@ -28,18 +28,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-//import org.spongycastle.util.encoders.Base64;
-
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.location.Location;
 import android.os.FileObserver;
-import android.preference.PreferenceManager;
 import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
@@ -220,6 +221,32 @@ public class Utils {
         }
     }
 
+    public static int calculateLocationDistanceInMeters(
+            double longitudeA,
+            double latitudeA,
+            double longitudeB,
+            double latitudeB) {
+        Location locationA = new Location("");
+        locationA.setLongitude(longitudeA);
+        locationA.setLatitude(latitudeA);
+        Location locationB = new Location("");
+        locationB.setLongitude(longitudeA);
+        locationB.setLatitude(latitudeA);
+        return Math.round(locationA.distanceTo(locationB));
+    }
+    
+    public static String getISO8601String(Date date) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US);
+        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String dateStr = sdf.format(date);
+        dateStr += "Z";
+        return dateStr;
+    }
+
+    public static String getCurrentTimestamp() {
+        return getISO8601String(new Date());
+    }
+    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {

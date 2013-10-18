@@ -25,16 +25,11 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import android.content.Context;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
-
-import com.squareup.otto.Subscribe;
 
 public class LocationMonitor implements android.location.LocationListener {
     

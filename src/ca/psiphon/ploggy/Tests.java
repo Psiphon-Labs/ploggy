@@ -92,8 +92,9 @@ public class Tests {
             // TODO: dependency injection (vs. singleton Data)
             Data.Status selfStatus = new Data.Status(
                     DateFormat.getDateTimeInstance().format(new Date()),
-                    "0",
-                    "0",
+                    0.0,
+                    0.0,
+                    10,
                     "<street>\n<city>\n<state>\n<country>\n");
             Data.getInstance().updateSelfStatus(selfStatus);
             Log.addEntry(LOG_TAG, "Make friend...");

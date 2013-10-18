@@ -70,7 +70,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mSaveButton.setVisibility(View.GONE);
         mSaveButton.setOnClickListener(this);
         mProgressDialog = new ProgressDialog(this);
-        mProgressDialog.setMessage(getText(R.string.text_generate_self_progress));
+        mProgressDialog.setMessage(getText(R.string.prompt_generate_self_progress));
         mProgressDialog.setCancelable(true);
         mAvatarTimer = new Timer();
     }

@@ -50,9 +50,9 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     private boolean mPushComplete;
     private Data.Friend mReceivedFriend;
 
-    ImageView mSelfAvatarImage;
-    TextView mSelfNicknameText;
-    TextView mSelfFingerprintText;
+    private ImageView mSelfAvatarImage;
+    private TextView mSelfNicknameText;
+    private TextView mSelfFingerprintText;
     
     private RelativeLayout mFriendSectionLayout;
     private ImageView mFriendAvatarImage;

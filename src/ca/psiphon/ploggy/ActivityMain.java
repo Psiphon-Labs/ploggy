@@ -183,6 +183,15 @@ public class ActivityMain extends Activity {
                 // TODO: ...
             }
         }    	
+
+        @Subscribe
+        public void onNewFriendStatus(Events.NewFriendStatus newFriendStatus) {
+            try {
+                mFriendAdapter.updateFriends();
+            } catch (Utils.ApplicationError e) {
+                // TODO: ...
+            }
+        }       
     }
 
     private static class FriendAdapter extends BaseAdapter {

@@ -56,7 +56,7 @@ public class PloggyService extends Service {
     }
     
     private void doForeground() {
-        startForeground(R.string.foreground_service_notification_id, createNotification());
+        startForeground(R.string.foregroundServiceNotificationId, createNotification());
     }
     
     @SuppressWarnings("deprecation")

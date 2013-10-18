@@ -11,8 +11,8 @@
     tools:context=".ActivityAddFriend" >
 
     <TextView
-        android:id="@+id/add_friend_title_text"
-        android:text="@string/text_add_friend_title"
+        android:id="@+id/add_friend_title_label"
+        android:text="@string/label_add_friend_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:typeface="sans"
@@ -20,8 +20,8 @@
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/add_friend_description_text"
-        android:text="@string/text_add_friend_description"
+        android:id="@+id/add_friend_description_label"
+        android:text="@string/label_add_friend_description"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dip"
@@ -29,8 +29,8 @@
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/add_friend_self_section_text"
-        android:text="@string/text_add_friend_self_section"
+        android:id="@+id/add_friend_self_section_label"
+        android:text="@string/label_add_friend_self_section"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:typeface="sans"
@@ -95,8 +95,8 @@
     </RelativeLayout>
 
     <TextView
-        android:id="@+id/add_friend_friend_section_text"
-        android:text="@string/text_add_friend_friend_section"
+        android:id="@+id/add_friend_friend_section_label"
+        android:text="@string/label_add_friend_friend_section"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:typeface="sans"
@@ -163,7 +163,7 @@
             android:layout_height="wrap_content"
             android:layout_below="@id/add_friend_friend_fingerprint_text"
             android:layout_alignParentRight="true"
-            android:text="@string/text_add_friend_add_button"
+            android:text="@string/button_add_friend_add"
             android:typeface="sans"
             android:textSize="16dip" />
 

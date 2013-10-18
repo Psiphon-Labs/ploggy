@@ -1,0 +1,231 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
+    tools:context=".ActivityLocationDetails" >
+
+    <TextView
+        android:id="@+id/location_details_title_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_location_details_title"
+        android:typeface="sans"
+        android:textSize="32dip"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/location_details_description_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dip"
+        android:text="@string/label_location_details_description"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <RelativeLayout
+        android:id="@+id/location_details_main_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <LinearLayout
+            android:id="@+id/location_details_avatar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dip"
+            android:layout_alignParentLeft="true"
+            android:layout_marginRight="4dip">
+ 
+            <ImageView
+                android:id="@+id/location_details_avatar_image"
+                android:layout_width="150dip"
+                android:layout_height="150dip" />
+ 
+        </LinearLayout>
+ 
+        <TextView
+            android:id="@+id/location_details_nickname_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignTop="@+id/location_details_avatar"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:text="@string/label_location_details_nickname"
+            android:typeface="sans"
+            android:textSize="24dip"
+            android:textStyle="bold" />
+ 
+        <EditText
+            android:id="@+id/location_details_nickname_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_nickname_label"
+            android:typeface="sans"
+            android:textSize="24dip"
+            android:singleLine="true" />
+ 
+        <TextView
+            android:id="@+id/location_details_fingerprint_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_nickname_edit"
+            android:text="@string/label_location_details_fingerprint"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_fingerprint_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_fingerprint_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_street_address_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_fingerprint_text"
+            android:text="@string/label_location_details_street_address"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_street_address_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_street_address_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_distance_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_street_address_text"
+            android:text="@string/label_location_details_distance"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_distance_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_distance_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_coordinates_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_distance_text"
+            android:text="@string/label_location_details_coordinates"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_coordinates_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_coordinates_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_precision_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_coordinates_text"
+            android:text="@string/label_location_details_precision"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_precision_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_precision_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_last_received_timestamp_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_precision_text"
+            android:text="@string/label_location_details_last_received_timestamp"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_last_received_timestamp_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_received_timestamp_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_last_sent_timestamp_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_received_timestamp_text"
+            android:text="@string/label_location_details_last_sent_timestamp"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_last_sent_timestamp_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_sent_timestamp_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <ImageView
+            android:id="@+id/location_details_map_image"
+            android:src="@drawable/sample_map"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/location_details_delete_friend_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_..."
+            android:layout_alignParentRight="true"
+            android:text="@string/button_location_details_delete_friend"
+            android:typeface="sans"
+            android:textSize="16dip" />
+
+    </RelativeLayout>
+
+</LinearLayout>

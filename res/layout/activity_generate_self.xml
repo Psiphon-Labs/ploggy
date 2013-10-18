@@ -11,20 +11,20 @@
     tools:context=".ActivityGenerateSelf" >
 
     <TextView
-        android:id="@+id/generate_self_title_text"
+        android:id="@+id/generate_self_title_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/text_generate_self_title"
+        android:text="@string/label_generate_self_title"
         android:typeface="sans"
         android:textSize="32dip"
         android:textStyle="bold" />
 
     <TextView
-        android:id="@+id/generate_self_description_text"
+        android:id="@+id/generate_self_description_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="12dip"
-        android:text="@string/text_generate_self_description"
+        android:text="@string/label_generate_self_description"
         android:typeface="sans"
         android:textSize="12dip" />
 
@@ -96,7 +96,7 @@
             android:layout_toRightOf="@+id/generate_self_avatar"
             android:layout_below="@+id/generate_self_fingerprint_text"
             android:layout_alignParentRight="true"
-            android:text="@string/text_generate_self_edit_button"
+            android:text="@string/button_generate_self_edit"
             android:typeface="sans"
             android:textSize="16dip" />
 
@@ -107,7 +107,7 @@
             android:layout_toRightOf="@+id/generate_self_avatar"
             android:layout_below="@id/generate_self_fingerprint_text"
             android:layout_alignParentRight="true"
-            android:text="@string/text_generate_self_save_button"
+            android:text="@string/button_generate_self_save"
             android:typeface="sans"
             android:textSize="16dip" />
 

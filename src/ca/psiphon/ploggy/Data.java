@@ -64,18 +64,25 @@ public class Data {
     
     public static class Status {
         public final String mTimestamp;
-        public final String mLongitude;
-        public final String mLatitude;
+        public final double mLongitude;
+        public final double mLatitude;
+        public final int mPrecision;
         public final String mStreetAddress;
         // TODO: public final ArrayList<String> mMapTileIds;
         // TODO: public final String mMessage;
         // TODO: public final String mPhotoId;        
 
 
-        public Status(String timestamp, String longitude, String latitude, String streetAddress) {
+        public Status(
+                String timestamp,
+                double longitude,
+                double latitude,
+                int precision,
+                String streetAddress) {
             mTimestamp = timestamp;
             mLongitude = longitude;
             mLatitude = latitude;
+            mPrecision = precision;
             mStreetAddress = streetAddress;            
         }
     }
@@ -106,7 +113,6 @@ public class Data {
     // ...consistency: write file, then update in-memory; 2pc; only for short lists of friends
     // ...eventually use file system for map tiles etc.
        
-    private static final String PREFERENCES_FILENAME = "preferences.json"; 
     private static final String SELF_FILENAME = "self.json"; 
     private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
     private static final String FRIENDS_FILENAME = "friends.json"; 
@@ -132,7 +138,16 @@ public class Data {
 
     public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelfStatus == null) {
+            // TODO: temp!
+            /*
             mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            */
+            return new Status(
+                    Utils.getCurrentTimestamp(),
+                    Math.random()*100.0 - 50.0,
+                    Math.random()*100.0 - 50.0,
+                    10,
+                    "301 Front St W, Toronto, ON M5V 2T6");
         }
         return mSelfStatus;
     }
@@ -144,7 +159,7 @@ public class Data {
 
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
-            // TODO: temp
+            // TODO: temp!
             /*
 	    	try {
 				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
@@ -222,8 +237,17 @@ public class Data {
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
+        // TODO: temp!
+        /*
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         return Json.fromJson(readFile(filename), Status.class);
+        */
+        return new Status(
+                Utils.getCurrentTimestamp(),
+                Math.random()*100.0 - 50.0,
+                Math.random()*100.0 - 50.0,
+                10,
+                "301 Front St W, Toronto, ON M5V 2T6");
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
