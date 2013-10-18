@@ -132,6 +132,9 @@ public class ActivityMain extends Activity {
         case R.id.action_generate_self:
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
+        case R.id.action_self_location_details:
+            startActivity(new Intent(this, ActivityLocationDetails.class));
+            return true;
         case R.id.action_add_friend:
             startActivity(new Intent(this, ActivityAddFriend.class));
             return true;
@@ -164,6 +167,16 @@ public class ActivityMain extends Activity {
         public void onDestroy() {
             super.onDestroy();
             Events.unregister(this);
+        }
+        
+        @Override
+        public void onListItemClick (ListView listView, View view, int position, long id) {
+            Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
+            Intent intent = new Intent(getActivity(), ActivityLocationDetails.class);
+            Bundle bundle = new Bundle();
+            bundle.putString(ActivityLocationDetails.FRIEND_ID_BUNDLE_KEY, friend.mId);
+            intent.putExtras(bundle);
+            startActivity(intent);
         }
 
         @Subscribe
@@ -225,7 +238,7 @@ public class ActivityMain extends Activity {
     			nicknameText.setText(friend.mPublicIdentity.mNickname);
     			try {
         			Data.Status status = Data.getInstance().getFriendStatus(friend.mId);
-        			// TODO: longitude, latitude, map, etc.
+        			// TODO: also show distance, last received timestamp, etc.
         			streetAddressText.setText(status.mStreetAddress);
         			timestampText.setText(status.mTimestamp);
     			} catch (Utils.ApplicationError e) {

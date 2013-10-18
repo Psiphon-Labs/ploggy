@@ -19,8 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.text.DateFormat;
-
 import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
@@ -34,7 +32,10 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 
 public class ActivityLocationDetails extends Activity implements View.OnClickListener {
+    
+    public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
+    // TODO: ...null to show self
     private String mFriendId;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -51,15 +52,13 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     private ImageView mMapImage;
     private Button mDeleteFriendButton;
 
-    public ActivityLocationDetails(String friendId) {
-        // TODO: ...null to show self
-        mFriendId = friendId;
+    public ActivityLocationDetails() {
     }
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_add_friend);
+        setContentView(R.layout.activity_location_details);
 
         mAvatarImage = (ImageView)findViewById(R.id.location_details_avatar_image);
         mNicknameText = (TextView)findViewById(R.id.location_details_nickname_text);
@@ -77,6 +76,12 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
         mDeleteFriendButton = (Button)findViewById(R.id.location_details_delete_friend_button);
         mDeleteFriendButton.setOnClickListener(this);
 
+        // TODO: onNewIntent?
+        Bundle bundle = getIntent().getExtras();
+        if (bundle != null) {
+            mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
+        }
+        
         showDetails();
         
         Events.register(this);
@@ -101,8 +106,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
             Data.Friend friend = null;
             Data.Status friendStatus = null;
             
-            DateFormat dateFormat = DateFormat.getDateTimeInstance();
-
             if (mFriendId != null) {
                 friend = data.getFriendById(mFriendId);
                 friendStatus = data.getFriendStatus(mFriendId);
@@ -122,7 +125,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                         getString(R.string.format_location_details_coordinates, friendStatus.mLongitude, friendStatus.mLatitude));
                 mPrecisionText.setText(
                         getString(R.string.format_location_details_precision, friendStatus.mPrecision));
-                mLastReceivedTimestampText.setText(dateFormat.format(friendStatus.mTimestamp));
+                mLastReceivedTimestampText.setText(friendStatus.mTimestamp);
                 // TODO: where are last-sent timestamps recorded?
                 mLastSentTimestampText.setText("");
             } else {
@@ -160,7 +163,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     public void onClick(View view) {
         if (view.equals(mDeleteFriendButton)) {
             new AlertDialog.Builder(this)
-                .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle(getString(R.string.label_location_details_delete_friend_title))
                 .setMessage(getString(R.string.label_location_details_delete_friend_message))
                 .setPositiveButton(getString(R.string.label_location_details_delete_friend_positive),

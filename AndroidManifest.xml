@@ -34,6 +34,10 @@
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
+            android:name="ca.psiphon.ploggy.ActivityLocationDetails"
+            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
+        </activity>
+        <activity
             android:name="ca.psiphon.ploggy.ActivityAddFriend"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>
