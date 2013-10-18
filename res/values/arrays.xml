@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="weekday-values">
+    <string-array name="weekday_values">
         <item>MONDAY</item>
         <item>TUESDAY</item>
         <item>WEDNESDAY</item>
@@ -9,5 +9,4 @@
         <item>SATURDAY</item>
         <item>SUNDAY</item>
     </string-array>
-    <string-array name="empty_array"/>
 </resources>

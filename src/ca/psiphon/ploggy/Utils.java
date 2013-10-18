@@ -176,12 +176,12 @@ public class Utils {
     public static String getRandomHexString(int bits) {
         byte[] buffer = new byte[bits/4];
         new SecureRandom().nextBytes(buffer);
-        return byteArrayToHexString(buffer);
+        return encodeHex(buffer);
     }
     
     // from:
     // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
-    public static String byteArrayToHexString(byte[] bytes) {
+    public static String encodeHex(byte[] bytes) {
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
         char[] hexChars = new char[bytes.length * 2];
         for (int i = 0; i < bytes.length; i++)  {

@@ -20,8 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;

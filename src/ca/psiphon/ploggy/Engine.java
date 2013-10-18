@@ -20,14 +20,11 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;

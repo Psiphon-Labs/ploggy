@@ -29,6 +29,6 @@ public class PloggyApplication extends Application {
 		Events.initialize();
 		// TODO: remove
 		//Tests.insertMockFriends();
-		Tests.scheduleComponentTests();
+		//Tests.scheduleComponentTests();
 	}
 }

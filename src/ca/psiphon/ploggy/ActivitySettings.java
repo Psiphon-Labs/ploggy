@@ -19,9 +19,15 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Map;
+
+import ca.psiphon.ploggy.widgets.TimePickerPreference;
 import android.os.Bundle;
+import android.preference.Preference;
 import android.preference.PreferenceFragment;
 import android.app.Activity;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 
 public class ActivitySettings extends Activity {
 
@@ -32,12 +38,49 @@ public class ActivitySettings extends Activity {
         getFragmentManager().beginTransaction().replace(android.R.id.content, new SettingsFragment()).commit();
     }
     
-    public static class SettingsFragment extends PreferenceFragment {
+    public static class SettingsFragment extends PreferenceFragment implements OnSharedPreferenceChangeListener {
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
 
+            // TODO: distinct instance of preferences for each persona
+            // e.g., getPreferenceManager().setSharedPreferencesName("persona1");
+            
             addPreferencesFromResource(R.xml.preferences);
+
+            initTimePickerPreferences();
+        }
+        
+        @Override
+        public void onResume() {
+            super.onResume();
+            getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+        }
+
+        @Override
+        public void onPause() {
+            super.onPause();
+            getPreferenceScreen().getSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+        }
+
+        @Override
+        public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+            setTimePickerPreferenceSummary(sharedPreferences, key);
         }        
+
+        private void initTimePickerPreferences() {
+            SharedPreferences sharedPreferences = this.getPreferenceManager().getSharedPreferences();
+            for (Map.Entry<String, ?> entry : sharedPreferences.getAll().entrySet()) {
+                setTimePickerPreferenceSummary(sharedPreferences, entry.getKey());
+            }            
+        }
+        
+        private void setTimePickerPreferenceSummary(SharedPreferences sharedPreferences, String key) {
+            Preference preference = findPreference(key);
+            if (preference instanceof TimePickerPreference) {
+                TimePickerPreference timePickerPreference = (TimePickerPreference)preference;
+                timePickerPreference.setSummary(sharedPreferences.getString(key, ""));
+            }            
+        }
     }
 }
