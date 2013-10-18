@@ -26,26 +26,20 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.preference.PreferenceManager;
+
 import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
 
-public class Engine {
+public class Engine implements OnSharedPreferenceChangeListener {
     
     private static final String LOG_TAG = "Engine";
 
-    // ---- Singleton ----
-    private static Engine instance = null;
-    public static synchronized Engine getInstance() {
-       if(instance == null) {
-          instance = new Engine();
-       }
-       return instance;
-    }
-    public Object clone() throws CloneNotSupportedException {
-        throw new CloneNotSupportedException();
-    }
-    // -------------------
-    
+    private Context mContext;
+    private SharedPreferences mSharedPreferences;
     private long mFriendPollPeriod;
     private Timer mTimer;
     private ExecutorService mTaskThreadPool;
@@ -53,24 +47,31 @@ public class Engine {
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
 
-    private Engine() {
+    public Engine(Context context) {
         Utils.initSecureRandom();
-    }    
+        mContext = context;
+
+        // TODO: distinct instance of preferences for each persona
+        // e.g., getSharedPreferencesName("persona1");
+        mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+    }
 
     public synchronized void start() throws Utils.ApplicationError {
         Events.register(this);
         mTaskThreadPool = Executors.newCachedThreadPool();
         mTimer = new Timer();
-        mLocationMonitor = new LocationMonitor(Utils.getApplicationContext());
+        mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         // TODO: check Data.getInstance().hasSelf()...
         startSharingService();
         initFriendPollPeriod();
         schedulePollFriends();
         // TODO: Events.bus.post(new Events.EngineRunning()); ?
+        mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
     }
 
     public synchronized void stop() {
+        mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.unregister(this);
         stopSharingService();
         if (mLocationMonitor != null) {
@@ -86,6 +87,16 @@ public class Engine {
             mTimer = null;
         }
         // TODO: Events.bus.post(new Events.EngineStopped()); ?
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        try {
+            stop();
+            start();
+        } catch (Utils.ApplicationError e) {
+            // TODO: ...?
+        }
     }
 
     public synchronized void submitTask(Runnable task) {
@@ -146,13 +157,6 @@ public class Engine {
         throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
     }
     
-    @Subscribe
-    private synchronized void handleRequestUpdatePreferences(
-            Events.RequestUpdatePreferences requestUpdatePreferences) {
-        // TODO: update prefs (task)
-        // TODO: Events.bus.post(new Events.UpdatedPreferences());
-    }
-
     @Subscribe
     private synchronized void handleRequestGenerateSelf(
             Events.RequestGenerateSelf requestGenerateSelf) {
@@ -245,12 +249,13 @@ public class Engine {
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
+                            getTorSocksProxyPort(),
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.GET_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
                     Events.post(new Events.NewFriendStatus(friendStatus));
                     // Schedule next poll
-                    Engine.getInstance().schedulePollFriend(taskFriendId, false);
+                    schedulePollFriend(taskFriendId, false);
                 } catch (Data.DataNotFoundException e) {
                     // TODO: ...Deleted; Next poll won't be scheduled
                 } catch (Utils.ApplicationError e) {
@@ -260,5 +265,25 @@ public class Engine {
         };
         long delay = initialRequest ? 0 : mFriendPollPeriod;
         scheduleTask(task, delay);
+    }
+
+    public Context getContext() {
+        return mContext;
+    }
+    
+    public boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
+        String key = mContext.getString(keyResID);
+        if (!mSharedPreferences.contains(key)) {
+            throw new Utils.ApplicationError(LOG_TAG, "missing preference default");
+        }
+        return mSharedPreferences.getBoolean(key, false);        
+    }
+    
+    public int getIntPreference(int keyResID) throws Utils.ApplicationError {
+        String key = mContext.getString(keyResID);
+        if (!mSharedPreferences.contains(key)) {
+            throw new Utils.ApplicationError(LOG_TAG, "missing preference default");
+        }
+        return mSharedPreferences.getInt(key, 0);        
     }
 }

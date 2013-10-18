@@ -119,12 +119,13 @@ public class WebClient {
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
             String friendCertificate,
+            int localSocksProxyPort,
             String friendHiddenServiceHostname,
             String requestPath) throws Utils.ApplicationError {
         return makeGetRequest(
                 x509KeyMaterial,
                 friendCertificate,
-                Engine.getInstance().getTorSocksProxyPort(),
+                localSocksProxyPort,
                 friendHiddenServiceHostname,
                 Protocol.WEB_SERVER_VIRTUAL_PORT,
                 requestPath);

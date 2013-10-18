@@ -4,19 +4,19 @@
 
     <PreferenceCategory
         android:title="@string/preference_privacy_title"
-        android:key="preferencesPrivacy">
+        android:key="@string/preferencesPrivacy">
         <CheckBoxPreference
-            android:key="preferenceUseGeoCoder"
+            android:key="@string/preferenceUseGeoCoder"
             android:title="@string/preference_use_geocoder_title"
             android:summary="@string/preference_use_geocoder_summary"
             android:defaultValue="true" />
         <CheckBoxPreference
-            android:key="preferenceLimitLocationPrecision"
+            android:key="@string/preferenceLimitLocationPrecision"
             android:title="@string/preference_limit_location_precision_title"
             android:summary="@string/preference_limit_location_precision_summary"
             android:defaultValue="false" />
         <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="preferenceLocationPrecision"
+            android:key="@string/preferenceLocationPrecisionInMeters"
             android:dependency="preferenceLimitLocationPrecision"           
             android:title="@string/preference_location_precision_title"
             android:summary="@string/preference_location_precision_summary"
@@ -26,51 +26,51 @@
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preference_location_precision_units"/>
         <CheckBoxPreference
-            android:key="preferenceAutomaticLocationSharing"
+            android:key="@string/preferenceAutomaticLocationSharing"
             android:title="@string/preference_automatic_location_sharing_title"
             android:summary="@string/preference_automatic_location_sharing_summary"
             android:defaultValue="true" />
         <CheckBoxPreference
-            android:key="preferenceLimitLocationSharingTime"
+            android:key="@string/preferenceLimitLocationSharingTime"
             android:dependency="preferenceAutomaticLocationSharing"           
             android:title="@string/preference_limit_location_sharing_time_title"
             android:summary="@string/preference_limit_location_sharing_time_summary"
             android:defaultValue="false" />
         <ca.psiphon.ploggy.widgets.TimePickerPreference
-            android:key="preferenceLimitLocationSharingTimeNotBefore"
+            android:key="@string/preferenceLimitLocationSharingTimeNotBefore"
             android:dependency="preferenceLimitLocationSharingTime"           
             android:title="@string/preference_limit_location_sharing_time_not_before_title"
             android:summary="@string/preference_limit_location_sharing_time_not_before_summary" />
         <ca.psiphon.ploggy.widgets.TimePickerPreference
-            android:key="preferenceLimitLocationSharingTimeNotAfter"
+            android:key="@string/preferenceLimitLocationSharingTimeNotAfter"
             android:dependency="preferenceLimitLocationSharingTime"           
             android:title="@string/preference_limit_location_sharing_time_not_after_title"
             android:summary="@string/preference_limit_location_sharing_time_not_after_summary" />
         <MultiSelectListPreference
-            android:key="preferenceLimitLocationSharingDay"
+            android:key="@string/preferenceLimitLocationSharingDay"
             android:dependency="preferenceAutomaticLocationSharing"           
             android:title="@string/preference_limit_location_sharing_day_title"
             android:summary="@string/preference_limit_location_sharing_day_summary"
             android:entries="@array/weekday_names"
-            android:entryValues="@array/weekday_values"
-            android:defaultValue="@array/weekday_values" />
+            android:entryValues="@array/weekdays"
+            android:defaultValue="@array/weekdays" />
     </PreferenceCategory>
 
     <PreferenceCategory
         android:title="@string/preference_performance_title"
-        android:key="preferencesPerformance">
+        android:key="@string/preferencesPerformance">
         <CheckBoxPreference
-            android:key="preferenceUseMobileData"
+            android:key="@string/preferenceUseMobileData"
             android:title="@string/preference_use_mobile_data_title"
             android:summary="@string/preference_use_mobile_data_summary"
             android:defaultValue="true" />
         <CheckBoxPreference
-            android:key="preferenceEnableBatterySaver"
+            android:key="@string/preferenceEnableBatterySaver"
             android:title="@string/preference_enable_battery_saver_title"
             android:summary="@string/preference_enable_battery_saver_summary"
             android:defaultValue="true" />
         <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="preferenceBatterySaverLevel"
+            android:key="@string/preferenceBatterySaverLevel"
             android:dependency="preferenceEnableBatterySaver"           
             android:title="@string/preference_battery_saver_level_title"
             android:summary="@string/preference_battery_saver_level_summary"
@@ -80,7 +80,7 @@
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preferences_battery_saver_level_units"/>
         <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="preferenceLocationUpdateTimePeriod"
+            android:key="@string/preferenceLocationUpdateTimePeriodInMinutes"
             android:dependency="preferenceAutomaticLocationSharing"           
             android:title="@string/preference_location_sharing_time_frequency_title"
             android:summary="@string/preference_location_sharing_time_frequency_summary"
@@ -90,7 +90,7 @@
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preference_location_sharing_time_frequency_units"/>
         <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="preferenceLocationSharingDistanceThreshold"
+            android:key="@string/preferenceLocationSharingDistanceThresholdInMeters"
             android:dependency="preferenceAutomaticLocationSharing"           
             android:title="@string/preference_location_sharing_distance_threshold_title"
             android:summary="@string/preference_location_sharing_distance_threshold_summary"
@@ -98,7 +98,16 @@
             android:defaultValue="10"
             android:max="100"
             ploggy:unitsLeft=""
-            ploggyunitsRight="@string/preference_location_sharing_distance_threshold_units"/>
+            ploggy:unitsRight="@string/preference_location_sharing_distance_threshold_units"/>
+        <ca.psiphon.ploggy.widgets.SeekBarPreference
+            android:key="@string/preferenceLocationFixPeriodInSeconds"
+            android:title="@string/preference_location_fix_period_title"
+            android:summary="@string/preference_location_fix_period_summary"
+            ploggy:min="30"
+            android:defaultValue="30"
+            android:max="120"
+            ploggy:unitsLeft=""
+            ploggy:unitsRight="@string/preference_location_fix_period_units"/>        
     </PreferenceCategory>
 
 </PreferenceScreen>

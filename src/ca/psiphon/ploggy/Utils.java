@@ -37,7 +37,9 @@ import java.util.concurrent.TimeUnit;
 //import org.spongycastle.util.encoders.Base64;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.FileObserver;
+import android.preference.PreferenceManager;
 import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
@@ -217,7 +219,7 @@ public class Utils {
             Thread.currentThread().interrupt();
         }
     }
-    
+
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {

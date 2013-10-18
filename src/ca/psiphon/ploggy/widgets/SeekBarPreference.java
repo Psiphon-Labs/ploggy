@@ -114,6 +114,8 @@ public class SeekBarPreference extends Preference implements OnSeekBarChangeList
     protected View onCreateView(ViewGroup parent) {
         View view = super.onCreateView(parent);
         
+        // TODO: ...breaks layout on tablets, where standard title/summary views are indented
+        
         // The basic preference layout puts the widget frame to the right of the title and summary,
         // so we need to change it a bit - the seekbar should be under them.
         LinearLayout layout = (LinearLayout) view;

@@ -91,22 +91,6 @@ public class Events {
         }
     }
     
-    public static class RequestUpdatePreferences extends Request {
-        public final Data.Preferences mPreferences;
-
-        public RequestUpdatePreferences(Data.Preferences preferences) {
-            mPreferences = preferences;            
-        }
-    }
-
-    public static class UpdatedPreferences {
-        public final Data.Preferences mPreferences;
-
-        public UpdatedPreferences(Data.Preferences preferences) {
-            mPreferences = preferences;            
-        }
-    }
-
     public static class RequestGenerateSelf extends Request {
         public final String mNickname;
 

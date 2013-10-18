@@ -35,26 +35,7 @@ public class Data {
     private static final String LOG_TAG = "Data";
     
     // ... immutable POJOs
-    // TODO: rename mFieldName --> fieldName (since using object mapper for json)
-    // TODO: http://google-gson.googlecode.com/svn/trunk/gson/docs/javadocs/com/google/gson/FieldNamingPolicy.html
 
-    public static class Preferences {
-        public final int mLocationUpdatePeriodInSeconds = 600;
-        public final int mLocationFixPeriodInSeconds = 60;
-        public final int mLocationReportThresholdInMeters = 10;
-        public final boolean mAllowUseNetworkLocationProvider = true;
-        public final boolean mAllowUseGeoCoder = true;
-        public final boolean mAllowUseMobileNetwork = true;
-        
-        // TODO: public Preferences(int, int, int, boolean, boolean, boolean) {}
-
-        // TODO:
-        // - manually-triggered location sharing-only
-        // - location reporting granularity
-        // - geofencing
-        // - time-of-day limits
-    }
-    
     public static class Self {
         public final Identity.PublicIdentity mPublicIdentity;
         public final Identity.PrivateIdentity mPrivateIdentity;
@@ -132,28 +113,10 @@ public class Data {
     private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json"; 
     private static final String COMMIT_FILENAME_SUFFIX = ".commit"; 
     
-    Preferences mPreferences;
     Self mSelf;
     Status mSelfStatus;
     List<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
-    
-    public synchronized Preferences getPreferences() throws Utils.ApplicationError {
-        if (mPreferences == null) {
-            try {
-                mPreferences = Json.fromJson(readFile(PREFERENCES_FILENAME), Preferences.class);
-            } catch (DataNotFoundException e) {
-                // Use default preferences
-                mPreferences = new Preferences();
-            }
-        }
-        return mPreferences;
-    }
-
-    public synchronized void updatePreferences(Preferences preferences) throws Utils.ApplicationError {
-        writeFile(PREFERENCES_FILENAME, Json.toJson(preferences));
-        mPreferences = preferences;
-    }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
     	if (mSelf == null) {

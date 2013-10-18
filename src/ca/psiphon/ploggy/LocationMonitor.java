@@ -25,11 +25,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 
 import com.squareup.otto.Subscribe;
 
@@ -41,17 +44,14 @@ public class LocationMonitor implements android.location.LocationListener {
     // TODO: http://developer.android.com/guide/topics/location/strategies.html
     // TODO: http://code.google.com/p/android-protips-location/
     
-    // public int mLocationUpdatePeriodInSeconds = 600;
-    // public int mLocationFixPeriodInSeconds = 60;
-
-    Context mContext;
+    Engine mEngine;
     Timer mLocationUpdateTimer;
     Timer mLocationFixTimer;
     Location mLastReportedLocation;
     Location mCurrentLocation;
     
-    LocationMonitor(Context context) {
-        mContext = context;
+    LocationMonitor(Engine engine) {
+        mEngine = engine;
     }
     
     public void start() throws Utils.ApplicationError {
@@ -68,7 +68,7 @@ public class LocationMonitor implements android.location.LocationListener {
                 }
             },
             0,
-            Data.getInstance().getPreferences().mLocationUpdatePeriodInSeconds*1000);        
+            60*1000*mEngine.getIntPreference(R.string.preferenceLocationUpdateTimePeriodInMinutes));
     }
     
     public void stop() {
@@ -87,18 +87,9 @@ public class LocationMonitor implements android.location.LocationListener {
         stop();
         start();
     }
-    
-    @Subscribe
-    public void handleUpdatedPreferences(
-            Events.UpdatedPreferences updatedPreferences) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
-    }    
-    
+
     public void startLocationListeners() throws Utils.ApplicationError {
-        LocationManager locationManager = (LocationManager)mContext.getSystemService(Context.LOCATION_SERVICE);
+        LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
         
         for (String provider: locationManager.getAllProviders()) {
         	updateCurrentLocation(locationManager.getLastKnownLocation(provider));
@@ -117,8 +108,11 @@ public class LocationMonitor implements android.location.LocationListener {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);    
         }
         
-        if (Data.getInstance().getPreferences().mAllowUseNetworkLocationProvider
-                && locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+        // TODO: had a preference to allow use of Network location provider, since this provider
+        // sends data to a 3rd party. But is the provider always sending this data? I.e., is there
+        // any privacy benefit to not using it if it's available?
+        
+        if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);    
         }
         
@@ -138,11 +132,11 @@ public class LocationMonitor implements android.location.LocationListener {
                 }
             },
             0,
-            Data.getInstance().getPreferences().mLocationFixPeriodInSeconds*1000);        
+            1000*mEngine.getIntPreference(R.string.preferenceLocationFixPeriodInSeconds));        
     }
     
     public void stopLocationListeners() {
-        LocationManager locationManager = (LocationManager)mContext.getSystemService(Context.LOCATION_SERVICE);
+        LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
         locationManager.removeUpdates(this);        
     }
         
@@ -153,16 +147,16 @@ public class LocationMonitor implements android.location.LocationListener {
 
     	if (mLastReportedLocation != null &&
     		mLastReportedLocation.distanceTo(mCurrentLocation)
-    			<= Data.getInstance().getPreferences().mLocationReportThresholdInMeters) {
+    			<= mEngine.getIntPreference(R.string.preferenceLocationSharingDistanceThresholdInMeters)) {
     		return;
     	}
 
 		mLastReportedLocation = mCurrentLocation;
 
-    	if (Data.getInstance().getPreferences().mAllowUseGeoCoder) {
+    	if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
             Runnable task = new Runnable() {
                 public void run() {
-                    Geocoder geocoder = new Geocoder(mContext);
+                    Geocoder geocoder = new Geocoder(mEngine.getContext());
                     List<Address> addresses = null;
 					try {
 						// TODO: https://code.google.com/p/osmbonuspack/wiki/Overview#Geocoding_and_Reverse_Geocoding
@@ -181,7 +175,7 @@ public class LocationMonitor implements android.location.LocationListener {
 					Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
             };
-            Engine.getInstance().submitTask(task);
+            mEngine.submitTask(task);
     		
     	} else {
     		Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));

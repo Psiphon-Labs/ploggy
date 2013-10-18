@@ -35,7 +35,7 @@
     <string name="preference_limit_location_precision_summary">Reduce the precision of shared location</string>
     <string name="preference_location_precision_title">Location Precision</string>
     <string name="preference_location_precision_summary">Radius of shared location</string>
-    <string name="preference_location_precision_units"> meters</string>
+    <string name="preference_location_precision_units">meters</string>
     <string name="preference_automatic_location_sharing_title">Automatic Location Sharing</string>
     <string name="preference_automatic_location_sharing_summary">Periodically share your location automatically</string>
     <string name="preference_limit_location_sharing_time_title">Limit Location Sharing by Time</string>
@@ -56,10 +56,14 @@
     <string name="preferences_battery_saver_level_units">%</string>
     <string name="preference_location_sharing_time_frequency_title">Location Sharing Time Frequency</string>
     <string name="preference_location_sharing_time_frequency_summary">How often your location is shared</string>
-    <string name="preference_location_sharing_time_frequency_units"> minutes</string>
+    <string name="preference_location_sharing_time_frequency_units">minutes</string>
     <string name="preference_location_sharing_distance_threshold_title">Location Sharing Distance Threshold</string>
     <string name="preference_location_sharing_distance_threshold_summary">How far you move before sharing a new location</string>
     <string name="preference_location_sharing_distance_threshold_units"> meters</string>
+    <string name="preference_location_fix_period_title">Location Fix Period</string>
+    <string name="preference_location_fix_period_summary">How long to run location services when obtaining a new location fix (longer period is more accurate but uses more battery)</string>
+    <string name="preference_location_fix_period_units">seconds</string>
+
     <string-array name="weekday_names">
         <item>"Monday"</item>
         <item>"Tuesday"</item>
