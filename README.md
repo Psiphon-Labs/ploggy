@@ -69,7 +69,7 @@ Performance considerations:
 * All aspects of the Ploggy app work "offline": users can publish content locally without peers connected; users cache peer updates locally and can view recent peer updates without peers connected.
 * Where possible, make use of pipelining, consolidation, concurrency, and prefetching to create the best user experience on top of a network that has high latency and on top of services that frequently go offline.
 * Ploggy provides settings to restrict/throttle use of mobile data networks and shutdown sharing in low battery conditions.
-* The Tor hidden service mechanism provides NAT traversal.
+* The Tor Hidden Service mechanism provides NAT traversal.
 
 Current Status
 --------------------------------------------------------------------------------
@@ -79,14 +79,14 @@ Currently progressing towards an alpha version featuring location sharing.
 Implemented:
 
 * User Interface (manage identity, exchange identities, list friends, show location details, preferences)
-* Identity management (X509 certificate and Tor hidden service identity generation)
+* Identity management (X509 certificate and Tor Hidden Service identity generation)
 * Identity exchange via NFC (Android Beam) with [Robohash](http://robohash.org)
 * Data persistence (friend list and recent status updates)
-* Tor wrapper (local SOCKS-enabled web client and hidden service)
+* Tor wrapper (local SOCKS-enabled web client and Hidden Service)
 * Embedded web server
 * TLS transport security using custom trust management and restricted protocol and ciphersuite
 * Logging with persistence
-* Unit tests (covering primarily Tor client/hidden service and web client/server)
+* Unit tests (covering primarily Tor client/Hidden Service and web client/server)
 * Location manager (implemented using Android open source API, not new closed-source Play Service API)
 
 Missing:
