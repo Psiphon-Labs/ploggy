@@ -34,6 +34,12 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 
+/**
+ * Helper wrappers around GSON JSON serialization routines.
+ * 
+ * Designed to work with the POJOs in Data and Identity, etc. Implements a custom field
+ * renaming to convert Java code style "mFieldname" fieldnames to JSON style "fieldname". 
+ */
 public class Json {
     
     private static final String LOG_TAG = "Json";
@@ -83,7 +89,6 @@ public class Json {
 
         @Override
         public String translateName(Field field) {
-            // TODO: ... mFieldName --> fieldName
             return Character.toLowerCase(field.getName().charAt(1)) + field.getName().substring(2);
         }        
     }

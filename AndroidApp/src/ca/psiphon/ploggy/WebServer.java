@@ -29,12 +29,17 @@ import javax.net.ssl.SSLServerSocket;
 
 import fi.iki.elonen.NanoHTTPD;
 
+/**
+ * Wrapper for NanoHTTPD embedded web server, which is used as the server-side for Ploggy friend-to-friend
+ * requests.
+ *
+ * Uses TLS configured with TransportSecurity specs and mutual authentication. Web clients must present a
+ * valid friend certificate. Uses the Engine thread pool to service web requests.
+ */
 public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactory, NanoHTTPD.AsyncRunner {
 
     private static final String LOG_TAG = "Web Server";
 
-    // TODO: see https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
-    
     private ExecutorService mExecutorService;
     private X509.KeyMaterial mX509KeyMaterial;
     private ArrayList<String> mFriendCerficates;
@@ -43,8 +48,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             ExecutorService executorService,
             X509.KeyMaterial x509KeyMaterial,
             ArrayList<String> friendCertificates) throws Utils.ApplicationError {
-        // TODO: ...Specifying port 0 so OS will pick any available ephemeral port
-        //       ...Bind to loopback only
+        // Bind to loopback only -- not a public web server. Also, specify port 0 to let
+        // the system pick any available port for listening.
         super("127.0.0.1", 0);
         mExecutorService = executorService;
         mX509KeyMaterial = x509KeyMaterial;
@@ -57,15 +62,6 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     public ServerSocket createServerSocket() throws IOException {
         try {
             SSLServerSocket sslServerSocket = (SSLServerSocket)TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCerficates);
-            // TODO: temp! =========
-            android.util.Log.e(LOG_TAG, "createServerSocket");
-            for (String cipherSuite : sslServerSocket.getEnabledCipherSuites()) {
-                android.util.Log.e(LOG_TAG, "enabled ciphersuite: " + cipherSuite);
-            }
-            for (String protocol : sslServerSocket.getEnabledProtocols()) {
-                android.util.Log.e(LOG_TAG, "enabled protocol: " + protocol);
-            }
-            //=======================
             return sslServerSocket;
         } catch (Utils.ApplicationError e) {
             throw new IOException(e);

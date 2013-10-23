@@ -45,6 +45,9 @@ import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
+/**
+ * Utility functions
+ */
 public class Utils {
 
     private static final String LOG_TAG = "Utils";
@@ -138,22 +141,18 @@ public class Utils {
         private ArrayList<String> mTargetFilenames;
 
         public FileInitializedObserver(File directory, String ... filenames) {
-            // TODO: ...Tor creates <target>.tmp, writes, then renames
-            // TODO: ...https://groups.google.com/forum/#!msg/android-developers/hk6c7lj0Ga0/aLNbOfxjF-oJ
+            // MOVED_TO is required for the Tor case where the Tor process creates <target>.tmp,
+            // writes to that file, then renames to <target>. There's no CLOSE_WRITE event for <target>.
             super(
                 directory.getAbsolutePath(),
                 FileObserver.MOVED_TO | FileObserver.CLOSE_WRITE);
             mTargetFilenames = new ArrayList<String>(Arrays.asList(filenames));
             mLatch = new CountDownLatch(mTargetFilenames.size());
-            // TODO: TEMP!
-            //for (String filename : mTargetFilenames) {android.util.Log.e("TEMP", String.format("init observer for: %s in %s", filename, directory.getAbsolutePath()));}
         }
 
         @Override
         public void onEvent(int event, String path) {
             if (path != null) {
-                // TODO: TEMP!
-                //android.util.Log.e("TEMP", String.format("event: %d for %s", event, path));
                 for (int i = 0; i < mTargetFilenames.size(); i++) {
                     if (path.equals(mTargetFilenames.get(i))) {
                         mTargetFilenames.remove(i);
@@ -182,8 +181,7 @@ public class Utils {
         return encodeHex(buffer);
     }
     
-    // from:
-    // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+    // From: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
     public static String encodeHex(byte[] bytes) {
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
         char[] hexChars = new char[bytes.length * 2];

@@ -71,6 +71,11 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.widget.ImageView;
 
+/**
+ * Unique avatars derived from identity fingerprints - to aid visual verification. 
+ * 
+ * Port of Robohash (http://robohash.org) to Java.
+ */
 public class Robohash {
     
     private static final String LOG_TAG = "Robohash";
@@ -105,7 +110,7 @@ public class Robohash {
             byte[] digest = sha1.digest(data);
             ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
             byteBuffer.order(ByteOrder.BIG_ENDIAN);
-            // TODO: SecureRandom SHA1PRNG (but avoid LinuxSecureRandom)
+            // TODO: SecureRandom SHA1PRNG (but not LinuxSecureRandom)
             Random random = new Random(byteBuffer.getLong());
             
             AssetManager assetManager = context.getAssets();

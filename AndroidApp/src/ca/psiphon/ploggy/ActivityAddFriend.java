@@ -19,8 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.nio.charset.Charset;
-
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
@@ -40,13 +38,27 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 
+/**
+ * User interface for adding friends.
+ * 
+ * Implements NFC (Android Beam) identity exchange. Due to the "Touch to Beam" OS prompt enforced
+ * for Beam for Android 4+, apps cannot automatically send a Beam in response to an incoming Beam
+ * (for mutual identity exchange triggered by one device). So this Activity implements a workflow
+ * instructing users what steps to follow. Foreground dispatch is used to ensure that the same
+ * Activity instance receives the peer's Beam.
+ * 
+ * This Activity also handles the android.nfc.action.NDEF_DISCOVERED intent for Ploggy Beams, so
+ * this will be launched if Ploggy isn't in the foreground.
+ */
 public class ActivityAddFriend extends Activity implements View.OnClickListener, NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
 
     private static final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
     private static final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
     
     private NfcAdapter mNfcAdapter;
-    // TODO: no guarantee same device pushed to/received from
+
+    // These variables track the workflow state. Note that there's check in this workflow
+    // that the same device was pushed to/received from.
     private boolean mPushComplete;
     private Data.Friend mReceivedFriend;
 
@@ -89,8 +101,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             finish();
             return;
         }
-        // TODO: isNdefPushEnabled (API 16)
-        if (!mNfcAdapter.isEnabled()) {
+        if (!mNfcAdapter.isEnabled() || mNfcAdapter.isNdefPushEnabled()) {
             Toast.makeText(this, R.string.prompt_nfc_not_enabled, Toast.LENGTH_LONG).show();
             finish();
             return;
@@ -113,8 +124,8 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             // TODO: log?
         }
         Robohash.setRobohashImage(this, mSelfAvatarImage, null);
-        mSelfNicknameText.setText("");    
-        mSelfFingerprintText.setText("");        
+        mSelfNicknameText.setText("");
+        mSelfFingerprintText.setText("");
     }
 
     private void showFriend() {
@@ -195,16 +206,11 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     public NdefMessage createNdefMessage(NfcEvent event) {
         try {
             String payload = Json.toJson(Data.getInstance().getSelf().getFriend());
+            ;
             return new NdefMessage(
             		new NdefRecord[] {
-            				// TODO: NdefRecord.createMime(NFC_MIME_TYPE, ),
-            				new NdefRecord(
-            						NdefRecord.TNF_MIME_MEDIA,
-            						NFC_MIME_TYPE.getBytes(Charset.forName("US-ASCII")),
-            						null,
-            						payload.getBytes()),
-            				NdefRecord.createApplicationRecord(
-            						NFC_AAR_PACKAGE_NAME) });
+            		        NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
+            				NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
             // TODO: log?
         }

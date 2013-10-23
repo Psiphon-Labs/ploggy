@@ -30,12 +30,24 @@ import java.util.List;
 
 import android.content.Context;
 
+/**
+ * Data persistence for self, friends, and status.
+ *
+ * On disk, data is represented as JSON stored in individual files. In memory, data is represented
+ * as immutable POJOs which are thread-safe and easily serializable. Self and friend metadata, including
+ * identity, and recent status data are kept in-memory. Large data such as map tiles will be left on
+ * disk with perhaps an in-memory cache.
+ * 
+ * Simple consistency is provided: data changes are first written to a commit file, then the commit
+ * file replaces the data file. In memory structures are replaced only after the file write succeeds.
+ * 
+ * If local security is added to the scope of Ploggy, here's where we'd interface with SQLCipher and/or
+ * KeyChain, etc.
+ */
 public class Data {
     
     private static final String LOG_TAG = "Data";
     
-    // ... immutable POJOs
-
     public static class Self {
         public final Identity.PublicIdentity mPublicIdentity;
         public final Identity.PrivateIdentity mPrivateIdentity;
@@ -70,8 +82,7 @@ public class Data {
         public final String mStreetAddress;
         // TODO: public final ArrayList<String> mMapTileIds;
         // TODO: public final String mMessage;
-        // TODO: public final String mPhotoId;        
-
+        // TODO: public final String mPhotoId;
 
         public Status(
                 String timestamp,
@@ -134,6 +145,7 @@ public class Data {
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
+        Events.post(new Events.UpdatedSelf());
     }
 
     public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
@@ -155,6 +167,7 @@ public class Data {
     public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
+        Events.post(new Events.UpdatedSelfStatus());
     }
 
     private void loadFriends() throws Utils.ApplicationError {
@@ -209,13 +222,14 @@ public class Data {
 	    	insertOrUpdate(friend, newFriends);
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
 	    	insertOrUpdate(friend, mFriends);
+	        Events.post(new Events.UpdatedFriend(friend.mId));
     	}
     }
 
-    private void remove(Friend friend, List<Friend> list) throws DataNotFoundException {
+    private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundException {
     	boolean found = false;
         for (int i = 0; i < list.size(); i++) {
-        	if (list.get(i).mId.equals(friend.mId)) {
+        	if (list.get(i).mId.equals(id)) {
         		list.remove(i);
         		found = true;
         		break;
@@ -226,13 +240,14 @@ public class Data {
         }
     }
 
-    public synchronized void removeFriend(Friend friend) throws Utils.ApplicationError, DataNotFoundException {
+    public synchronized void removeFriend(String id) throws Utils.ApplicationError, DataNotFoundException {
     	loadFriends();
     	synchronized(mFriends) {
 	    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-	    	remove(friend, newFriends);
+	    	removeFriendHelper(id, newFriends);
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-	    	remove(friend, mFriends);
+	        removeFriendHelper(id, mFriends);
+            Events.post(new Events.RemovedFriend(id));
     	}
     }
 
@@ -253,27 +268,9 @@ public class Data {
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
     	writeFile(filename, Json.toJson(status));
+        Events.post(new Events.UpdatedFriendStatus(id));
     }
 
-    /*
-    // data files: (1) map tile/photo; (2) may or may not exist/be complete/be cached
-    
-    public static synchronized InputStream openDataFileForRead(String dataFileId) {
-        // TODO: ...
-        return null;
-    }
-
-    public static synchronized int getDataFileSizeIncomplete(String dataFileId) {
-        // TODO: ...
-        return -1;
-    }
-
-    public static synchronized InputStream openDataFileForAppend(String dataFileId) {        
-        // TODO: ...
-        return null;
-    }
-    */
-    
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundException {
         FileInputStream inputStream = null;
         try {

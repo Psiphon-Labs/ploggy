@@ -57,6 +57,18 @@ import net.freehaven.tor.control.TorControlConnection;
 import android.content.Context;
 import android.os.Build;
 
+/**
+ * Wrapper for Tor child process. 
+ *
+ * Derived from Briar Project's TorPlugin.java. Also use's Briar project custom TorControlConnection.
+ * Supports two modes: run Tor services (local SOCKS proxy for clients, Hidden Server in front of web
+ * server); and generate key material only.
+ * Allows Tor to select listen port for control interface and local SOCKS proxy. Uses file monitoring
+ * to monitor initial startup of Tor process, and control interface for monitoring Tor bootstrap
+ * progress. 
+ * Supports multiple simultaneous Tor instances (for testing). Use distinct instance names for
+ * simultaneous distinct, Tor instances, each with its own persistent data.
+ */
 public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     private static final String LOG_TAG = "Tor";
@@ -102,7 +114,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
     public TorWrapper(Mode mode, String instanceName, HiddenService.KeyMaterial keyMaterial, int webServerPort) {
         mMode = mode;
-        // TODO: ...use instance name for distinct and persistent data
         mInstanceName = instanceName;
         if (mInstanceName == null) {
             mInstanceName = mMode.toString();
@@ -160,7 +171,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             }
             String hostname = Utils.readFileToString(mHiddenServiceHostnameFile);
             String privateKey = Utils.readFileToString(mHiddenServicePrivateKeyFile);
-            // TODO: ...encode to retain formatting (newlines)
+            // Encoding these strings to retain formatting (newlines) across serialization/protocol
             mKeyMaterial = new HiddenService.KeyMaterial(
                     Utils.encodeBase64(hostname.getBytes()),
                     Utils.encodeBase64(privateKey.getBytes()));
@@ -226,7 +237,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             stdout.close();
             
             // TODO: i18n errors (string resources); combine logging with throwing Utils.ApplicationError
-
             int exit = mProcess.waitFor();
             if (exit != 0) {
                 throw new Utils.ApplicationError(logTag(), String.format("Tor exited with error %d", exit));
@@ -276,7 +286,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
         
         if (mPid == -1 && mPidFile.exists()) {
-            // TODO: use output of ps command when missing pid file...?
+            // TODO: use output of ps command when missing pid file...(but don't interfere with other instances)?
             try {
                 mPid = Utils.readFileToInt(mPidFile);
             } catch (IOException e) {
@@ -383,7 +393,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
     private int getPortValue(String data) throws Utils.ApplicationError {
         try {
-            // TODO: ...PORT=127.0.0.1:<port>\n
+            // Expected format is "PORT=127.0.0.1:<port>\n"
             String[] tokens = data.trim().split(":");
             if (tokens.length != 2) {
                 throw new Utils.ApplicationError(logTag(), "unexpected port value format");                

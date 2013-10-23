@@ -31,11 +31,20 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 
+/**
+ * User interface for displaying self and friend location details.
+ * 
+ * This activity also provides a button to delete friends.
+ * 
+ * Invoke with an intent containing an extra with FRIEND_ID_BUNDLE_KEY
+ * to display friend details; otherwise displays self details.
+ * This class subscribes to status events to update displayed data
+ * while in the foreground.
+ */
 public class ActivityLocationDetails extends Activity implements View.OnClickListener {
     
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
-    // TODO: ...null to show self
     private String mFriendId;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -94,7 +103,12 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     }
 
     @Subscribe
-    public void onNewFriendStatus(Events.NewFriendStatus newFriendStatus) {
+    public void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
+        showDetails();
+    }       
+
+    @Subscribe
+    public void onUpedatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         showDetails();
     }       
 
@@ -105,6 +119,8 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
             Data.Status selfStatus = data.getSelfStatus();
             Data.Friend friend = null;
             Data.Status friendStatus = null;
+            
+            // TODO: mMapImage is just a static placeholder
             
             if (mFriendId != null) {
                 friend = data.getFriendById(mFriendId);
@@ -149,7 +165,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
 
             return;
         } catch (Data.DataNotFoundException e) {
-            // TODO: could render Friend without selfStatus, omitting distance
+            // TODO: could render Friend without selfStatus, omitting distance?
             Toast toast = Toast.makeText(this, getString(R.string.prompt_location_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
             finish();
@@ -169,8 +185,16 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                // TODO: ...perform delete
-                                finish();    
+                                if (mFriendId != null) {
+                                    try {
+                                        Data.getInstance().removeFriend(mFriendId);
+                                    } catch (Data.DataNotFoundException e) {
+                                        // Ignore
+                                    } catch (Utils.ApplicationError e) {
+                                        // TODO: log?
+                                    }
+                                    finish();
+                                }
                             }
                 
                         })

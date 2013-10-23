@@ -19,6 +19,9 @@
 
 package ca.psiphon.ploggy;
 
+/**
+ * Helpers and defined values for verifying/enforcing Ploggy protocol.
+ */
 public class Protocol {
     
     public static final String WEB_SERVER_PROTOCOL = "https";
@@ -30,7 +33,7 @@ public class Protocol {
     public static final String GET_STATUS_REQUEST_PATH = "/status";
 
     public static boolean isValidNickname(String nickname) {
-        // TODO: characters?
+        // TODO: valid characters?
         return nickname.length() > 0;
     }
 

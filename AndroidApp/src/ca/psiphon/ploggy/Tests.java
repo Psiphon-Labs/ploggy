@@ -29,6 +29,17 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Component tests. 
+ * 
+ * Covered (by end-to-end request from one peer to another through Tor):
+ * - TorWrapper
+ * - Identity
+ * - X509
+ * - HiddenService
+ * - WebClient
+ * - WebServer
+ */
 public class Tests {
 	
     private static final String LOG_TAG = "Tests";

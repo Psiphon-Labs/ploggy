@@ -26,6 +26,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
 
+/**
+ * Android Service for hosting long-running Engine instance.
+ */
 public class PloggyService extends Service {
     
     Engine mEngine;
@@ -45,7 +48,7 @@ public class PloggyService extends Service {
         try {
             mEngine.start();
         } catch (Utils.ApplicationError e) {
-            // TODO: ...
+            // TODO: log
         }
         doForeground();
     }
@@ -59,21 +62,25 @@ public class PloggyService extends Service {
         startForeground(R.string.foregroundServiceNotificationId, createNotification());
     }
     
-    @SuppressWarnings("deprecation")
     private Notification createNotification() {
-        int contextTitleID = R.string.app_name;
+        int titleID = R.string.app_name;
         int contentTextID = R.string.default_foreground_service_notification_message;
         int iconID = R.drawable.ic_launcher;
 
-        // Invoke main Activity if notification is clicked
+        // Invoke main Activity when notification is clicked
         Intent intent = new Intent("ACTION_VIEW", null, this, ca.psiphon.ploggy.ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);        
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     
         // Newer API (Notification.Builder) requires API level 11
-        Notification notification = new Notification(iconID, null, System.currentTimeMillis());
-        notification.setLatestEventInfo(this, getText(contextTitleID), getText(contentTextID), pendingIntent); 
-        
+        Notification notification
+            = new Notification.Builder(this)
+                .setContentIntent(pendingIntent)
+                .setContentTitle(getText(titleID))
+                .setContentText(getText(contentTextID))
+                .setSmallIcon(iconID)
+                .build();
+
         return notification;
     }
 }

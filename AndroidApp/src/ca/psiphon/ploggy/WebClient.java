@@ -52,6 +52,12 @@ import ch.boye.httpclientandroidlib.params.HttpConnectionParams;
 import ch.boye.httpclientandroidlib.params.HttpParams;
 import ch.boye.httpclientandroidlib.protocol.HttpContext;
 
+/**
+ * Client-side for Ploggy friend-to-friend requests.
+ * 
+ * Implements HTTP requests through Tor with TLS configured with TransportSecurity specs and mutual
+ * authentication.
+ */
 public class WebClient {
 
     private static final String LOG_TAG = "Web Client";
@@ -74,7 +80,7 @@ public class WebClient {
             URI uri = new URI(Protocol.WEB_SERVER_PROTOCOL, null, hostname, port, requestPath, null, null);
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
             SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext);
-            // TODO: persistent connection manager, httpclient, etc.
+            // TODO: keep a persistent PoolingClientConnectionManager across makeGetRequest calls for connection reuse?
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
             ClientConnectionManager connectionManager;
@@ -149,7 +155,7 @@ public class WebClient {
             super(registry);
         }
 
-        // TODO: ...derived from the original DefaultClientConnectionOperator.java
+        // Derived from the original DefaultClientConnectionOperator.java in Apache HttpClient 4.2
         @Override
         public void openConnection(
                 final OperatedClientConnection conn,
@@ -170,19 +176,24 @@ public class WebClient {
             int port = scheme.resolvePort(target.getPort());
             String host = target.getHostName();
 
-            // TODO: ...explicit SOCKS4a
-            // ... Android (Apache Harmony) Socket appears to support only SOCKS4 and throws on the unresolved address
+            // Perform explicit SOCKS4a connection request. SOCKS4a supports remote host name resolution
+            // (i.e., Tor resolves the hostname, which may be an onion address).
+            // The Android (Apache Harmony) Socket class appears to support only SOCKS4 and throws an
+            // exception on an address created using INetAddress.createUnresolved() -- so the typical
+            // technique for using Java SOCKS4a/5 doesn't appear to work on Android:
+            // https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/java/net/PlainSocketImpl.java            
+            // See also: http://www.mit.edu/~foley/TinFoil/src/tinfoil/TorLib.java, for a similar implementation
 
-            /*
-            field 1: SOCKS version number, 1 byte, must be 0x04 for this version
-            field 2: command code, 1 byte:
-                0x01 = establish a TCP/IP stream connection
-                0x02 = establish a TCP/IP port binding
-            field 3: network byte order port number, 2 bytes
-            field 4: deliberate invalid IP address, 4 bytes, first three must be 0x00 and the last one must not be 0x00
-            field 5: the user ID string, variable length, terminated with a null (0x00)
-            field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
-            */
+            // From http://en.wikipedia.org/wiki/SOCKS#SOCKS4a:
+            //
+            // field 1: SOCKS version number, 1 byte, must be 0x04 for this version
+            // field 2: command code, 1 byte:
+            //     0x01 = establish a TCP/IP stream connection
+            //     0x02 = establish a TCP/IP port binding
+            // field 3: network byte order port number, 2 bytes
+            // field 4: deliberate invalid IP address, 4 bytes, first three must be 0x00 and the last one must not be 0x00
+            // field 5: the user ID string, variable length, terminated with a null (0x00)
+            // field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
             
             int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
 
@@ -213,7 +224,7 @@ public class WebClient {
             prepareSocket(sslsocket, context, params);
             conn.openCompleted(sslSocketFactory.isSecure(sslsocket), params);
             
-            // TODO: clarify which connection throws java.net.SocketTimeoutException
+            // TODO: clarify which connection throws java.net.SocketTimeoutException?
         }
 
         @Override

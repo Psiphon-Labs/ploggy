@@ -36,6 +36,15 @@ import javax.net.ssl.TrustManagerFactory;
 
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 
+/**
+ * Helpers for building custom TLS connections.
+ * 
+ * Each TLS connection (both client- and server-side):
+ * - Requires TLS 1.2
+ * - Requires a strong CipherSuite (limited by what's commonly available on Android 4.1+)
+ *   which includes perfect forward secrecy
+ * - Requires mutual authentication using self key material and friend certificates 
+ */
 public class TransportSecurity {
 
     private static final String LOG_TAG = "Transport Security";
@@ -60,7 +69,9 @@ public class TransportSecurity {
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
 
         public ClientSSLSocketFactory(SSLContext sslContext) {
-            // TODO: ...ALLOW_ALL safe as long as only one peer (server) cert?
+            // Using ALLOW_ALL effectively disables hostname verification. Ploggy
+            // simply checks that the peer is authenticating with the sole friend
+            // certificate expected for this connection.
             super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
         }
 
@@ -95,28 +106,6 @@ public class TransportSecurity {
 
             SSLContext sslContext = SSLContext.getInstance(TLS_REQUIRED_PROTOCOL);
             sslContext.init(keyManagers, trustManagers, new SecureRandom());
-
-            /*
-            // TODO: temp! =========
-            android.util.Log.e(LOG_TAG, "getSSLContext");
-            android.util.Log.e(LOG_TAG, sslContext.getProtocol());
-            android.util.Log.e(LOG_TAG, sslContext.getProvider().getName());
-            for (String protocol : sslContext.getSupportedSSLParameters().getProtocols()) {
-                android.util.Log.e(LOG_TAG, "supported protocol: " + protocol);
-            }
-            for (String cipherSuite : sslContext.getSupportedSSLParameters().getCipherSuites()) {
-                android.util.Log.e(LOG_TAG, "supported cipher suite: " + cipherSuite);
-            }
-            for (String protocol : sslContext.getDefaultSSLParameters().getProtocols()) {
-                android.util.Log.e(LOG_TAG, "default protocol: " + protocol);
-            }
-            for (String cipherSuite : sslContext.getDefaultSSLParameters().getCipherSuites()) {
-                android.util.Log.e(LOG_TAG, "default cipher suite: " + cipherSuite);
-            }
-            android.util.Log.e(LOG_TAG, "need client auth: " + (sslContext.getDefaultSSLParameters().getNeedClientAuth() ? "yes" : "no"));
-            //=======================
-            */
-            
             return sslContext;
         } catch (IllegalArgumentException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -124,13 +113,16 @@ public class TransportSecurity {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
+    
+    // Protocol specification
 
-    // TODO: ...no GCM-SHA256 built-in; no JCCE for SpongyCastle
-    // TODO: TLS_..._CBC_SHA256 (requires TLS 1.2?)
-    // TODO: TLS 1.2 not available on Android 4.0, only 4.1+?
+    // TODO: ECC disabled -- key generation works, but TLS fails in ClientHello
     //private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA" };
     //private static final String TLS_REQUIRED_PROTOCOL = "TLSv1.2";
-    // TODO: temp!
+
+    // TODO: TLS_..._CBC_SHA256?
+    // TODO: no GCM-SHA256 built-in, even on Android 4.1?; no JCCE for SpongyCastle to use its GCM-SHA256 with Android TLS?
+    // TODO: TLS 1.2 only available on Android 4.1+?
     private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA" };
     private static final String TLS_REQUIRED_PROTOCOL = "TLSv1.2";
 

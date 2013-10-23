@@ -31,9 +31,22 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.preference.PreferenceManager;
 
-import com.squareup.otto.Produce;
 import com.squareup.otto.Subscribe;
 
+/**
+ * Coordinator for background Ploggy work.
+ * 
+ * The Engine:
+ * - schedule friend status push/polls
+ * - maintains a worker thread pool for background tasks (pushing/polling
+ *   friends and handling friend requests
+ * - runs the local location monitor
+ * - (re)-starts and stops the local web server and Tor Hidden Service to
+ *   handle requests from friends
+ *   
+ * An Engine instance is intended to be run via an Android Service set to
+ * foreground mode (i.e., long running).
+ */
 public class Engine implements OnSharedPreferenceChangeListener {
     
     private static final String LOG_TAG = "Engine";
@@ -62,7 +75,6 @@ public class Engine implements OnSharedPreferenceChangeListener {
         mTimer = new Timer();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
-        // TODO: check Data.getInstance().hasSelf()...
         startSharingService();
         initFriendPollPeriod();
         schedulePollFriends();
@@ -95,7 +107,7 @@ public class Engine implements OnSharedPreferenceChangeListener {
             stop();
             start();
         } catch (Utils.ApplicationError e) {
-            // TODO: ...?
+            // TODO: log?
         }
     }
 
@@ -158,74 +170,18 @@ public class Engine implements OnSharedPreferenceChangeListener {
     }
     
     @Subscribe
-    private synchronized void handleRequestGenerateSelf(
-            Events.RequestGenerateSelf requestGenerateSelf) {
-        
-        // TODO: check if already in progress?
-
-        final Events.RequestGenerateSelf taskRequestGenerateSelf = requestGenerateSelf;
-        Runnable task = new Runnable() {
-                public void run() {
-                    try {
-                        // TODO: validate nickname?
-                        // TODO: cancellable generation?
-                        stopSharingService();
-                        /*
-                        Data.Self self = new Data.Self(
-                                taskRequestGenerateSelf.mNickname,
-                                TransportSecurity.KeyMaterial.generate(),
-                                HiddenService.KeyMaterial.generate());
-                        Data.getInstance().updateSelf(self);
-                        Events.post(new Events.GeneratedSelf(self));
-                        */
-                    } catch (/*TEMP*/Exception e) {
-                        Events.post(new Events.RequestFailed(taskRequestGenerateSelf.mRequestId, e.getMessage()));
-                    } finally {
-                        // Apply new transport and hidden service credentials, or restart with old settings on error
-                        try {
-                            startSharingService();
-                        } catch (Utils.ApplicationError e) {
-                            // TODO: ...
-                        }                        
-                    }
-                }
-            };
-        mTaskThreadPool.submit(task);
+    private synchronized void handleNewSelfLocation(Events.NewSelfLocation NewSelfLocation) {
+        // TODO: update self status
     }
     
-    @Produce
-    private synchronized Events.GeneratedSelf produceGeneratedSelf() {
-        // TODO: ...
-        return null;
-    }
-
     @Subscribe
-    private synchronized void handleRequestDecodeFriend(
-            Events.RequestDecodeFriend requestDecodeFriend)  {
-        // TODO: ...
-    }
-
-    @Subscribe
-    private synchronized void handleRequestAddFriend(
-            Events.RequestAddFriend requestAddFriend)  {
-        // ...[re-]validate
-        // ...insert or update data
-        // ... update trust manager back end?
-        // ...schedule polling (if new) with schedulePollFriend()
-        // TODO: ...
-    }
-
-    @Subscribe
-    private synchronized void handleRequestDeleteFriend(
-            Events.RequestDeleteFriend requestDeleteFriend) {
-        // ...doesn't cancel polling
-        // TODO: ...
-    }
-
-    @Produce
-    private synchronized Events.NewSelfStatus produceNewSelfStatus() {
-        // TODO: ...
-        return null;
+    private synchronized void handleUpdatedSelf(Events.UpdatedSelf updatedSelf) {
+        // Apply new transport and hidden service credentials
+        try {
+            startSharingService();
+        } catch (Utils.ApplicationError e) {
+            // TODO: log?
+        }                        
     }
     
     private void initFriendPollPeriod() {
@@ -253,7 +209,7 @@ public class Engine implements OnSharedPreferenceChangeListener {
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.GET_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    Events.post(new Events.NewFriendStatus(friendStatus));
+                    Data.getInstance().updateFriendStatus(taskFriendId, friendStatus);
                     // Schedule next poll
                     schedulePollFriend(taskFriendId, false);
                 } catch (Data.DataNotFoundException e) {

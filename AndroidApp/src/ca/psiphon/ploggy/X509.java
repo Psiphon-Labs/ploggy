@@ -49,6 +49,11 @@ import javax.security.auth.x500.X500Principal;
 
 import org.spongycastle.x509.X509V3CertificateGenerator;
 
+/**
+ * Helpers generating X509 key pairs and digital signing/verification.
+ *
+ * See "Crypto algorithm specifications" below for current algorithms and key strengths.
+ */
 public class X509 {
 
     private static final String LOG_TAG = "X509";
@@ -194,14 +199,17 @@ public class X509 {
         return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));        
     }
     
+    // Crypto algorithm specifications
+    
     private static final String FINGERPRINT_ALGORITHM = "SHA-256";
     private static final String CERTIFICATE_TYPE = "X.509";
+
+    // TODO: currently using RSA instead of ECC due to compatibility issues with Android TLS.
     //private static final String KEY_TYPE = "EC";
     //private static final AlgorithmParameterSpec KEY_SPEC = new ECGenParameterSpec("secp256r1");
     //private static final String SIGNATURE_TYPE = "SHA256withECDSA";
 
-    // TODO: temp!
     private static final String KEY_TYPE = "RSA";
-    private static final AlgorithmParameterSpec KEY_SPEC = new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F4);
+    private static final AlgorithmParameterSpec KEY_SPEC = new RSAKeyGenParameterSpec(4096, RSAKeyGenParameterSpec.F4);
     private static final String SIGNATURE_TYPE = "SHA256withRSA";
 }

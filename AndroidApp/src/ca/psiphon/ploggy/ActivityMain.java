@@ -44,6 +44,15 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+/**
+ * This is the main UI screen.
+ * 
+ * This activity displays a list of friends, along with a summary of their status.
+ * Users can tab between the friend list and a list of event logs. The Action Bar
+ * menu is populated with the main app actions.
+ * This class subscribes to friend and status events to update displayed data
+ * while in the foreground.
+ */
 public class ActivityMain extends Activity {
 
     @Override
@@ -52,7 +61,6 @@ public class ActivityMain extends Activity {
         setContentView(R.layout.activity_main);
 
         ActionBar actionBar = getActionBar();
-        // TODO: http://developer.android.com/guide/topics/ui/actionbar.html#Home
         actionBar.setDisplayHomeAsUpEnabled(true);
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 
@@ -78,7 +86,7 @@ public class ActivityMain extends Activity {
         outState.putInt("currentTab", getActionBar().getSelectedNavigationIndex());
     }
 
-    // from: http://developer.android.com/guide/topics/ui/actionbar.html#Tabs
+    // Adapted from: http://developer.android.com/guide/topics/ui/actionbar.html#Tabs
     private static class TabListener<T extends Fragment> implements ActionBar.TabListener {
         private Fragment mFragment;
         private final Activity mActivity;
@@ -118,9 +126,6 @@ public class ActivityMain extends Activity {
     
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-    	// TODO: ...
-        //getMenuInflater().inflate(R.menu.main, menu);
-        //return true;
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main_activity_actions, menu);
         return super.onCreateOptionsMenu(menu);
@@ -157,7 +162,7 @@ public class ActivityMain extends Activity {
 				mFriendAdapter = new FriendAdapter(getActivity());
 	    		setListAdapter(mFriendAdapter);
 			} catch (Utils.ApplicationError e) {
-				// TODO: ...
+				// TODO: log, or flip to log tab, or display toast?
 			}
 
             Events.register(this);
@@ -180,29 +185,29 @@ public class ActivityMain extends Activity {
         }
 
         @Subscribe
-        public void onAddedFriend(Events.AddedFriend addedFriend) {
+        public void onAddedFriend(Events.UpdatedFriend updatedFriend) {
             try {
                 mFriendAdapter.updateFriends();
             } catch (Utils.ApplicationError e) {
-                // TODO: ...
+                // TODO: log, or flip to log tab, or display toast?
             }
         }    	
 
         @Subscribe
-        public void onDeletedFriend(Events.DeletedFriend deletedFriend) {
+        public void onDeletedFriend(Events.RemovedFriend removedFriend) {
             try {
                 mFriendAdapter.updateFriends();
             } catch (Utils.ApplicationError e) {
-                // TODO: ...
+                // TODO: log, or flip to log tab, or display toast?
             }
         }    	
 
         @Subscribe
-        public void onNewFriendStatus(Events.NewFriendStatus newFriendStatus) {
+        public void onNewFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
             try {
                 mFriendAdapter.updateFriends();
             } catch (Utils.ApplicationError e) {
-                // TODO: ...
+                // TODO: log, or flip to log tab, or display toast?
             }
         }       
     }
@@ -273,8 +278,7 @@ public class ActivityMain extends Activity {
 		public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             
-            // TODO: use endless list (e.g., https://github.com/commonsguy/cwac-endless)
-            // and populate on scroll
+            // TODO: use endless list (e.g., https://github.com/commonsguy/cwac-endless) and populate on scroll
             mLogAdapter = new LogAdapter(getActivity(), Log.readEntries());
     		setListAdapter(mLogAdapter);
 

@@ -37,6 +37,14 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 
+/**
+ * User interface for (re-)generating self identity.
+ * 
+ * An AsyncTask is used to generate TLS and Hidden Service key material. A progress
+ * spinner is displayed while generation occurs, then the user may type their
+ * nickname. The resulting identity fingerprint and Robohash avatar is updated
+ * after brief pauses in typing.
+ */
 public class ActivityGenerateSelf extends Activity implements View.OnClickListener {
 
     private ImageView mAvatarImage;
@@ -93,7 +101,6 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     public void onResume() {
         super.onResume();
         
-        // TODO: ...two modes (1) self already exists; (2) no self exists
         Data.Self self = getSelf();
         if (self == null) {
             startGenerating();
@@ -106,7 +113,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             mSaveButton.setVisibility(View.GONE);
 
         }
-        // TODO: ...don't show keyboard until edit selected
+        // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
     
@@ -179,12 +186,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     private class GenerateTask extends AsyncTask<Void, Void, GenerateResult> {
         @Override
         protected GenerateResult doInBackground(Void... params) {
-            // TODO: check isCancelled()
             try {
-                return new GenerateResult(
-                        X509.generateKeyMaterial(),
-                        // TODO: HiddenService.generateKeyMaterial());
-                        new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024)));
+                // TODO: possible to check isCancelled within the X509 key generation?
+                X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                if (isCancelled()) {
+                    return null;
+                }
+                HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
             } catch (Utils.ApplicationError e) {
                 // TODO: log
                 // TODO: can't dismiss Activity if can't generate initial self key material...?
@@ -204,7 +213,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             }
             if (result != null) {
                 mGenerateResult = result;
-                // TODO: ...temporary publicIdentity
+                // Display fingerprint/avatar for blank nickname
                 showAvatarAndFingerprint(
                         new Identity.PublicIdentity(
                                 mNicknameEdit.getText().toString(),
@@ -217,7 +226,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
 
     private TextWatcher getNicknameTextChangedListener() {
-        // TODO: ...refresh  robohash 1 second after stop typing nickname
+        // Refresh identity fingerprint and Robohash avatar 1 second after user stops typing nickname
         return new TextWatcher() {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -243,6 +252,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                             @Override
                             public void run() {
                                 if (mGenerateResult != null) {                                    
+                                    // Display fingerprint/avatar for updated nickname
                                     showAvatarAndFingerprint(
                                             new Identity.PublicIdentity(
                                                     nickname,
@@ -270,7 +280,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
     
     static public void checkLaunchGenerateSelf(Context context) {
-        // TODO: ...helper to ensure Self is generated
+        // Helper to ensure Self is generated. Called from other Activities to jump to this one first.
         if (getSelf() == null) {
             context.startActivity(new Intent(context, ActivityGenerateSelf.class));
         }

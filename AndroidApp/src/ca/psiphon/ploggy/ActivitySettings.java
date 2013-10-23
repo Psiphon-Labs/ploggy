@@ -29,6 +29,13 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 
+/**
+ * Activity to display SharedPreferences (user settings).
+ * 
+ * Much of the preferences logic is driven by preferences.xml with UI code is required.
+ * TimePicker- and SeekBar-based preferences are implemented with custom widgets, and this
+ * Activity provides support for updating the summaries for TimePicker preferences.
+ */
 public class ActivitySettings extends Activity {
 
     @Override

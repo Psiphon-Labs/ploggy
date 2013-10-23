@@ -28,6 +28,15 @@ import java.util.Date;
 
 import android.content.Context;
 
+/**
+ * Logging facility.
+ *
+ * A persistent log is maintained, for important events such as added-friend. Also
+ * maintains an insensitive log, omitting PII, that could be sent, with user constent
+ * as diagnostic feedback.
+ * Supports the log view in the main activity: supports reading back older logs
+ * from disk, as well as posting a bus event when a log is added.
+ */
 public class Log {
     
     private static final String LOG_TAG = "Log";
@@ -57,7 +66,7 @@ public class Log {
         // TODO: only persist important entries -- added friend, etc.
         //       maintain two files:
         //       1. permanent logs (with sensitive info)
-        //       2. session logs (with no sessitive info -- can be sent as diagnostics)
+        //       2. session logs (with no sensitive info -- can be sent as diagnostics)
         //       session log rotates (or use ring buffer structure)
         //       readEntries merges both files
         try {
@@ -89,7 +98,7 @@ public class Log {
                 try {
                     inputStream.close();
                 } catch (IOException e) {
-                    // TODO: ...
+                    // TODO: log (to log view at least)?
                 }
             }
         }        

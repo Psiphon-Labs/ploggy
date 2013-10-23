@@ -19,16 +19,26 @@
 
 package ca.psiphon.ploggy;
 
-import android.app.Application;
+/**
+ * Representation of Hidden Service key material.
+ */
+public class HiddenService {
+    
+    private static final String LOG_TAG = "Hidden Service";
+    
+    public static class KeyMaterial {
+        public final String mHostname;
+        public final String mPrivateKey;
 
-public class PloggyApplication extends Application {
+        public KeyMaterial(String hostname, String privateKey) {        
+            mHostname = hostname;
+            mPrivateKey = privateKey;
+        }
+    }
 
-	@Override
-	public void onCreate() {
-		Utils.setApplicationContext(this);
-		Events.initialize();
-		// TODO: remove
-		Tests.insertMockFriends();
-		//Tests.scheduleComponentTests();
-	}
+    public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
+        TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
+        tor.start();
+        return tor.getKeyMaterial();
+    }
 }

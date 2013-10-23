@@ -31,14 +31,21 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 
+/**
+ * Schedule and monitor location events from Android OS. 
+ * 
+ * Implements best practices from:
+ * - http://developer.android.com/guide/topics/location/strategies.html
+ * - http://code.google.com/p/android-protips-location/
+ * 
+ * Does not use the newer, higher level Play Services location API as it's
+ * not available on open source Android builds and its source is not available
+ * to review (e.g., verify that location isn't sent to 3rd party).  
+ */
 public class LocationMonitor implements android.location.LocationListener {
     
     private static final String LOG_TAG = "Location Monitor";
 
-    // TODO: http://stackoverflow.com/questions/3145089/what-is-the-simplest-and-most-robust-way-to-get-the-users-current-location-in-a
-    // TODO: http://developer.android.com/guide/topics/location/strategies.html
-    // TODO: http://code.google.com/p/android-protips-location/
-    
     Engine mEngine;
     Timer mLocationUpdateTimer;
     Timer mLocationFixTimer;
@@ -90,10 +97,10 @@ public class LocationMonitor implements android.location.LocationListener {
         	updateCurrentLocation(locationManager.getLastKnownLocation(provider));
         }
 
-        // TODO: min time, min distance
-        // TODO: requestSingleUpdate (API 9)
-        
-        // requesting updates: explicit
+        // TODO: configure minimum time and minimum distance
+
+        // TODO: use requestSingleUpdate (API 9)
+        //       (see: http://stackoverflow.com/questions/7979230/how-to-read-location-only-once-with-locationmanager-gps-and-network-provider-a/7980707#7980707)
         
         if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
             locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);    
@@ -103,15 +110,15 @@ public class LocationMonitor implements android.location.LocationListener {
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);    
         }
         
-        // TODO: had a preference to allow use of Network location provider, since this provider
-        // sends data to a 3rd party. But is the provider always sending this data? I.e., is there
-        // any privacy benefit to not using it if it's available?
+        // TODO: previously had a preference to allow use of Network location provider, since this provider
+        // sends data to a 3rd party. But is the provider always sending this data? I.e., is there any privacy
+        // benefit to not using it if it's available?
         
         if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
             locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);    
         }
         
-        // TODO: no providers?
+        // TODO: handle no providers? log?
         
         mLocationFixTimer = new Timer();
         mLocationFixTimer.schedule(
@@ -149,12 +156,14 @@ public class LocationMonitor implements android.location.LocationListener {
 		mLastReportedLocation = mCurrentLocation;
 
     	if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
+    	    // Run a background task to map and reverse geocode the location
             Runnable task = new Runnable() {
                 public void run() {
                     Geocoder geocoder = new Geocoder(mEngine.getContext());
                     List<Address> addresses = null;
 					try {
-						// TODO: https://code.google.com/p/osmbonuspack/wiki/Overview#Geocoding_and_Reverse_Geocoding
+						// TODO: Google terms of service prohibit use of this data with non-Google maps.
+					    //       In any case, all will be replaced with Open Street Map (geocoding and maps)
 						addresses = geocoder.getFromLocation(
 								mLastReportedLocation.getLatitude(),
 								mLastReportedLocation.getLongitude(),
@@ -163,9 +172,7 @@ public class LocationMonitor implements android.location.LocationListener {
 					    Log.addEntry(LOG_TAG, "failed reverse geocode");
                     }
 					
-					// TODO: get tiles
-					// http://code.google.com/p/osmdroid/source/browse/trunk/osmdroid-android/src/main/java/org/osmdroid/tileprovider/MapTileProviderBasic.java
-					
+					// TODO: get map					
 					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
 					Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
@@ -212,7 +219,7 @@ public class LocationMonitor implements android.location.LocationListener {
         }
     }
     
-    // http://developer.android.com/guide/topics/location/strategies.html
+    // From: http://developer.android.com/guide/topics/location/strategies.html
     protected boolean isBetterLocation(Location location, Location currentBestLocation) {
 
         final int TWO_MINUTES = 1000 * 60 * 2;

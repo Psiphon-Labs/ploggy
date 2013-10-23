@@ -22,11 +22,19 @@ package ca.psiphon.ploggy;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+/**
+ * Representation of Ploggy public Identity.
+ * 
+ * Users exchange public identities, each of which contains an X509 certificate for
+ * authentication and a Hidden Service public key for routing. The identity also contains
+ * the user's selected nickname. All of the identity parameters are bound together with a
+ * digital signature which can be verified using the X509 certificate.
+ */
 public class Identity {
     
     private static final String LOG_TAG = "Identity";
 
-    // TODO: distinct root cert and server (transport) cert
+    // TODO: distinct root cert and server/client (transport) certs?
     
     public static class PublicIdentity {
         public final String mNickname;
@@ -89,8 +97,7 @@ public class Identity {
     }
 
     public static boolean verifyPublicIdentity(PublicIdentity publicIdentity) {
-        // TODO: ...
-        
+        // TODO: implement        
         return false;
     }
 
