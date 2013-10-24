@@ -1,0 +1,336 @@
+{
+    "width" : 300,
+    "height" : 300,
+    "colors" :
+        [
+            [
+                [
+                    "000#blue_body-10.png", "001#blue_body-09.png", "002#blue_body-03.png",
+                    "003#blue_body-07.png", "004#blue_body-04.png", "005#blue_body-05.png",
+                    "006#blue_body-01.png", "007#blue_body-06.png", "008#blue_body-08.png",
+                    "009#blue_body-02.png"
+                ],
+                [
+                    "000#blue_face-07.png", "001#blue_face-03.png", "002#blue_face-08.png",
+                    "003#blue_face-01.png", "004#blue_face-05.png", "005#blue_face-10.png",
+                    "006#blue_face-02.png", "007#blue_face-09.png", "008#blue_face-04.png",
+                    "009#blue_face-06.png"
+                ],
+                [
+                    "000#blue_mouth-10.png", "001#blue_mouth-07.png", "002#blue_mouth-04.png",
+                    "003#blue_mouth-05.png", "004#blue_mouth-01.png", "005#blue_mouth-02.png",
+                    "006#blue_mouth-06.png", "007#blue_mouth-08.png", "008#blue_mouth-09.png",
+                    "009#blue_mouth-03.png"
+                ],
+                [
+                    "000#blue_eyes-07.png", "001#blue_eyes-09.png", "002#blue_eyes-10.png",
+                    "003#blue_eyes-02.png", "004#blue_eyes-03.png", "005#blue_eyes-05.png",
+                    "006#blue_eyes-06.png", "007#blue_eyes-01.png", "008#blue_eyes-08.png",
+                    "009#blue_eyes-04.png"
+                ],
+                [
+                    "000#blue_accessory-02.png", "001#blue_accessory-01.png",
+                    "002#blue_accessory-07.png", "003#blue_accessory-03.png",
+                    "004#blue_accessory-05.png", "005#blue_accessory-09.png",
+                    "006#blue_accessory-04.png", "007#blue_accessory-10.png",
+                    "008#blue_accessory-06.png", "009#blue_accessory-08.png"
+                ]
+            ],
+            [
+                [
+                    "000#brown_body-06.png", "001#brown_body-08.png", "002#brown_body-03.png",
+                    "003#brown_body-01.png", "004#brown_body-07.png", "005#brown_body-04.png",
+                    "006#brown_body-10.png", "007#brown_body-09.png", "008#brown_body-02.png",
+                    "009#brown_body-05.png"
+                ],
+                [
+                    "000#brown_face-09.png", "001#brown_face-02.png", "002#brown_face-08.png",
+                    "003#brown_face-07.png", "004#brown_face-06.png", "005#brown_face-05.png",
+                    "006#brown_face-03.png", "007#brown_face-10.png", "008#brown_face-01.png",
+                    "009#brown_face-04.png"
+                ],
+                [
+                    "000#brown_mouth-02.png", "001#brown_mouth-01.png", "002#brown_mouth-07.png",
+                    "003#brown_mouth-05.png", "004#brown_mouth-04.png", "005#brown_mouth-06.png",
+                    "006#brown_mouth-08.png", "007#brown_mouth-09.png", "008#brown_mouth-10.png",
+                    "009#brown_mouth-03.png"
+                ],
+                [
+                    "000#brown_eyes-05.png", "001#brown_eyes-06.png", "002#brown_eyes-04.png",
+                    "003#brown_eyes-03.png", "004#brown_eyes-09.png", "005#brown_eyes-07.png",
+                    "006#brown_eyes-08.png", "007#brown_eyes-01.png", "008#brown_eyes-02.png",
+                    "009#brown_eyes-10.png"
+                ],
+                [
+                    "000#brown_accessory-07.png", "001#brown_accessory-08.png",
+                    "002#brown_accessory-03.png", "003#brown_accessory-06.png",
+                    "004#brown_accessory-01.png", "005#brown_accessory-09.png",
+                    "006#brown_accessory-02.png", "007#brown_accessory-05.png",
+                    "008#brown_accessory-10.png", "009#brown_accessory-04.png"
+                ]
+            ],
+            [
+                [
+                    "000#green_body-08.png", "001#green_body-01.png", "002#green_body-02.png",
+                    "003#green_body-06.png", "004#green_body-04.png", "005#green_body-07.png",
+                    "006#green_body-03.png", "007#green_body-10.png", "008#green_body-05.png",
+                    "009#green_body-09.png"
+                ],
+                [
+                    "000#green_face-10.png", "001#green_face-09.png", "002#green_face-03.png",
+                    "003#green_face-06.png", "004#green_face-07.png", "005#green_face-08.png",
+                    "006#green_face-04.png", "007#green_face-02.png", "008#green_face-01.png",
+                    "009#green_face-05.png"
+                ],
+                [
+                    "000#green_mouth-08.png", "001#green_mouth-04.png", "002#green_mouth-06.png",
+                    "003#green_mouth-02.png", "004#green_mouth-03.png", "005#green_mouth-01.png",
+                    "006#green_mouth-07.png", "007#green_mouth-10.png", "008#green_mouth-05.png",
+                    "009#green_mouth-09.png"
+                ],
+                [
+                    "000#green_eyes-05.png", "001#green_eyes-07.png", "002#green_eyes-02.png",
+                    "003#green_eyes-01.png", "004#green_eyes-09.png", "005#green_eyes-04.png",
+                    "006#green_eyes-10.png", "007#green_eyes-08.png", "008#green_eyes-06.png",
+                    "009#green_eyes-03.png"
+                ],
+                [
+                    "000#green_accessory-07.png", "001#green_accessory-03.png",
+                    "002#green_accessory-08.png", "003#green_accessory-05.png",
+                    "004#green_accessory-01.png", "005#green_accessory-04.png",
+                    "006#green_accessory-06.png", "007#green_accessory-10.png",
+                    "008#green_accessory-02.png", "009#green_accessory-09.png"
+                ]
+            ],
+            [
+                [
+                    "000#grey_body-03.png", "001#grey_body-09.png", "002#grey_body-04.png",
+                    "003#grey_body-01.png", "004#grey_body-10.png", "005#grey_body-05.png",
+                    "006#grey_body-06.png", "007#grey_body-07.png", "008#grey_body-08.png",
+                    "009#grey_body-02.png"
+                ],
+                [
+                    "000#grey_face-10.png", "001#grey_face-03.png", "002#grey_face-01.png",
+                    "003#grey_face-08.png", "004#grey_face-06.png", "005#grey_face-04.png",
+                    "006#grey_face-07.png", "007#grey_face-05.png", "008#grey_face-09.png",
+                    "009#grey_face-02.png"
+                ],
+                [
+                    "000#grey_mouth-08.png", "001#grey_mouth-03.png", "002#grey_mouth-01.png",
+                    "003#grey_mouth-07.png", "004#grey_mouth-02.png", "005#grey_mouth-09.png",
+                    "006#grey_mouth-04.png", "007#grey_mouth-05.png", "008#grey_mouth-06.png",
+                    "009#grey_mouth-10.png"
+                ],
+                [
+                    "000#grey_eyes-06.png", "001#grey_eyes-05.png", "002#grey_eyes-04.png",
+                    "003#grey_eyes-08.png", "004#grey_eyes-03.png", "005#grey_eyes-10.png",
+                    "006#grey_eyes-07.png", "007#grey_eyes-09.png", "008#grey_eyes-01.png",
+                    "009#grey_eyes-02.png"
+                ],
+                [
+                    "000#grey_accessory-01.png", "001#grey_accessory-03.png",
+                    "002#grey_accessory-07.png", "003#grey_accessory-09.png",
+                    "004#grey_accessory-05.png", "005#grey_accessory-10.png",
+                    "006#grey_accessory-06.png", "007#grey_accessory-02.png",
+                    "008#grey_accessory-08.png", "009#grey_accessory-04.png"
+                ]
+            ],
+            [
+                [
+                    "000#orange_body-07.png", "001#orange_body-05.png", "002#orange_body-03.png",
+                    "003#orange_body-06.png", "004#orange_body-10.png", "005#orange_body-08.png",
+                    "006#orange_body-09.png", "007#orange_body-02.png", "008#orange_body-04.png",
+                    "009#orange_body-01.png"
+                ],
+                [
+                    "000#orange_face-01.png", "001#orange_face-03.png", "002#orange_face-05.png",
+                    "003#orange_face-08.png", "004#orange_face-09.png", "005#orange_face-07.png",
+                    "006#orange_face-06.png", "007#orange_face-10.png", "008#orange_face-04.png",
+                    "009#orange_face-02.png"
+                ],
+                [
+                    "000#orange_mouth-07.png", "001#orange_mouth-01.png", "002#orange_mouth-08.png",
+                    "003#orange_mouth-05.png", "004#orange_mouth-10.png", "005#orange_mouth-02.png",
+                    "006#orange_mouth-06.png", "007#orange_mouth-09.png", "008#orange_mouth-03.png",
+                    "009#orange_mouth-04.png"
+                ],
+                [
+                    "000#orange_eyes-05.png", "001#orange_eyes-01.png", "002#orange_eyes-09.png",
+                    "003#orange_eyes-06.png", "004#orange_eyes-02.png", "005#orange_eyes-10.png",
+                    "006#orange_eyes-04.png", "007#orange_eyes-07.png", "008#orange_eyes-08.png",
+                    "009#orange_eyes-03.png"
+                ],
+                [
+                    "000#orange_accessory-05.png", "001#orange_accessory-03.png",
+                    "002#orange_accessory-10.png", "003#orange_accessory-08.png",
+                    "004#orange_accessory-09.png", "005#orange_accessory-01.png",
+                    "006#orange_accessory-02.png", "007#orange_accessory-06.png",
+                    "008#orange_accessory-04.png", "009#orange_accessory-07.png"
+                ]
+            ],
+            [
+                [
+                    "000#pink_body-01.png", "001#pink_body-03.png", "002#pink_body-05.png",
+                    "003#pink_body-08.png", "004#pink_body-09.png", "005#pink_body-06.png",
+                    "006#pink_body-07.png", "007#pink_body-10.png", "008#pink_body-02.png",
+                    "009#pink_body-04.png"
+                ],
+                [
+                    "000#pink_face-07.png", "001#pink_face-02.png", "002#pink_face-03.png",
+                    "003#pink_face-10.png", "004#pink_face-01.png", "005#pink_face-04.png",
+                    "006#pink_face-06.png", "007#pink_face-05.png", "008#pink_face-09.png",
+                    "009#pink_face-08.png"
+                ],
+                [
+                    "000#pink_mouth-03.png", "001#pink_mouth-02.png", "002#pink_mouth-08.png",
+                    "003#pink_mouth-01.png", "004#pink_mouth-07.png", "005#pink_mouth-04.png",
+                    "006#pink_mouth-05.png", "007#pink_mouth-06.png", "008#pink_mouth-10.png",
+                    "009#pink_mouth-09.png"
+                ],
+                [
+                    "000#pink_eyes-05.png", "001#pink_eyes-01.png", "002#pink_eyes-02.png",
+                    "003#pink_eyes-06.png", "004#pink_eyes-10.png", "005#pink_eyes-04.png",
+                    "006#pink_eyes-09.png", "007#pink_eyes-07.png", "008#pink_eyes-08.png",
+                    "009#pink_eyes-03.png"
+                ],
+                [
+                    "000#pink_accessory-07.png", "001#pink_accessory-02.png",
+                    "002#pink_accessory-01.png", "003#pink_accessory-06.png",
+                    "004#pink_accessory-10.png", "005#pink_accessory-08.png",
+                    "006#pink_accessory-03.png", "007#pink_accessory-09.png",
+                    "008#pink_accessory-05.png", "009#pink_accessory-04.png"
+                ]
+            ],
+            [
+                [
+                    "000#purple_body-10.png", "001#purple_body-04.png", "002#purple_body-05.png",
+                    "003#purple_body-07.png", "004#purple_body-03.png", "005#purple_body-02.png",
+                    "006#purple_body-09.png", "007#purple_body-06.png", "008#purple_body-08.png",
+                    "009#purple_body-01.png"
+                ],
+                [
+                    "000#purple_face-05.png", "001#purple_face-01.png", "002#purple_face-08.png",
+                    "003#purple_face-04.png", "004#purple_face-06.png", "005#purple_face-03.png",
+                    "006#purple_face-10.png", "007#purple_face-07.png", "008#purple_face-02.png",
+                    "009#purple_face-09.png"
+                ],
+                [
+                    "000#purple_mouth-01.png", "001#purple_mouth-10.png", "002#purple_mouth-05.png",
+                    "003#purple_mouth-07.png", "004#purple_mouth-04.png", "005#purple_mouth-09.png",
+                    "006#purple_mouth-03.png", "007#purple_mouth-02.png", "008#purple_mouth-08.png",
+                    "009#purple_mouth-06.png"
+                ],
+                [
+                    "000#purple_eyes-09.png", "001#purple_eyes-08.png", "002#purple_eyes-06.png",
+                    "003#purple_eyes-10.png", "004#purple_eyes-03.png", "005#purple_eyes-01.png",
+                    "006#purple_eyes-07.png", "007#purple_eyes-02.png", "008#purple_eyes-04.png",
+                    "009#purple_eyes-05.png"
+                ],
+                [
+                    "000#purple_accessory-04.png", "001#purple_accessory-02.png",
+                    "002#purple_accessory-06.png", "003#purple_accessory-10.png",
+                    "004#purple_accessory-01.png", "005#purple_accessory-09.png",
+                    "006#purple_accessory-08.png", "007#purple_accessory-03.png",
+                    "008#purple_accessory-05.png", "009#purple_accessory-07.png"
+                ]
+            ],
+            [
+                [
+                    "000#red_body-09.png", "001#red_body-01.png", "002#red_body-08.png",
+                    "003#red_body-05.png", "004#red_body-10.png", "005#red_body-04.png",
+                    "006#red_body-07.png", "007#red_body-06.png", "008#red_body-02.png",
+                    "009#red_body-03.png"
+                ],
+                [
+                    "000#red_face-08.png", "001#red_face-06.png", "002#red_face-02.png",
+                    "003#red_face-05.png", "004#red_face-03.png", "005#red_face-10.png",
+                    "006#red_face-04.png", "007#red_face-01.png", "008#red_face-07.png",
+                    "009#red_face-09.png"
+                ],
+                [
+                    "000#red_mouth-07.png", "001#red_mouth-05.png", "002#red_mouth-08.png",
+                    "003#red_mouth-01.png", "004#red_mouth-03.png", "005#red_mouth-02.png",
+                    "006#red_mouth-04.png", "007#red_mouth-09.png", "008#red_mouth-06.png",
+                    "009#red_mouth-10.png"
+                ],
+                [
+                    "000#red_eyes-07.png", "001#red_eyes-02.png", "002#red_eyes-06.png",
+                    "003#red_eyes-09.png", "004#red_eyes-04.png", "005#red_eyes-05.png",
+                    "006#red_eyes-01.png", "007#red_eyes-10.png", "008#red_eyes-03.png",
+                    "009#red_eyes-08.png"
+                ],
+                [
+                    "000#red_accessory-03.png", "001#red_accessory-09.png", "002#red_accessory-07.png",
+                    "003#red_accessory-08.png", "004#red_accessory-10.png", "005#red_accessory-05.png",
+                    "006#red_accessory-02.png", "007#red_accessory-01.png", "008#red_accessory-04.png",
+                    "009#red_accessory-06.png"
+                ]
+            ],
+            [
+                [
+                    "000#white_body-01.png", "001#white_body-08.png", "002#white_body-06.png",
+                    "003#white_body-04.png", "004#white_body-07.png", "005#white_body-02.png",
+                    "006#white_body-05.png", "007#white_body-09.png", "008#white_body-03.png",
+                    "009#white_body-10.png"
+                ],
+                [
+                    "000#white_face-01.png", "001#white_face-07.png", "002#white_face-06.png",
+                    "003#white_face-08.png", "004#white_face-10.png", "005#white_face-09.png",
+                    "006#white_face-05.png", "007#white_face-04.png", "008#white_face-03.png",
+                    "009#white_face-02.png"
+                ],
+                [
+                    "000#white_mouth-04.png", "001#white_mouth-08.png", "002#white_mouth-05.png",
+                    "003#white_mouth-03.png", "004#white_mouth-10.png", "005#white_mouth-07.png",
+                    "006#white_mouth-06.png", "007#white_mouth-09.png", "008#white_mouth-02.png",
+                    "009#white_mouth-01.png"
+                ],
+                [
+                    "000#white_eyes-07.png", "001#white_eyes-10.png", "002#white_eyes-03.png",
+                    "003#white_eyes-06.png", "004#white_eyes-04.png", "005#white_eyes-05.png",
+                    "006#white_eyes-02.png", "007#white_eyes-09.png", "008#white_eyes-08.png",
+                    "009#white_eyes-01.png"
+                ],
+                [
+                    "000#white_accessory-04.png", "001#white_accessory-06.png",
+                    "002#white_accessory-07.png", "003#white_accessory-09.png",
+                    "004#white_accessory-08.png", "005#white_accessory-05.png",
+                    "006#white_accessory-10.png", "007#white_accessory-01.png",
+                    "008#white_accessory-03.png", "009#white_accessory-02.png"
+                ]
+            ],
+            [
+                [
+                    "000#yellow_body-04.png", "001#yellow_body-06.png", "002#yellow_body-09.png",
+                    "003#yellow_body-07.png", "004#yellow_body-02.png", "005#yellow_body-10.png",
+                    "006#yellow_body-05.png", "007#yellow_body-03.png", "008#yellow_body-08.png",
+                    "009#yellow_body-01.png"
+                ],
+                [
+                    "000#yellow_face-02.png", "001#yellow_face-08.png", "002#yellow_face-05.png",
+                    "003#yellow_face-04.png", "004#yellow_face-10.png", "005#yellow_face-06.png",
+                    "006#yellow_face-01.png", "007#yellow_face-09.png", "008#yellow_face-03.png",
+                    "009#yellow_face-07.png"
+                ],
+                [
+                    "000#yellow_mouth-03.png", "001#yellow_mouth-02.png", "002#yellow_mouth-06.png",
+                    "003#yellow_mouth-01.png", "004#yellow_mouth-09.png", "005#yellow_mouth-04.png",
+                    "006#yellow_mouth-08.png", "007#yellow_mouth-05.png", "008#yellow_mouth-10.png",
+                    "009#yellow_mouth-07.png"
+                ],
+                [
+                    "000#yellow_eyes-10.png", "001#yellow_eyes-09.png", "002#yellow_eyes-02.png",
+                    "003#yellow_eyes-03.png", "004#yellow_eyes-07.png", "005#yellow_eyes-01.png",
+                    "006#yellow_eyes-05.png", "007#yellow_eyes-08.png", "008#yellow_eyes-04.png",
+                    "009#yellow_eyes-06.png"
+                ],
+                [
+                    "000#yellow_accessory-07.png", "001#yellow_accessory-09.png",
+                    "002#yellow_accessory-10.png", "003#yellow_accessory-05.png",
+                    "004#yellow_accessory-06.png", "005#yellow_accessory-03.png",
+                    "006#yellow_accessory-04.png", "007#yellow_accessory-02.png",
+                    "008#yellow_accessory-01.png", "009#yellow_accessory-08.png"
+                ]
+            ]
+        ]
+}

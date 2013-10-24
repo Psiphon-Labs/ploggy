@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="foregroundServiceNotificationId">ploggyService</string>
+    <string-array name="weekdays">
+        <item>MONDAY</item>
+        <item>TUESDAY</item>
+        <item>WEDNESDAY</item>
+        <item>THURSDAY</item>
+        <item>FRIDAY</item>
+        <item>SATURDAY</item>
+        <item>SUNDAY</item>
+    </string-array>
+    <string name="preferencesPrivacy">preferencesPrivacy</string>
+    <string name="preferenceUseGeoCoder">preferenceUseGeoCoder</string>
+    <string name="preferenceLimitLocationPrecision">preferenceLimitLocationPrecision</string>
+    <string name="preferenceLocationPrecisionInMeters">preferenceLocationPrecisionInMeters</string>
+    <string name="preferenceAutomaticLocationSharing">preferenceAutomaticLocationSharing</string>
+    <string name="preferenceLimitLocationSharingTime">preferenceLimitLocationSharingTime</string>
+    <string name="preferenceLimitLocationSharingTimeNotBefore">preferenceLimitLocationSharingTimeNotBefore</string>
+    <string name="preferenceLimitLocationSharingTimeNotAfter">preferenceLimitLocationSharingTimeNotAfter</string>
+    <string name="preferenceLimitLocationSharingDay">preferenceLimitLocationSharingDay</string>
+    <string name="preferencesPerformance">preferencesPerformance</string>
+    <string name="preferenceUseMobileData">preferenceUseMobileData</string>
+    <string name="preferenceEnableBatterySaver">preferenceEnableBatterySaver</string>
+    <string name="preferenceBatterySaverLevel">preferenceBatterySaverLevel</string>
+    <string name="preferenceLocationUpdateTimePeriodInMinutes">preferenceLocationUpdateTimePeriodInMinutes</string>
+    <string name="preferenceLocationSharingDistanceThresholdInMeters">preferenceLocationSharingDistanceThresholdInMeters</string>
+    <string name="preferenceLocationFixPeriodInSeconds">preferenceLocationFixPeriodInSeconds</string>
+</resources>
