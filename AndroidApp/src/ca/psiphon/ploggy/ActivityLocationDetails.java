@@ -126,7 +126,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                 friend = data.getFriendById(mFriendId);
                 friendStatus = data.getFriendStatus(mFriendId);
 
-                Robohash.setRobohashImage(this, mAvatarImage, friend.mPublicIdentity);
+                Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
                 mNicknameText.setText(friend.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.encodeHex(friend.mPublicIdentity.getFingerprint()));        
                 mStreetAddressText.setText(friendStatus.mStreetAddress);
@@ -145,7 +145,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                 // TODO: where are last-sent timestamps recorded?
                 mLastSentTimestampText.setText("");
             } else {
-                Robohash.setRobohashImage(this, mAvatarImage, self.mPublicIdentity);
+                Robohash.setRobohashImage(this, mAvatarImage, true, self.mPublicIdentity);
                 mNicknameText.setText(self.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
                 mStreetAddressText.setText(selfStatus.mStreetAddress);

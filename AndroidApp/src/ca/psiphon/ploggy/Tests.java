@@ -49,9 +49,11 @@ public class Tests {
 	public static void insertMockFriends() {
 	    try {
             Data data = Data.getInstance();
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 50; i++) {
                 String nickname = String.format((Locale)null, "Nickname%02d", i);
-                X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                // TODO: too slow
+                //X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
                 // TODO: NetworkOnMainThreadException
                 //HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial = new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));

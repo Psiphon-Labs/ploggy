@@ -77,12 +77,6 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_friend);
         
-        // TODO: http://developer.android.com/guide/topics/connectivity/nfc/nfc.html#p2p
-        // TODO: http://stackoverflow.com/questions/10887275/aar-record-in-nfc-wheres-the-payload
-        // TODO: http://stackoverflow.com/questions/15602275/android-beam-payload-transfer-from-both-devices-when-only-one-touch-to-beam
-        // TODO: http://mobisocial.github.io/EasyNFC/apidocs/reference/mobisocial/nfc/addon/BluetoothConnector.html
-        // TODO: http://code.google.com/p/ndef-tools-for-android/
-        
         mSelfAvatarImage = (ImageView)findViewById(R.id.add_friend_self_avatar_image);
         mSelfNicknameText = (TextView)findViewById(R.id.add_friend_self_nickname_text);
         mSelfFingerprintText = (TextView)findViewById(R.id.add_friend_self_fingerprint_text);
@@ -101,7 +95,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             finish();
             return;
         }
-        if (!mNfcAdapter.isEnabled() || mNfcAdapter.isNdefPushEnabled()) {
+        if (!mNfcAdapter.isEnabled() || !mNfcAdapter.isNdefPushEnabled()) {
             Toast.makeText(this, R.string.prompt_nfc_not_enabled, Toast.LENGTH_LONG).show();
             finish();
             return;
@@ -116,14 +110,14 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     private void showSelf() {
         try {
             Data.Self self = Data.getInstance().getSelf();
-            Robohash.setRobohashImage(this, mSelfAvatarImage, self.mPublicIdentity);
+            Robohash.setRobohashImage(this, mSelfAvatarImage, true, self.mPublicIdentity);
             mSelfNicknameText.setText(self.mPublicIdentity.mNickname);
             mSelfFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
             return;
         } catch (Utils.ApplicationError e) {
             // TODO: log?
         }
-        Robohash.setRobohashImage(this, mSelfAvatarImage, null);
+        Robohash.setRobohashImage(this, mSelfAvatarImage, true, null);
         mSelfNicknameText.setText("");
         mSelfFingerprintText.setText("");
     }
@@ -131,7 +125,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     private void showFriend() {
         if (mReceivedFriend != null) {
             try {
-                Robohash.setRobohashImage(this, mFriendAvatarImage, mReceivedFriend.mPublicIdentity);
+                Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);        
                 mFriendFingerprintText.setText(Utils.encodeHex(mReceivedFriend.mPublicIdentity.getFingerprint()));        
                 mFriendAddButton.setEnabled(mPushComplete);

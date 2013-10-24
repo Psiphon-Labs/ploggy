@@ -33,6 +33,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 
 /**
  * Helper wrappers around GSON JSON serialization routines.
@@ -69,11 +70,13 @@ public class Json {
     }
 
     public static <T> ArrayList<T> fromJsonStream(InputStream inputStream, Class<T> type) throws Utils.ApplicationError {
+        // Reads succession of JSON objects from a stream. This does *not* expect a well-formed JSON array.
+        // Designed to work with the log file, which is constantly appended to.
         try {
             JsonReader jsonReader = new JsonReader(new InputStreamReader(inputStream, "UTF-8"));
             jsonReader.setLenient(true);
             ArrayList<T> array = new ArrayList<T>();
-            while (jsonReader.hasNext()) {
+            while (jsonReader.peek() != JsonToken.END_DOCUMENT) {
                 array.add((T)mSerializer.fromJson(jsonReader, type));
             }
             jsonReader.close();

@@ -30,8 +30,12 @@ public class PloggyApplication extends Application {
 	public void onCreate() {
 		Utils.setApplicationContext(this);
 		Events.initialize();
-		// TODO: remove
-		Tests.insertMockFriends();
-		//Tests.scheduleComponentTests();
+		// TODO: temporary
+		try {
+    		if (Data.getInstance().getFriends().isEmpty()) {
+    		    Tests.insertMockFriends();
+    		}
+		} catch (Utils.ApplicationError e) {
+		}
 	}
 }

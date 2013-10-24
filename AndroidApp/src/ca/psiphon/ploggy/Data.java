@@ -145,6 +145,8 @@ public class Data {
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
+        // TODO: string resource; log self fingerprint
+        Log.addEntry(LOG_TAG, "updated self");
         Events.post(new Events.UpdatedSelf());
     }
 
@@ -167,19 +169,18 @@ public class Data {
     public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
+        // TODO: string resource
+        Log.addEntry(LOG_TAG, "updated self status");
         Events.post(new Events.UpdatedSelfStatus());
     }
 
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
-            // TODO: temp!
-            /*
 	    	try {
 				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
 			} catch (DataNotFoundException e) {
 				mFriends = new ArrayList<Friend>();
 			}
-			*/
 	    	mFriends = new ArrayList<Friend>();
         }
     }
@@ -222,7 +223,9 @@ public class Data {
 	    	insertOrUpdate(friend, newFriends);
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
 	    	insertOrUpdate(friend, mFriends);
-	        Events.post(new Events.UpdatedFriend(friend.mId));
+            // TODO: string resource; log friend nickname
+	        Log.addEntry(LOG_TAG, "updated friend");
+	 	    Events.post(new Events.UpdatedFriend(friend.mId));
     	}
     }
 
@@ -247,6 +250,8 @@ public class Data {
 	    	removeFriendHelper(id, newFriends);
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
 	        removeFriendHelper(id, mFriends);
+            // TODO: string resource; log friend nickname
+            Log.addEntry(LOG_TAG, "removed friend");
             Events.post(new Events.RemovedFriend(id));
     	}
     }
@@ -268,6 +273,8 @@ public class Data {
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
     	writeFile(filename, Json.toJson(status));
+        // TODO: string resource; log friend nickname
+        Log.addEntry(LOG_TAG, "updated friend status");
         Events.post(new Events.UpdatedFriendStatus(id));
     }
 

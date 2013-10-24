@@ -56,6 +56,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.Random;
 
 import org.json.JSONArray;
@@ -83,13 +84,20 @@ public class Robohash {
     private static final String ASSETS_SUBDIRECTORY = "robohash";
     private static final String CONFIG_FILENAME = "config.json";
 
+    // TODO: LRU cache; or, at least subscribe to RemovedFriend events to clear associated bitmaps
+    private static HashMap<String, Bitmap> mCache = new HashMap<String, Bitmap>();
     private static JSONObject mConfig = null;
 
-    public static void setRobohashImage(Context context, ImageView imageView, Identity.PublicIdentity publicIdentity) {
+    public static void setRobohashImage(
+            Context context,
+            ImageView imageView,
+            boolean cacheCandidate,
+            Identity.PublicIdentity publicIdentity) {
         if (publicIdentity != null) {
             try {
                 // TODO: cache bitmap
-                imageView.setImageBitmap(Robohash.getRobohash(context, publicIdentity.getFingerprint()));
+                imageView.setImageBitmap(Robohash.getRobohash(
+                        context, cacheCandidate, publicIdentity.getFingerprint()));
                 return;
             } catch (Utils.ApplicationError e) {
                 // TODO: log
@@ -99,15 +107,24 @@ public class Robohash {
         imageView.setImageResource(R.drawable.ic_unknown_avatar); 
     }
     
-    public static Bitmap getRobohash(Context context, byte[] data) throws Utils.ApplicationError {
+    public static Bitmap getRobohash(
+            Context context,
+            boolean cacheCandidate,
+            byte[] data) throws Utils.ApplicationError {
         
         // TODO: assets vs. res/raw -- memory management
-        // TODO: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/9194259#9194259
-        // TOOD: http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/16314940#16314940
-        
+        //       http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/9194259#9194259
+        //       http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/16314940#16314940
+
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             byte[] digest = sha1.digest(data);
+
+            String cacheKey = Utils.encodeHex(digest);
+            if (mCache.containsKey(cacheKey)) {
+                return mCache.get(cacheKey);
+            }
+
             ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
             byteBuffer.order(ByteOrder.BIG_ENDIAN);
             // TODO: SecureRandom SHA1PRNG (but not LinuxSecureRandom)
@@ -125,8 +142,8 @@ public class Robohash {
             JSONArray colors = mConfig.getJSONArray("colors");
             JSONArray parts = colors.getJSONArray(random.nextInt(colors.length()));
 
-            Bitmap monsterBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            Canvas monsterCanvas = new Canvas(monsterBitmap);
+            Bitmap robotBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas robotCanvas = new Canvas(robotBitmap);
             
             for (int i = 0; i < parts.length(); i++) {
                 JSONArray partChoices = parts.getJSONArray(i);
@@ -135,11 +152,15 @@ public class Robohash {
                 Rect rect = new Rect(0, 0, width, height);
                 Paint paint = new Paint();
                 paint.setAlpha(255);
-                monsterCanvas.drawBitmap(partBitmap, rect, rect, paint);
+                robotCanvas.drawBitmap(partBitmap, rect, rect, paint);
                 partBitmap.recycle();
             }
             
-            return monsterBitmap;
+            if (cacheCandidate) {
+                mCache.put(cacheKey, robotBitmap);
+            }
+            
+            return robotBitmap;
             
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);

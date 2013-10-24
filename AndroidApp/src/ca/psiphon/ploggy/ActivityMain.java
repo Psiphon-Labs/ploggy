@@ -45,7 +45,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 /**
- * This is the main UI screen.
+ * The main UI screen.
  * 
  * This activity displays a list of friends, along with a summary of their status.
  * Users can tab between the friend list and a list of event logs. The Action Bar
@@ -85,7 +85,45 @@ public class ActivityMain extends Activity {
         super.onSaveInstanceState(outState);
         outState.putInt("currentTab", getActionBar().getSelectedNavigationIndex());
     }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        ActivityGenerateSelf.checkLaunchGenerateSelf(this);
+    }
+    
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main_activity_actions, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+        case R.id.action_generate_self:
+            startActivity(new Intent(this, ActivityGenerateSelf.class));
+            return true;
+        case R.id.action_self_location_details:
+            startActivity(new Intent(this, ActivityLocationDetails.class));
+            return true;
+        case R.id.action_add_friend:
+            startActivity(new Intent(this, ActivityAddFriend.class));
+            return true;
+        case R.id.action_settings:
+            startActivity(new Intent(this, ActivitySettings.class));
+            return true;
+        case R.id.action_run_tests:
+            // TODO: temporary
+            Tests.scheduleComponentTests();
+            getActionBar().setSelectedNavigationItem(1);
+            return true;
+        default:
+            return super.onOptionsItemSelected(item);
+        }
+    }
+    
     // Adapted from: http://developer.android.com/guide/topics/ui/actionbar.html#Tabs
     private static class TabListener<T extends Fragment> implements ActionBar.TabListener {
         private Fragment mFragment;
@@ -117,40 +155,7 @@ public class ActivityMain extends Activity {
         public void onTabReselected(ActionBar.Tab tab, FragmentTransaction ft) {
         }
     }
- 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        ActivityGenerateSelf.checkLaunchGenerateSelf(this);
-    }
-    
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.main_activity_actions, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-        case R.id.action_generate_self:
-            startActivity(new Intent(this, ActivityGenerateSelf.class));
-            return true;
-        case R.id.action_self_location_details:
-            startActivity(new Intent(this, ActivityLocationDetails.class));
-            return true;
-        case R.id.action_add_friend:
-            startActivity(new Intent(this, ActivityAddFriend.class));
-            return true;
-        case R.id.action_settings:
-            startActivity(new Intent(this, ActivitySettings.class));
-            return true;
-        default:
-            return super.onOptionsItemSelected(item);
-        }
-    }
-    
     public static class FriendListFragment extends ListFragment {
     	private FriendAdapter mFriendAdapter;
     	
@@ -239,7 +244,7 @@ public class ActivityMain extends Activity {
     			TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
     			TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
     			
-    			Robohash.setRobohashImage(mContext, avatarImage, friend.mPublicIdentity);
+    			Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
     			nicknameText.setText(friend.mPublicIdentity.mNickname);
     			try {
         			Data.Status status = Data.getInstance().getFriendStatus(friend.mId);

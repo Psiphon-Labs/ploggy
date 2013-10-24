@@ -79,21 +79,21 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         mSaveButton.setOnClickListener(this);
         mProgressDialog = new ProgressDialog(this);
         mProgressDialog.setMessage(getText(R.string.prompt_generate_self_progress));
-        mProgressDialog.setCancelable(true);
+        mProgressDialog.setCancelable(false);
         mAvatarTimer = new Timer();
     }
 
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
         if (publicIdentity.mNickname.length() > 0) {
             try {
-                Robohash.setRobohashImage(this, mAvatarImage, publicIdentity);
+                Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
                 mFingerprintText.setText(Utils.encodeHex(publicIdentity.getFingerprint()));        
                 return;
             } catch (Utils.ApplicationError e) {
                 // TODO: log
             }
         }
-        Robohash.setRobohashImage(this, mAvatarImage, null);
+        Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mFingerprintText.setText("");        
     }
     
@@ -118,7 +118,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
     
     private void startGenerating() {
-        Robohash.setRobohashImage(this, mAvatarImage, null);
+        Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mNicknameEdit.setText("");
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
