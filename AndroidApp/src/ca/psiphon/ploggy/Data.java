@@ -132,6 +132,7 @@ public class Data {
     // ...consistency: write file, then update in-memory; 2pc; only for short lists of friends
     // ...eventually use file system for map tiles etc.
        
+    private static final String DATA_DIRECTORY = "ploggyData"; 
     private static final String SELF_FILENAME = "self.json"; 
     private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
     private static final String FRIENDS_FILENAME = "friends.json"; 
@@ -142,6 +143,25 @@ public class Data {
     Status mSelfStatus;
     List<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
+
+    public synchronized void reset() throws Utils.ApplicationError {
+        // Warning: deletes all files in DATA_DIRECTORY (not recursively)
+        File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
+        directory.mkdirs();
+        boolean deleteFailed = false;
+        for (String child : directory.list()) {
+            File file = new File(directory, child);
+            if (file.isFile()) {
+                if (!file.delete()) {
+                    deleteFailed = true;
+                    // Keep attempting to delete remaining files...
+                }
+            }
+        }
+        if (deleteFailed) {
+            throw new Utils.ApplicationError(LOG_TAG, "delete data file failed");
+        }
+    }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundException {
     	if (mSelf == null) {
@@ -305,9 +325,12 @@ public class Data {
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundException {
         FileInputStream inputStream = null;
         try {
+            File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
         	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
-        	replaceFileIfExists(commitFilename, filename);
-            inputStream = Utils.getApplicationContext().openFileInput(filename);
+            File commitFile = new File(directory, commitFilename);
+            File file = new File(directory, filename);
+        	replaceFileIfExists(commitFile, file);
+            inputStream = new FileInputStream(file);
             return Utils.readInputStreamToString(inputStream);
         } catch (FileNotFoundException e) {
             throw new DataNotFoundException();
@@ -326,11 +349,14 @@ public class Data {
     private static void writeFile(String filename, String value) throws Utils.ApplicationError {
         FileOutputStream outputStream = null;
         try {
+            File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
         	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
-            outputStream = Utils.getApplicationContext().openFileOutput(commitFilename, Context.MODE_PRIVATE);
+            File commitFile = new File(directory, commitFilename);
+            File file = new File(directory, filename);
+            outputStream = new FileOutputStream(commitFile);
             outputStream.write(value.getBytes());
             outputStream.close();
-            replaceFileIfExists(commitFilename, filename);
+            replaceFileIfExists(commitFile, file);
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -343,10 +369,8 @@ public class Data {
         }
     }
 
-    private static void replaceFileIfExists(String commitFilename, String filename) throws IOException {
-        File commitFile = new File(Utils.getApplicationContext().getFilesDir(), commitFilename);
+    private static void replaceFileIfExists(File commitFile, File file) throws IOException {
         if (commitFile.exists()) {
-	        File file = new File(Utils.getApplicationContext().getFilesDir(), filename);
 	        file.delete();
 	        commitFile.renameTo(file);
         }
