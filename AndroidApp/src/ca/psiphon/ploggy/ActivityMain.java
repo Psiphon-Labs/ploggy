@@ -106,7 +106,7 @@ public class ActivityMain extends Activity {
             startActivity(new Intent(this, ActivityLocationDetails.class));
             return true;
         case R.id.action_add_friend:
-            startActivity(new Intent(this, ActivityAddFriend.class));
+            startActivity(new Intent(this, ActivityAddFriendByNfc.class));
             return true;
         case R.id.action_generate_self:
             startActivity(new Intent(this, ActivityGenerateSelf.class));
