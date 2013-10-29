@@ -63,11 +63,9 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
         
         // Asymmetric identity exchange: allow add friend regardless of self push state.
         mSelfPushComplete = true;
-    }
 
-    @Override
-    public void onNewIntent(Intent intent) {
-        setIntent(intent);
+        // Extract friend public identity from email attachment (or file)
+        Intent intent = getIntent();
         InputStream inputStream = null;
         try {
             Uri uri = intent.getData();
@@ -77,7 +75,7 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                 inputStream = contentResolver.openInputStream(uri);
             } else {
                 String filePath = uri.getEncodedPath();
-                if(filePath != null) {
+                if (filePath != null) {
                     inputStream = new FileInputStream(new File(filePath));
                 }
             }
@@ -122,21 +120,21 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                                 // for the email client app to read it.
                                 // TODO: some other method? delete the attachment?
 
-                                File directory = Environment.getExternalStoragePublicDirectory(PUBLIC_STORAGE_DIRECTORY);
+                                File directory = new File(Environment.getExternalStorageDirectory(), PUBLIC_STORAGE_DIRECTORY);
                                 directory.mkdirs();
                                 File attachmentFile = new File(directory, EMAIL_ATTACHMENT_FILENAME);
-                                Utils.writeStringToFile(Json.toJson(Data.getInstance().getSelf()), attachmentFile);
+                                Utils.writeStringToFile(Json.toJson(Data.getInstance().getSelf().mPublicIdentity), attachmentFile);
 
                                 Intent intent = new Intent(Intent.ACTION_SEND);
                                 intent.setType("message/rfc822");
                                 intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(attachmentFile));
                                 finalContext.startActivity(intent);
                             } catch (IOException e) {
-                                // TODO: log
+                                Log.addEntry(LOG_TAG, e.getMessage());
                             } catch (ActivityNotFoundException e) {
-                                // TODO: log
+                                Log.addEntry(LOG_TAG, e.getMessage());
                             } catch (Utils.ApplicationError e) {
-                                // TODO: log
+                                // TODO: log?
                             }
                         }
                     })

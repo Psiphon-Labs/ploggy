@@ -11,7 +11,7 @@
     <string name="title_friend_list_fragment">Friends</string>
     <string name="title_log_fragment">Log</string>
     <string name="label_email_self_title">Email Your Identity to a Friend</string>
-    <string name="label_email_self_message">>WARNING: sending your identity via email will allow a 3rd party to link you and your friend.</string>
+    <string name="label_email_self_message">Warning: sending your identity via email will allow a 3rd party to link you and your friend.</string>
     <string name="label_email_self_positive">I understand the risk</string>
     <string name="label_email_self_negative">Cancel</string>
     <string name="label_generate_self_title">Your Identity</string>
