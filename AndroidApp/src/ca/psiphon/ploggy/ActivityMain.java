@@ -102,14 +102,17 @@ public class ActivityMain extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-        case R.id.action_generate_self:
-            startActivity(new Intent(this, ActivityGenerateSelf.class));
-            return true;
         case R.id.action_self_location_details:
             startActivity(new Intent(this, ActivityLocationDetails.class));
             return true;
         case R.id.action_add_friend:
             startActivity(new Intent(this, ActivityAddFriend.class));
+            return true;
+        case R.id.action_generate_self:
+            startActivity(new Intent(this, ActivityGenerateSelf.class));
+            return true;
+        case R.id.action_email_self:
+            ActivityAddFriendByEmail.sendAttachment(this);
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));

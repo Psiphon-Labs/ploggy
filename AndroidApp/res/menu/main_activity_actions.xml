@@ -11,6 +11,10 @@
           android:icon="@drawable/ic_action_generate_self"
           android:title="@string/action_generate_self"
           android:showAsAction="ifRoom|withText" />
+    <item android:id="@+id/action_email_self"
+          android:icon="@drawable/ic_action_email_self"
+          android:title="@string/action_email_self"
+          android:showAsAction="ifRoom|withText" />
     <item android:id="@+id/action_settings"
           android:icon="@drawable/ic_action_settings"
           android:title="@string/action_settings"
