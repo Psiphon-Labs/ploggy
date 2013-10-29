@@ -30,14 +30,19 @@ public class Protocol {
     
     public static final String RESPONSE_MIME_TYPE = "application/json";
     
-    public static final String GET_STATUS_REQUEST_PATH = "/status";
+    public static final String PUSH_STATUS_REQUEST_PATH = "/pushStatus";
 
+    public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
+
+    // TODO: adjust for foreground, battery, sleep, network type 
+    public static final int PULL_PERIOD_IN_MILLISECONDS = 5 * 60 * 1000;
+    
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?
         return nickname.length() > 0;
     }
 
-    public static void validateFriend(Data.Friend friend) throws Utils.ApplicationError {
+    public static void validatePublicIdentity(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
         // TODO: Nickname valid, cert valid, hostname valid
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
     }

@@ -37,6 +37,7 @@ import ch.boye.httpclientandroidlib.HttpHost;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.HttpStatus;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
+import ch.boye.httpclientandroidlib.client.methods.HttpPost;
 import ch.boye.httpclientandroidlib.client.methods.HttpRequestBase;
 import ch.boye.httpclientandroidlib.conn.ClientConnectionManager;
 import ch.boye.httpclientandroidlib.conn.ClientConnectionOperator;
@@ -44,6 +45,7 @@ import ch.boye.httpclientandroidlib.conn.OperatedClientConnection;
 import ch.boye.httpclientandroidlib.conn.scheme.Scheme;
 import ch.boye.httpclientandroidlib.conn.scheme.SchemeRegistry;
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
+import ch.boye.httpclientandroidlib.entity.ByteArrayEntity;
 import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
 import ch.boye.httpclientandroidlib.impl.conn.DefaultClientConnectionOperator;
 import ch.boye.httpclientandroidlib.impl.conn.PoolingClientConnectionManager;
@@ -67,7 +69,7 @@ public class WebClient {
     private static final String LOCAL_SOCKS_PROXY_PORT_PARAM_NAME = "localSocksProxyPort";
     private static final int CONNECT_TIMEOUT_MILLISECONDS = 60000;
     private static final int READ_TIMEOUT_MILLISECONDS = 60000;
-
+    
     public static String makeGetRequest(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
@@ -75,12 +77,48 @@ public class WebClient {
             String hostname,
             int port,
             String requestPath) throws Utils.ApplicationError {
+        return makeRequest(
+                x509KeyMaterial,
+                peerCertificate,
+                localSocksProxyPort,
+                hostname,
+                port,
+                requestPath,
+                null);
+    }
+
+    public static String makePostRequest(
+            X509.KeyMaterial x509KeyMaterial,
+            String peerCertificate,
+            int localSocksProxyPort,
+            String hostname,
+            int port,
+            String requestPath,
+            String requestBody) throws Utils.ApplicationError {
+        return makeRequest(
+                x509KeyMaterial,
+                peerCertificate,
+                localSocksProxyPort,
+                hostname,
+                port,
+                requestPath,
+                requestBody);
+    }
+
+    private static String makeRequest(
+            X509.KeyMaterial x509KeyMaterial,
+            String peerCertificate,
+            int localSocksProxyPort,
+            String hostname,
+            int port,
+            String requestPath,
+            String requestBody) throws Utils.ApplicationError {
         HttpRequestBase request = null;
         try {
             URI uri = new URI(Protocol.WEB_SERVER_PROTOCOL, null, hostname, port, requestPath, null, null);
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
             SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext);
-            // TODO: keep a persistent PoolingClientConnectionManager across makeGetRequest calls for connection reuse?
+            // TODO: keep a persistent PoolingClientConnectionManager across makeRequest calls for connection reuse?
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
             ClientConnectionManager connectionManager;
@@ -93,8 +131,14 @@ public class WebClient {
             HttpConnectionParams.setConnectionTimeout(params, CONNECT_TIMEOUT_MILLISECONDS);
             HttpConnectionParams.setSoTimeout(params, READ_TIMEOUT_MILLISECONDS);
             params.setIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, localSocksProxyPort);
-            DefaultHttpClient client = new DefaultHttpClient(connectionManager, params);            
-            request = new HttpGet(uri);
+            DefaultHttpClient client = new DefaultHttpClient(connectionManager, params);
+            if (requestBody == null) {
+                request = new HttpGet(uri);
+            } else {
+                HttpPost postRequest = new HttpPost(uri);                
+                postRequest.setEntity(new ByteArrayEntity(requestBody.getBytes()));
+                request = postRequest;
+            }
             HttpResponse response = client.execute(request);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != HttpStatus.SC_OK) {
@@ -120,21 +164,6 @@ public class WebClient {
                 request.abort();
             }
         }
-    }
-    
-    public static String makeGetRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String friendCertificate,
-            int localSocksProxyPort,
-            String friendHiddenServiceHostname,
-            String requestPath) throws Utils.ApplicationError {
-        return makeGetRequest(
-                x509KeyMaterial,
-                friendCertificate,
-                localSocksProxyPort,
-                friendHiddenServiceHostname,
-                Protocol.WEB_SERVER_VIRTUAL_PORT,
-                requestPath);
     }
 
     private static class SocksProxyPoolingClientConnectionManager extends PoolingClientConnectionManager {

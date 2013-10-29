@@ -182,9 +182,10 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
             NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
             String payload = new String(ndefMessage.getRecords()[0].getPayload());
             try {
-                Data.Friend friend = Json.fromJson(payload, Data.Friend.class);
+                Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
+                Protocol.validatePublicIdentity(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity);
                 // TODO: display validation error?
-                Protocol.validateFriend(friend);
                 mReceivedFriend = friend;
                 showFriend();
                 // TODO: update add_friend_description_text as well?
@@ -199,8 +200,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener,
     @Override
     public NdefMessage createNdefMessage(NfcEvent event) {
         try {
-            String payload = Json.toJson(Data.getInstance().getSelf().getFriend());
-            ;
+            String payload = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
             return new NdefMessage(
             		new NdefRecord[] {
             		        NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),

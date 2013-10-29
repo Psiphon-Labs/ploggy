@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -58,19 +59,26 @@ public class Data {
             mPublicIdentity = publicIdentity;
             mPrivateIdentity = privateIdentity;
         }
-        
-        public Friend getFriend() throws Utils.ApplicationError {
-        	return new Friend(mPublicIdentity);
-        }
     }
     
     public static class Friend {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
+        public final String mLastSentStatusTimestamp;
+        public final String mLastReceivedStatusTimestamp;
 
-        public Friend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+        public Friend(
+                Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+            this(publicIdentity, "", "");
+        }
+        public Friend(
+                Identity.PublicIdentity publicIdentity,
+                String lastSentStatusTimestamp,
+                String lastReceivedStatusTimestamp) throws Utils.ApplicationError {
             mId = Utils.encodeHex(publicIdentity.getFingerprint());
             mPublicIdentity = publicIdentity;
+            mLastSentStatusTimestamp = lastSentStatusTimestamp;
+            mLastReceivedStatusTimestamp = lastReceivedStatusTimestamp;
         }
     }
     
@@ -152,16 +160,7 @@ public class Data {
 
     public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundException {
         if (mSelfStatus == null) {
-            // TODO: temp!
-            /*
             mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
-            */
-            return new Status(
-                    Utils.getCurrentTimestamp(),
-                    Math.random()*100.0 - 50.0,
-                    Math.random()*100.0 - 50.0,
-                    10,
-                    "301 Front St W, Toronto, ON M5V 2T6");
         }
         return mSelfStatus;
     }
@@ -191,14 +190,26 @@ public class Data {
     }
 
     public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundException {
-    	loadFriends();
-    	synchronized(mFriends) {
-	        for (Friend friend : mFriends) {
-	        	if (friend.mId.equals(id)) {
-	        		return friend;
-	        	}
-	        }
-    	}
+        loadFriends();
+        synchronized(mFriends) {
+            for (Friend friend : mFriends) {
+                if (friend.mId.equals(id)) {
+                    return friend;
+                }
+            }
+        }
+        throw new DataNotFoundException();
+    }
+
+    public synchronized Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, DataNotFoundException {
+        loadFriends();
+        synchronized(mFriends) {
+            for (Friend friend : mFriends) {
+                if (friend.mPublicIdentity.mX509Certificate.equals(certificate)) {
+                    return friend;
+                }
+            }
+        }
         throw new DataNotFoundException();
     }
 
@@ -229,6 +240,28 @@ public class Data {
     	}
     }
 
+    public synchronized Date getFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
+        Friend friend = getFriendById(friendId);
+        return Utils.parseISO8601Date(friend.mLastSentStatusTimestamp);
+    }
+    
+    public synchronized void updateFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
+        // TODO: don't write an entire file for each timestamp update!
+        Friend friend = getFriendById(friendId);
+        insertOrUpdateFriend(new Friend(friend.mPublicIdentity, Utils.getCurrentTimestamp(), friend.mLastReceivedStatusTimestamp));
+    }
+    
+    public synchronized Date getFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
+        Friend friend = getFriendById(friendId);
+        return Utils.parseISO8601Date(friend.mLastReceivedStatusTimestamp);
+    }
+    
+    public synchronized void updateFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
+        // TODO: don't write an entire file for each timestamp update!
+        Friend friend = getFriendById(friendId);
+        insertOrUpdateFriend(new Friend(friend.mPublicIdentity, friend.mLastSentStatusTimestamp, Utils.getCurrentTimestamp()));
+    }
+    
     private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundException {
     	boolean found = false;
         for (int i = 0; i < list.size(); i++) {
@@ -257,17 +290,8 @@ public class Data {
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundException {
-        // TODO: temp!
-        /*
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         return Json.fromJson(readFile(filename), Status.class);
-        */
-        return new Status(
-                Utils.getCurrentTimestamp(),
-                Math.random()*100.0 - 50.0,
-                Math.random()*100.0 - 50.0,
-                10,
-                "301 Front St W, Toronto, ON M5V 2T6");
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {

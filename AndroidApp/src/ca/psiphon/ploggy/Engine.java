@@ -21,10 +21,11 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
+import java.util.HashMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -37,8 +38,8 @@ import com.squareup.otto.Subscribe;
  * Coordinator for background Ploggy work.
  * 
  * The Engine:
- * - schedule friend status push/polls
- * - maintains a worker thread pool for background tasks (pushing/polling
+ * - schedule friend status push/pulls
+ * - maintains a worker thread pool for background tasks (pushing/pulling
  *   friends and handling friend requests
  * - runs the local location monitor
  * - (re)-starts and stops the local web server and Tor Hidden Service to
@@ -47,18 +48,19 @@ import com.squareup.otto.Subscribe;
  * An Engine instance is intended to be run via an Android Service set to
  * foreground mode (i.e., long running).
  */
-public class Engine implements OnSharedPreferenceChangeListener {
+public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
     
     private static final String LOG_TAG = "Engine";
 
     private Context mContext;
     private SharedPreferences mSharedPreferences;
-    private long mFriendPollPeriod;
-    private Timer mTimer;
-    private ExecutorService mTaskThreadPool;
+    private ScheduledExecutorService mTaskThreadPool;
+    private HashMap<String, ScheduledFuture<?>> mFriendPullTasks;
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
+    
+    private static final int THREAD_POOL_SIZE = 30;
 
     public Engine(Context context) {
         Utils.initSecureRandom();
@@ -71,14 +73,12 @@ public class Engine implements OnSharedPreferenceChangeListener {
 
     public synchronized void start() throws Utils.ApplicationError {
         Events.register(this);
-        mTaskThreadPool = Executors.newCachedThreadPool();
-        mTimer = new Timer();
+        mTaskThreadPool = Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
+        mFriendPullTasks = new HashMap<String, ScheduledFuture<?>>();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         startSharingService();
-        initFriendPollPeriod();
-        schedulePollFriends();
-        // TODO: Events.bus.post(new Events.EngineRunning()); ?
+        schedulePullFriends();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
     }
 
@@ -93,16 +93,12 @@ public class Engine implements OnSharedPreferenceChangeListener {
         if (mTaskThreadPool != null) {
             Utils.shutdownExecutorService(mTaskThreadPool);
 	        mTaskThreadPool = null;
+	        mFriendPullTasks = null;
         }
-        if (mTimer != null) {
-            mTimer.cancel();
-            mTimer = null;
-        }
-        // TODO: Events.bus.post(new Events.EngineStopped()); ?
     }
 
     @Override
-    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+    public synchronized void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         try {
             stop();
             start();
@@ -115,21 +111,6 @@ public class Engine implements OnSharedPreferenceChangeListener {
         mTaskThreadPool.submit(task);
     }
     
-    private class ScheduledTask extends TimerTask {
-        Runnable mTask;
-        public ScheduledTask(Runnable task) {
-            mTask = task;
-        }
-        @Override
-        public void run() {
-            mTaskThreadPool.submit(mTask);
-        }
-    }
-    
-    public synchronized void scheduleTask(Runnable task, long delayMilliseconds) {
-        mTimer.schedule(new ScheduledTask(task), delayMilliseconds);
-    }
-    
     private void startSharingService() throws Utils.ApplicationError {
         try {
             Data.Self self = Data.getInstance().getSelf();
@@ -139,7 +120,7 @@ public class Engine implements OnSharedPreferenceChangeListener {
             }
             stopSharingService();
             mWebServer = new WebServer(
-                    mTaskThreadPool,
+                    this,
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                     friendCertificates);
             mWebServer.start();
@@ -170,12 +151,7 @@ public class Engine implements OnSharedPreferenceChangeListener {
     }
     
     @Subscribe
-    private synchronized void handleNewSelfLocation(Events.NewSelfLocation NewSelfLocation) {
-        // TODO: update self status
-    }
-    
-    @Subscribe
-    private synchronized void handleUpdatedSelf(Events.UpdatedSelf updatedSelf) {
+    public synchronized void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
         // Apply new transport and hidden service credentials
         try {
             startSharingService();
@@ -183,51 +159,139 @@ public class Engine implements OnSharedPreferenceChangeListener {
             // TODO: log?
         }                        
     }
-    
-    private void initFriendPollPeriod() {
-        // TODO: adjust for foreground, battery, sleep, network type 
-        mFriendPollPeriod = 60*1000;
-    }
 
-    private void schedulePollFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            schedulePollFriend(friend.mId, true);
+    @Subscribe
+    public synchronized void onNewSelfLocation(Events.NewSelfLocation newSelfLocation) {
+        // TODO: location fix timestamp vs. status update timestamp?
+        // TODO: apply precision factor to long/lat/address
+        // TODO: factor Location.getAccuracy() into precision?
+        try {
+            Data.getInstance().updateSelfStatus(
+                    new Data.Status(
+                            Utils.getCurrentTimestamp(),
+                            newSelfLocation.mLocation.getLongitude(),
+                            newSelfLocation.mLocation.getLatitude(),
+                            getIntPreference(R.string.preferenceLimitLocationPrecision),
+                            newSelfLocation.mAddress.getCountryName()));
+        } catch (Utils.ApplicationError e) {
+            // TODO: log
         }
     }
     
-    private void schedulePollFriend(String friendId, boolean initialRequest) {
+    @Subscribe
+    public synchronized void onNewSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
+        try {
+            // Immediately push new status to all friends. If this fails for any reason,
+            // implicitly fall back to friends pulling status.
+            pushToFriends();
+        } catch (Utils.ApplicationError e) {
+            // TODO: log
+        }
+    }
+    
+    @Subscribe
+    public synchronized void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
+        schedulePullFriend(updatedFriend.mId);
+    }
+    
+    private void pushToFriends() throws Utils.ApplicationError {
+        // TODO: check for existing pushes in worker thread queue
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            final String taskFriendId = friend.mId;
+            Runnable task = new Runnable() {
+                public void run() {
+                    try {
+                        Data data = Data.getInstance();
+                        Data.Self self = data.getSelf();
+                        Data.Status selfStatus = data.getSelfStatus();
+                        Data.Friend friend = data.getFriendById(taskFriendId);
+                        WebClient.makePostRequest(
+                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                friend.mPublicIdentity.mX509Certificate,
+                                getTorSocksProxyPort(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                Protocol.PUSH_STATUS_REQUEST_PATH,
+                                Json.toJson(selfStatus));
+                        data.updateFriendLastSentStatusTimestamp(taskFriendId);
+                    } catch (Data.DataNotFoundException e) {
+                        // TODO: ...Deleted; Next pull won't be scheduled
+                    } catch (Utils.ApplicationError e) {
+                        // TODO: ...?
+                    }
+                }
+            };
+            submitTask(task);
+        }
+    }
+    
+    private void schedulePullFriend(String friendId) {
         final String taskFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
                 try {
-                    Data.Self self = Data.getInstance().getSelf();
-                    Data.Friend friend = Data.getInstance().getFriendById(taskFriendId);
+                    Data data = Data.getInstance();
+                    Data.Self self = data.getSelf();
+                    Data.Friend friend = data.getFriendById(taskFriendId);
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             getTorSocksProxyPort(),
                             friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.GET_STATUS_REQUEST_PATH);
+                            Protocol.WEB_SERVER_VIRTUAL_PORT,
+                            Protocol.PULL_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    Data.getInstance().updateFriendStatus(taskFriendId, friendStatus);
-                    // Schedule next poll
-                    schedulePollFriend(taskFriendId, false);
+                    data.updateFriendStatus(taskFriendId, friendStatus);
+                    data.updateFriendLastReceivedStatusTimestamp(taskFriendId);
                 } catch (Data.DataNotFoundException e) {
-                    // TODO: ...Deleted; Next poll won't be scheduled
+                    // TODO: ...Deleted; Next pull won't be scheduled
                 } catch (Utils.ApplicationError e) {
                     // TODO: ...?
                 }
             }
         };
-        long delay = initialRequest ? 0 : mFriendPollPeriod;
-        scheduleTask(task, delay);
+        // Cancel any existing pull schedule for this friend
+        if (mFriendPullTasks.containsKey(taskFriendId)) {
+            mFriendPullTasks.get(taskFriendId).cancel(false);
+        }
+        ScheduledFuture<?> future = mTaskThreadPool.scheduleAtFixedRate(
+                task, 0, Protocol.PULL_PERIOD_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
+        mFriendPullTasks.put(taskFriendId, future);
     }
 
-    public Context getContext() {
+    private void schedulePullFriends() throws Utils.ApplicationError {
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            schedulePullFriend(friend.mId);
+        }
+    }
+    
+    public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
+        // Friend is requesting (pulling) self status
+        // TODO: cancel any pending push to this friend?
+        Data data = Data.getInstance();
+        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+        Data.Status status = data.getSelfStatus();
+        // TODO: we don't yet know the friend really received the response bytes
+        data.updateFriendLastSentStatusTimestamp(friend.mId);
+        return status;        
+    }
+    
+    public synchronized void handlePushStatusRequest(String friendCertificate, Data.Status status) throws Utils.ApplicationError  {
+        // Friend is pushing their own status
+        Data data = Data.getInstance();
+        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+        data.updateFriendStatus(friend.mId, status);
+        // TODO: we don't yet know the friend really received the response bytes
+        data.updateFriendLastReceivedStatusTimestamp(friend.mId);        
+        // Reschedule (delay) any outstanding pull from this friend
+        schedulePullFriend(friend.mId);
+    }
+    
+    public synchronized Context getContext() {
         return mContext;
     }
     
-    public boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
             throw new Utils.ApplicationError(LOG_TAG, "missing preference default");
@@ -235,7 +299,7 @@ public class Engine implements OnSharedPreferenceChangeListener {
         return mSharedPreferences.getBoolean(key, false);        
     }
     
-    public int getIntPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized int getIntPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
             throw new Utils.ApplicationError(LOG_TAG, "missing preference default");

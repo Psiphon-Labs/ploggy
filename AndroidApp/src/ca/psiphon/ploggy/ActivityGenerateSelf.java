@@ -281,8 +281,11 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     
     static public void checkLaunchGenerateSelf(Context context) {
         // Helper to ensure Self is generated. Called from other Activities to jump to this one first.
+        // When Self is generated, ensure the background Service is started.
         if (getSelf() == null) {
             context.startActivity(new Intent(context, ActivityGenerateSelf.class));
+        } else {
+            context.startService(new Intent(context, PloggyService.class));
         }
     }        
 }

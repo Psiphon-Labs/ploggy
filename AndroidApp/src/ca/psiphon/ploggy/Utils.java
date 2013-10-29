@@ -241,6 +241,11 @@ public class Utils {
         return dateStr;
     }
 
+    public static Date parseISO8601Date(String date) throws Utils.ApplicationError {
+        // TODO: implement
+        return null;
+    }
+
     public static String getCurrentTimestamp() {
         return getISO8601String(new Date());
     }

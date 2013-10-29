@@ -29,6 +29,9 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ca.psiphon.ploggy.Data.Status;
+import ca.psiphon.ploggy.Utils.ApplicationError;
+
 /**
  * Component tests. 
  * 
@@ -81,13 +84,40 @@ public class Tests {
                 2000);
 	}
 	
+	private static class MockRequestHandler implements WebServer.RequestHandler {
+        
+	    private ExecutorService mThreadPool = Executors.newCachedThreadPool();
+
+	    public void stop() {
+	        Utils.shutdownExecutorService(mThreadPool);
+	    }
+	    
+        @Override
+        public void submitTask(Runnable task) {
+            mThreadPool.execute(task);
+        }
+
+        @Override
+        public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+            return new Status(
+                    Utils.getCurrentTimestamp(),
+                    Math.random()*100.0 - 50.0,
+                    Math.random()*100.0 - 50.0,
+                    10,
+                    "301 Front St W, Toronto, ON M5V 2T6");
+        }
+
+        @Override
+        public void handlePushStatusRequest(String friendId, Status status) throws ApplicationError {
+        }
+	}
+	
 	public static void runComponentTests() {
-	    ExecutorService threadPool = null;
+	    MockRequestHandler mockRequestHandler = null;
 	    WebServer webServer = null;
         TorWrapper selfTor = null;
         TorWrapper friendTor = null;
 	    try {
-	        threadPool = Executors.newCachedThreadPool();
 	        String selfNickname = "Me";
             Log.addEntry(LOG_TAG, "Generate X509 key material...");
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
@@ -114,20 +144,22 @@ public class Tests {
             String friendNickname = "My Friend";
             X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial();
             HiddenService.KeyMaterial friendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
-            Data.Friend friend = new Data.Self(
+            Data.Self friendSelf = new Data.Self(
                     Identity.makeSignedPublicIdentity(
                             friendNickname,
                             friendX509KeyMaterial,
                             friendHiddenServiceKeyMaterial),
                     Identity.makePrivateIdentity(
                             friendX509KeyMaterial,
-                            friendHiddenServiceKeyMaterial)).getFriend();
+                            friendHiddenServiceKeyMaterial));
+            Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity);
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Start web server...");
             ArrayList<String> friendCertificates = new ArrayList<String>();
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
-            webServer = new WebServer(threadPool, selfX509KeyMaterial, friendCertificates);
+            mockRequestHandler = new MockRequestHandler();
+            webServer = new WebServer(mockRequestHandler, selfX509KeyMaterial, friendCertificates);
             try {
                 webServer.start();
             } catch (IOException e) {
@@ -140,7 +172,7 @@ public class Tests {
                     WebClient.UNTUNNELED_REQUEST,
                     "127.0.0.1",
                     webServer.getListeningPort(),
-                    Protocol.GET_STATUS_REQUEST_PATH);
+                    Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
@@ -176,7 +208,7 @@ public class Tests {
                     // TODO: helper; and/or encode pubic identity differently?
                     new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
-                    Protocol.GET_STATUS_REQUEST_PATH);
+                    Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
             if (!response.equals(Json.toJson(selfStatus))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
@@ -190,7 +222,7 @@ public class Tests {
                         friendTor.getSocksProxyPort(),
                         new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
-                        Protocol.GET_STATUS_REQUEST_PATH);
+                        Protocol.PULL_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
                 if (!e.getMessage().contains("No peer certificate")) {
                     throw e;
@@ -217,8 +249,8 @@ public class Tests {
 	        if (webServer != null) {
 	            webServer.stop();
 	        }
-	        if (threadPool != null) {
-	            Utils.shutdownExecutorService(threadPool);
+	        if (mockRequestHandler != null) {
+	            mockRequestHandler.stop();
 	        }
 	    }
 	}

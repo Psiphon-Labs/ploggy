@@ -53,10 +53,19 @@ import ca.psiphon.ploggy.Log;
  * <p/>
  * See the separate "LICENSE.md" file for the distribution license (Modified BSD licence)
  */
+
+// ==== ploggy: based on NanoHTTPD 2.0.4 ====
+
 public abstract class NanoHTTPD {
     // ==== ploggy ====
     private static final String LOG_TAG = "NanoHTTPD";
     // ================
+    /**
+     * Maximum time to wait on Socket.getInputStream().read() (in milliseconds)
+     * This is required as the Keep-Alive HTTP connections would otherwise
+     * block the socket reading thread forever (or as long the browser is open).
+     */
+    public static final int SOCKET_READ_TIMEOUT = 5000;
     /**
      * Common mime type for dynamic content: plain text
      */
@@ -146,6 +155,7 @@ public abstract class NanoHTTPD {
                 do {
                     try {
                         final Socket finalAccept = myServerSocket.accept();
+                        finalAccept.setSoTimeout(SOCKET_READ_TIMEOUT);
                         final InputStream inputStream = finalAccept.getInputStream();
                         if (inputStream == null) {
                             safeClose(finalAccept);
@@ -157,7 +167,7 @@ public abstract class NanoHTTPD {
                                     try {
                                         outputStream = finalAccept.getOutputStream();
                                         TempFileManager tempFileManager = tempFileManagerFactory.create();
-                                        HTTPSession session = new HTTPSession(tempFileManager, inputStream, outputStream);
+                                        HTTPSession session = new HTTPSession(finalAccept, tempFileManager, inputStream, outputStream);
                                         while (!finalAccept.isClosed()) {
                                             session.execute();
                                         }
@@ -333,6 +343,10 @@ public abstract class NanoHTTPD {
         public ServerSocket createServerSocket() throws IOException {
             return new ServerSocket();
         }
+    }
+
+    public String getPeerId(Socket socket) {
+        return null;
     }
     // ================
 
@@ -755,6 +769,10 @@ public abstract class NanoHTTPD {
      * Handles one session, i.e. parses the HTTP request and returns the response.
      */
     public interface IHTTPSession {
+        // ==== ploggy ====
+        Socket getSocket();
+        // ================
+
         void execute() throws IOException;
 
         Map<String, String> getParms();
@@ -792,7 +810,17 @@ public abstract class NanoHTTPD {
         private Map<String, String> headers;
         private CookieHandler cookies;
 
-        public HTTPSession(TempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream) {
+        // ==== ploggy ====
+        private final Socket socket;
+
+        @Override
+        public Socket getSocket() {
+            return socket;
+        }
+        // ================
+
+        public HTTPSession(Socket socket, TempFileManager tempFileManager, InputStream inputStream, OutputStream outputStream) {
+            this.socket = socket;
             this.tempFileManager = tempFileManager;
             this.inputStream = inputStream;
             this.outputStream = outputStream;
@@ -1000,7 +1028,7 @@ public abstract class NanoHTTPD {
                     while (line != null && line.trim().length() > 0) {
                         int p = line.indexOf(':');
                         if (p >= 0)
-                            headers.put(line.substring(0, p).trim().toLowerCase(), line.substring(p + 1).trim());
+                            headers.put(line.substring(0, p).trim().toLowerCase(Locale.US), line.substring(p + 1).trim());
                         line = in.readLine();
                     }
                 }
@@ -1030,7 +1058,7 @@ public abstract class NanoHTTPD {
                     while (mpline != null && mpline.trim().length() > 0) {
                         int p = mpline.indexOf(':');
                         if (p != -1) {
-                            item.put(mpline.substring(0, p).trim().toLowerCase(), mpline.substring(p + 1).trim());
+                            item.put(mpline.substring(0, p).trim().toLowerCase(Locale.US), mpline.substring(p + 1).trim());
                         }
                         mpline = in.readLine();
                     }
@@ -1045,7 +1073,7 @@ public abstract class NanoHTTPD {
                             String token = st.nextToken();
                             int p = token.indexOf('=');
                             if (p != -1) {
-                                disposition.put(token.substring(0, p).trim().toLowerCase(), token.substring(p + 1).trim());
+                                disposition.put(token.substring(0, p).trim().toLowerCase(Locale.US), token.substring(p + 1).trim());
                             }
                         }
                         String pname = disposition.get("name");

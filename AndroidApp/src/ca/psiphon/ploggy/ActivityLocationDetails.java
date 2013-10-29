@@ -108,7 +108,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     }       
 
     @Subscribe
-    public void onUpedatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+    public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         showDetails();
     }       
 
