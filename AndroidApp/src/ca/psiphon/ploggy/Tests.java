@@ -97,14 +97,18 @@ public class Tests {
             mThreadPool.execute(task);
         }
 
-        @Override
-        public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+        public Status getMockStatus() {
             return new Status(
                     Utils.getCurrentTimestamp(),
                     Math.random()*100.0 - 50.0,
                     Math.random()*100.0 - 50.0,
                     10,
                     "301 Front St W, Toronto, ON M5V 2T6");
+        }
+
+        @Override
+        public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+            return getMockStatus();
         }
 
         @Override
@@ -132,14 +136,6 @@ public class Tests {
                     Identity.makePrivateIdentity(
                             selfX509KeyMaterial,
                             selfHiddenServiceKeyMaterial));
-            // TODO: dependency injection (vs. singleton Data)
-            Data.Status selfStatus = new Data.Status(
-                    DateFormat.getDateTimeInstance().format(new Date()),
-                    0.0,
-                    0.0,
-                    10,
-                    "<street>\n<city>\n<state>\n<country>\n");
-            Data.getInstance().updateSelfStatus(selfStatus);
             Log.addEntry(LOG_TAG, "Make friend...");
             String friendNickname = "My Friend";
             X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial();
@@ -174,7 +170,7 @@ public class Tests {
                     webServer.getListeningPort(),
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(Json.toJson(selfStatus))) {
+            if (!response.equals(Json.toJson(mockRequestHandler.getMockStatus()))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Run self Tor...");
@@ -210,7 +206,7 @@ public class Tests {
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(Json.toJson(selfStatus))) {
+            if (!response.equals(Json.toJson(mockRequestHandler.getMockStatus()))) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
