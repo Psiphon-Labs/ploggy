@@ -128,6 +128,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
+            // TODO: poll mTorWrapper.awaitStarted() to check for errors and retry... 
             mTorWrapper.start();
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);

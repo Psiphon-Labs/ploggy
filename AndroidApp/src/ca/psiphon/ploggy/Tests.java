@@ -186,6 +186,9 @@ public class Tests {
                     friendHiddenServiceKeyMaterial,
                     webServer.getListeningPort());
             friendTor.start();
+            selfTor.start();
+            selfTor.awaitStarted();
+            friendTor.awaitStarted();
             // TODO: monitor publication state via Tor control interface?
             int publishWaitMilliseconds = 120000;
             Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
