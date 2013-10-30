@@ -20,6 +20,7 @@
 package ca.psiphon.ploggy;
 
 import android.app.Application;
+import android.preference.PreferenceManager;
 
 /**
  * Android Application for one-time app startup initialization.
@@ -27,8 +28,9 @@ import android.app.Application;
 public class PloggyApplication extends Application {
 
 	@Override
-	public void onCreate() {
+	public void onCreate() {	    
 		Utils.setApplicationContext(this);
+		PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
 		Events.initialize();
 	}
 }

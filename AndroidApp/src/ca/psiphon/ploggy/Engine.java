@@ -294,7 +294,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
-            throw new Utils.ApplicationError(LOG_TAG, "missing preference default");
+            throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
         }
         return mSharedPreferences.getBoolean(key, false);        
     }
@@ -302,7 +302,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized int getIntPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
-            throw new Utils.ApplicationError(LOG_TAG, "missing preference default");
+            throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
         }
         return mSharedPreferences.getInt(key, 0);        
     }
