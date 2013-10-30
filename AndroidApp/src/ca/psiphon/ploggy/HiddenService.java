@@ -30,7 +30,7 @@ public class HiddenService {
         public final String mHostname;
         public final String mPrivateKey;
 
-        public KeyMaterial(String hostname, String privateKey) {        
+        public KeyMaterial(String hostname, String privateKey) {
             mHostname = hostname;
             mPrivateKey = privateKey;
         }

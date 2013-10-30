@@ -27,10 +27,12 @@ import android.preference.PreferenceManager;
  */
 public class PloggyApplication extends Application {
 
-	@Override
-	public void onCreate() {	    
-		Utils.setApplicationContext(this);
-		PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
-		Events.initialize();
+    @Override
+    public void onCreate() {	    
+        Utils.setApplicationContext(this);
+        // TODO: distinct instance of preferences for each persona
+        // e.g., setDefaultValues("persona1");
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
+        Events.initialize();
 	}
 }

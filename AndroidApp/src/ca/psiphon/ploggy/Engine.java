@@ -172,10 +172,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             Utils.getCurrentTimestamp(),
                             newSelfLocation.mLocation.getLongitude(),
                             newSelfLocation.mLocation.getLatitude(),
-                            getIntPreference(R.string.preferenceLimitLocationPrecision),
+                            getIntPreference(R.string.preferenceLocationPrecisionInMeters),
                             newSelfLocation.mAddress.getCountryName()));
         } catch (Utils.ApplicationError e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, "failed to update self status with new location");
         }
     }
     
@@ -294,9 +294,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
-        if (!mSharedPreferences.contains(key)) {
-            throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
-        }
+        // Defaults which are "false" are not present in the preferences file
+        // if (!mSharedPreferences.contains(key)) {...}
+        // TODO: this is ambiguous: there's now no test for failure to initialize defaults
         return mSharedPreferences.getBoolean(key, false);        
     }
     
