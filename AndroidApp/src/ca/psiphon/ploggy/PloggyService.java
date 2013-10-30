@@ -32,7 +32,6 @@ import android.os.IBinder;
 public class PloggyService extends Service {
     
     Engine mEngine;
-    SharedPreferences mSharedPreferences;
 
     public PloggyService() {
     }
