@@ -21,6 +21,8 @@ Goals of the Ploggy project include:
 * Make use of existing well-studied security protocols, algorithms, and infrastructure: in particular, Tor and TLS.
 * Minimal security work flow: users don't need to know about Tor Hidden Service .onion addresses, for example -- just click a button and exchange identities via NFC, etc.
 
+_At this time, Ploggy is strictly a prototype which has not been subject to a thorough security audit. Do not use this code for any purpose other than development or testing._
+
 Location Sharing
 --------------------------------------------------------------------------------
 

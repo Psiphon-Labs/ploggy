@@ -93,6 +93,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private File mHiddenServiceHostnameFile;
     private File mHiddenServicePrivateKeyFile;
 
+    private Thread mStartupThread = null;
+    private Utils.ApplicationError mStartupError = null;
     private Process mProcess = null;
     private int mPid = -1;
     private int mControlPort = -1;
@@ -138,16 +140,40 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         return String.format("%s [%s]", LOG_TAG, mInstanceName);
     }
     
-    public void start() throws Utils.ApplicationError {
-        if (mMode == Mode.MODE_GENERATE_KEY_MATERIAL) {
-            startGenerateKeyMaterial();
-        } else if (mMode == Mode.MODE_RUN_SERVICES) {
-            startRunServices();
+    public void start() {
+        stop();
+        // Performs start sequence asychronously, in a background thread
+        Runnable startTask = new Runnable() {
+            public void run() {
+                try {
+                    if (mMode == Mode.MODE_GENERATE_KEY_MATERIAL) {
+                        startGenerateKeyMaterial();
+                    } else if (mMode == Mode.MODE_RUN_SERVICES) {
+                        startRunServices();
+                    }
+                } catch (Utils.ApplicationError e) {
+                    Log.addEntry(LOG_TAG, "failed to start Tor");
+                    // Save this to throw from awaitStarted
+                    mStartupError = e;
+                }
+            }
+        };
+        mStartupThread = new Thread(startTask);
+        mStartupThread.start();
+    }
+    
+    public void awaitStarted() throws Utils.ApplicationError {
+        try {
+            mStartupThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (mStartupError != null) {
+            throw mStartupError;
         }
     }
     
     private void startGenerateKeyMaterial() throws Utils.ApplicationError {
-        stop();
         try {
             // TODO: don't need two copies of the executable
             writeExecutableFile();
@@ -188,7 +214,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     private void startRunServices() throws Utils.ApplicationError {
-        stop();
         boolean startCompleted = false;
         try {
             writeExecutableFile();
@@ -270,6 +295,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     public void stop() {
+        if (mStartupThread != null) {
+            mStartupThread.interrupt();
+            try {
+                awaitStarted();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log?
+            }
+            mStartupThread = null;
+            mStartupError = null;
+        }
         try {
             if (mControlConnection != null) {
                 mControlConnection.shutdownTor("TERM");

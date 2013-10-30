@@ -80,15 +80,15 @@ public class X509 {
     
             // TODO: use http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
             X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
-            // TODO: validity dates?
+
+            // Using non-distinguishing validity dates and identifiers
+            // TODO: use common -- e.g., generic Apache web server -- values? See what Tor does.
             Calendar calendar = Calendar.getInstance();
-            calendar.setTimeInMillis(System.currentTimeMillis());
-            calendar.add(Calendar.DATE, 1);
-            Date validityBeginDate = calendar.getTime();
-            calendar.setTimeInMillis(System.currentTimeMillis());
+            calendar.set(2013, Calendar.JANUARY, 1);
+            Date validityBeginDate = calendar.getTime(); 
             calendar.add(Calendar.YEAR, 30);
             Date validityEndDate = calendar.getTime();        
-            X500Principal subjectDN = new X500Principal("CN=" + Utils.getRandomHexString(128));
+            X500Principal subjectDN = new X500Principal("CN=server.example.com");
             certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
             certificateGenerator.setSubjectDN(subjectDN);
             certificateGenerator.setIssuerDN(subjectDN);

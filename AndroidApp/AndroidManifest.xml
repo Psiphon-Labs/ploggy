@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"></uses-permission>
     <uses-permission android:name="android.permission.NFC"></uses-permission>
     <uses-permission android:name="android.permission.VIBRATE"></uses-permission>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"></uses-permission>
 
     <application
         android:name="ca.psiphon.ploggy.PloggyApplication"
@@ -23,7 +24,8 @@
         android:theme="@style/AppTheme" >
         <activity
             android:name="ca.psiphon.ploggy.ActivityMain"
-            android:label="@string/app_name" >
+            android:label="@string/app_name"
+            android:launchMode="singleTask" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -38,12 +40,34 @@
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityAddFriend"
+            android:name="ca.psiphon.ploggy.ActivityAddFriendByNfc"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/ca.psiphon.ploggy.android.beam"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:name="ca.psiphon.ploggy.ActivityAddFriendByEmail"
+            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:mimeType="application/octet-stream"
+                    android:host="*" 
+                    android:pathPattern=".*\\.ploggy" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:mimeType="application/ploggy"
+                    android:host="*" 
+                    android:pathPattern=".*\\.ploggy" />
             </intent-filter>
         </activity>
         <activity

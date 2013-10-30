@@ -32,10 +32,8 @@ import android.os.IBinder;
 public class PloggyService extends Service {
     
     Engine mEngine;
-    SharedPreferences mSharedPreferences;
 
     public PloggyService() {
-        mEngine = new Engine(this);
     }
     
     @Override
@@ -46,6 +44,7 @@ public class PloggyService extends Service {
     @Override
     public void onCreate() {
         try {
+            mEngine = new Engine(this);
             mEngine.start();
         } catch (Utils.ApplicationError e) {
             // TODO: log
@@ -55,7 +54,10 @@ public class PloggyService extends Service {
    
     @Override
     public void onDestroy() {
-        mEngine.stop();
+        if (mEngine != null) {
+            mEngine.stop();
+            mEngine = null;
+        }
     }
     
     private void doForeground() {

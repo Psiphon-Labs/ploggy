@@ -39,6 +39,7 @@ public class HiddenService {
     public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
         TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
         tor.start();
+        tor.awaitStarted();
         return tor.getKeyMaterial();
     }
 }

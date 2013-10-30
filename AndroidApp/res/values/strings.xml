@@ -3,12 +3,17 @@
     <string name="app_name">Ploggy</string>
     <string name="default_foreground_service_notification_message">Ploggy is running</string>
     <string name="action_generate_self">Your Identity</string>
+    <string name="action_email_self">Email Your Identity</string>
     <string name="action_self_location_details">Your Location</string>
     <string name="action_add_friend">Add Friend</string>
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">Run Tests</string>
     <string name="title_friend_list_fragment">Friends</string>
     <string name="title_log_fragment">Log</string>
+    <string name="label_email_self_title">Email Your Identity to a Friend</string>
+    <string name="label_email_self_message">Warning: sending your identity via email will allow a 3rd party to link you and your friend.</string>
+    <string name="label_email_self_positive">I understand the risk</string>
+    <string name="label_email_self_negative">Cancel</string>
     <string name="label_generate_self_title">Your Identity</string>
     <string name="label_generate_self_description">Your identity for secure sharing</string>
     <string name="label_generate_self_nickname">Nickname:</string>

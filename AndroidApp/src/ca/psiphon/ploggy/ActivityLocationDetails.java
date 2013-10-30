@@ -108,7 +108,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     }       
 
     @Subscribe
-    public void onUpedatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+    public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         showDetails();
     }       
 
@@ -196,7 +196,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                                     finish();
                                 }
                             }
-                
                         })
                 .setNegativeButton(getString(R.string.label_location_details_delete_friend_negative), null)
                 .show();            

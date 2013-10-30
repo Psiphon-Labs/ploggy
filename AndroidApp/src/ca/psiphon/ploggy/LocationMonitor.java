@@ -21,8 +21,6 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import android.content.Context;
 import android.location.Address;
@@ -30,6 +28,7 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.Handler;
 
 /**
  * Schedule and monitor location events from Android OS. 
@@ -46,43 +45,33 @@ public class LocationMonitor implements android.location.LocationListener {
     
     private static final String LOG_TAG = "Location Monitor";
 
-    Engine mEngine;
-    Timer mLocationUpdateTimer;
-    Timer mLocationFixTimer;
+    Engine mEngine;    
+    Handler mHandler;
+    Runnable mStartLocationFixTask;
+    Runnable mFinishLocationFixTask;
+    Runnable mStopLocationUpdatesTask;
     Location mLastReportedLocation;
     Location mCurrentLocation;
     
     LocationMonitor(Engine engine) {
         mEngine = engine;
+        mHandler = new Handler();
+        initRunnables();
     }
     
     public void start() throws Utils.ApplicationError {
-        mLocationUpdateTimer = new Timer();
-        mLocationUpdateTimer.schedule(
-            new TimerTask() {          
-                @Override
-                public void run() {
-                	try {
-                		startLocationListeners();
-                	} catch (Utils.ApplicationError e) {
-                		Log.addEntry(LOG_TAG, "failed to start location listeners");
-                	}
-                }
-            },
-            0,
-            60*1000*mEngine.getIntPreference(R.string.preferenceLocationUpdateTimePeriodInMinutes));
+        // Using a Handler for LocationManager calls, which need to run on a Looper thread. StartLocationFixTask
+        // kicks off location updates and schedules FinishLocationFixTask which reports the "best" location fix
+        // and stops updates after a set time period. FinishLocationFixTask also schedules the next location fix.
+        mHandler.post(mStartLocationFixTask);
     }
     
     public void stop() {
-        if (mLocationUpdateTimer != null) {
-            mLocationUpdateTimer.cancel();
-            mLocationUpdateTimer = null;
-        }
-        if (mLocationFixTimer != null) {
-            mLocationFixTimer.cancel();
-            mLocationFixTimer = null;
-        }
-        stopLocationListeners();
+        mHandler.removeCallbacks(mStartLocationFixTask);
+        mHandler.removeCallbacks(mFinishLocationFixTask);
+        // Ensure removeUpdates is called
+        // TODO: ok that posting this task makes stop() asynchronous?
+        mHandler.post(mStopLocationUpdatesTask);
     }
 
     public void restart() throws Utils.ApplicationError {
@@ -90,58 +79,73 @@ public class LocationMonitor implements android.location.LocationListener {
         start();
     }
 
-    public void startLocationListeners() throws Utils.ApplicationError {
-        LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-        
-        for (String provider: locationManager.getAllProviders()) {
-        	updateCurrentLocation(locationManager.getLastKnownLocation(provider));
-        }
+    private void initRunnables() {
+        final LocationMonitor finalLocationMonitor = this; 
 
-        // TODO: configure minimum time and minimum distance
-
-        // TODO: use requestSingleUpdate (API 9)
-        //       (see: http://stackoverflow.com/questions/7979230/how-to-read-location-only-once-with-locationmanager-gps-and-network-provider-a/7980707#7980707)
-        
-        if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-            locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 0, 0, this);    
-        }
-        
-        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this);    
-        }
-        
-        // TODO: previously had a preference to allow use of Network location provider, since this provider
-        // sends data to a 3rd party. But is the provider always sending this data? I.e., is there any privacy
-        // benefit to not using it if it's available?
-        
-        if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, this);    
-        }
-        
-        // TODO: handle no providers? log?
-        
-        mLocationFixTimer = new Timer();
-        mLocationFixTimer.schedule(
-            new TimerTask() {          
-                @Override
-                public void run() {
-                	try {
-	                    reportLocation();
-	                    stopLocationListeners();
-                	} catch (Utils.ApplicationError e) {
-                        Log.addEntry(LOG_TAG, "failed location fix");
-                	}
-                }
-            },
-            0,
-            1000*mEngine.getIntPreference(R.string.preferenceLocationFixPeriodInSeconds));        
-    }
+        mStartLocationFixTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
     
-    public void stopLocationListeners() {
-        LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-        locationManager.removeUpdates(this);        
+                    // Use last known location already present in all providers (they don't need to be enabled)
+                    for (String provider: locationManager.getAllProviders()) {
+                        updateCurrentLocation(locationManager.getLastKnownLocation(provider));
+                    }
+    
+                    if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
+                        locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 1, finalLocationMonitor);    
+                    }
+                    
+                    if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, finalLocationMonitor);    
+                    }
+                    
+                    // TODO: previously had a preference to allow use of Network location provider, since this provider
+                    // sends data to a 3rd party. But is the provider always sending this data? I.e., is there any privacy
+                    // benefit to not using it if it's available?
+                    
+                    if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1, finalLocationMonitor);    
+                    }
+                    
+                    mHandler.postDelayed(
+                            mFinishLocationFixTask,
+                            1000*mEngine.getIntPreference(R.string.preferenceLocationFixPeriodInSeconds));
+                } catch (Utils.ApplicationError e) {
+                    Log.addEntry(LOG_TAG, "start location fix failed");
+                }
+            }
+        };
+
+        mFinishLocationFixTask = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
+                    locationManager.removeUpdates(finalLocationMonitor);        
+    
+                    reportLocation();
+    
+                    // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period
+                    mHandler.postDelayed(
+                            mStartLocationFixTask,
+                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationUpdateTimePeriodInMinutes));
+                } catch (Utils.ApplicationError e) {
+                    Log.addEntry(LOG_TAG, "finish location fix failed");
+                }
+            }
+        };
+
+        mStopLocationUpdatesTask = new Runnable() {
+            @Override
+            public void run() {
+                LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
+                locationManager.removeUpdates(finalLocationMonitor);        
+            }
+        };
     }
-        
+
     public void reportLocation() throws Utils.ApplicationError {
     	if (mCurrentLocation == null) {
     		return;
@@ -214,8 +218,10 @@ public class LocationMonitor implements android.location.LocationListener {
     }
 
     protected void updateCurrentLocation(Location location) {
-        if (isBetterLocation(location, mCurrentLocation)) {
-        	mCurrentLocation = location;
+        if (location != null) {
+            if (isBetterLocation(location, mCurrentLocation)) {
+            	mCurrentLocation = location;
+            }
         }
     }
     
