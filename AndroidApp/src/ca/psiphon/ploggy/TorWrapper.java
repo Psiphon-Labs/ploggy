@@ -163,13 +163,15 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     public void awaitStarted() throws Utils.ApplicationError {
-        try {
-            mStartupThread.join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        if (mStartupError != null) {
-            throw mStartupError;
+        if (mStartupThread != null) {
+            try {
+                mStartupThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (mStartupError != null) {
+                throw mStartupError;
+            }
         }
     }
     

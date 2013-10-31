@@ -122,6 +122,10 @@ public class ActivityMain extends Activity {
             Tests.scheduleComponentTests();
             getActionBar().setSelectedNavigationItem(1);
             return true;
+        case R.id.action_quit:
+            stopService(new Intent(this, PloggyService.class));
+            finish();
+            return true;
         default:
             return super.onOptionsItemSelected(item);
         }
