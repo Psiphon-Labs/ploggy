@@ -203,7 +203,7 @@ public class Tests {
                     self.mPublicIdentity.mX509Certificate,
                     friendTor.getSocksProxyPort(),
                     // TODO: helper; and/or encode pubic identity differently?
-                    new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
+                    self.mPublicIdentity.getHiddenServiceHostnameUri(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));

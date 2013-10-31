@@ -210,7 +210,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
                                 getTorSocksProxyPort(),
-                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                friend.mPublicIdentity.getHiddenServiceHostnameUri(),
                                 Protocol.WEB_SERVER_VIRTUAL_PORT,
                                 Protocol.PUSH_STATUS_REQUEST_PATH,
                                 Json.toJson(selfStatus));
@@ -238,7 +238,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             getTorSocksProxyPort(),
-                            friend.mPublicIdentity.mHiddenServiceHostname,
+                            friend.mPublicIdentity.getHiddenServiceHostnameUri(),
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
                             Protocol.PULL_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);

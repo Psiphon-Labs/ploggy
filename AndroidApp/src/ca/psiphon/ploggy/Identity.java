@@ -52,6 +52,10 @@ public class Identity {
         public byte[] getFingerprint() throws Utils.ApplicationError {
             return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
         }
+        
+        public String getHiddenServiceHostnameUri() throws Utils.ApplicationError {
+            return new String(Utils.decodeBase64(mHiddenServiceHostname)).trim();
+        }
     }
 
     public static class PrivateIdentity {
