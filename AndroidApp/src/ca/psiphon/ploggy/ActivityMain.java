@@ -285,6 +285,7 @@ public class ActivityMain extends Activity {
 
     public static class LogFragment extends ListFragment {
     	private LogAdapter mLogAdapter;
+    	private DataSetObserver mDataSetObserver;
     	
     	@Override
 		public void onActivityCreated(Bundle savedInstanceState) {
@@ -306,16 +307,25 @@ public class ActivityMain extends Activity {
         @Override
         public void onStart() {
             super.onStart();
-            // TODO: ensure last entry visible
+            getListView().setSelection(mLogAdapter.getCount() - 1);
             getListView().setTranscriptMode(ListView.TRANSCRIPT_MODE_ALWAYS_SCROLL);
-            mLogAdapter.registerDataSetObserver(
-                    new DataSetObserver() {
-                        @Override
-                        public void onChanged() {
-                            super.onChanged();
-                            getListView().setSelection(mLogAdapter.getCount() - 1);
-                        }
-                    });
+            if (mDataSetObserver == null) {
+                mDataSetObserver =
+                        new DataSetObserver() {
+                            @Override
+                            public void onChanged() {
+                                super.onChanged();
+                                getListView().setSelection(mLogAdapter.getCount() - 1);
+                            }
+                        };
+            }
+            mLogAdapter.registerDataSetObserver(mDataSetObserver);
+        }
+
+        @Override
+        public void onStop() {
+            super.onStop();
+            mLogAdapter.unregisterDataSetObserver(mDataSetObserver);
         }
 
         @Subscribe
