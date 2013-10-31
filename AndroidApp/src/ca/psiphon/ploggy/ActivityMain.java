@@ -167,8 +167,8 @@ public class ActivityMain extends Activity {
     	private FriendAdapter mFriendAdapter;
     	
     	@Override
-		public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
+		public void onActivityCreated(Bundle savedInstanceState) {
+            super.onActivityCreated(savedInstanceState);
 
             try {
 				mFriendAdapter = new FriendAdapter(getActivity());
@@ -287,8 +287,8 @@ public class ActivityMain extends Activity {
     	private LogAdapter mLogAdapter;
     	
     	@Override
-		public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
+		public void onActivityCreated(Bundle savedInstanceState) {
+            super.onActivityCreated(savedInstanceState);
             
             // TODO: use endless list (e.g., https://github.com/commonsguy/cwac-endless) and populate on scroll
             mLogAdapter = new LogAdapter(getActivity(), Log.readEntries());
