@@ -142,7 +142,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     public void start() {
         stop();
-        // Performs start sequence asychronously, in a background thread
+        // Performs start sequence asynchronously, in a background thread
         Runnable startTask = new Runnable() {
             public void run() {
                 try {
@@ -236,6 +236,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     private void startDaemon(boolean awaitFirstCircuit) throws Utils.ApplicationError, IOException, InterruptedException {
         try {
+            mDataDirectory.mkdirs();
             mCircuitEstablishedLatch = new CountDownLatch(1);
             mControlAuthCookieFile.delete();
             Utils.FileInitializedObserver controlInitializedObserver =

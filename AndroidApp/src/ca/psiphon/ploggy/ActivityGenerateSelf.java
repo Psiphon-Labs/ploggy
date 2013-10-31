@@ -46,6 +46,8 @@ import android.content.Intent;
  * after brief pauses in typing.
  */
 public class ActivityGenerateSelf extends Activity implements View.OnClickListener {
+    
+    private static final String LOG_TAG = "Generate Self";
 
     private ImageView mAvatarImage;
     private EditText mNicknameEdit;
@@ -189,16 +191,17 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             try {
                 // TODO: possible to check isCancelled within the X509 key generation?
                 X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                Log.addEntry(LOG_TAG, "generated X.509 key material");
                 if (isCancelled()) {
                     return null;
                 }
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                Log.addEntry(LOG_TAG, "generated Tor hidden service key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
             } catch (Utils.ApplicationError e) {
-                // TODO: log
-                // TODO: can't dismiss Activity if can't generate initial self key material...?
+                Log.addEntry(LOG_TAG, "key generation failed");
+                return null;
             }
-            return null;
         }        
 
         @Override
@@ -211,7 +214,11 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             if (mProgressDialog.isShowing()) {
                 mProgressDialog.dismiss();
             }
-            if (result != null) {
+            if (result == null) {
+                // Failed, so dismiss the activity.
+                // For now, this will simply restart this activity.
+                finish();
+            } else {
                 mGenerateResult = result;
                 // Display fingerprint/avatar for blank nickname
                 showAvatarAndFingerprint(

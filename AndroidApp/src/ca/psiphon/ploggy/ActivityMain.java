@@ -309,7 +309,7 @@ public class ActivityMain extends Activity {
                         @Override
                         public void onChanged() {
                             super.onChanged();
-                            getListView().setSelection(mLogAdapter.getCount() - 1);    
+                            getListView().setSelection(mLogAdapter.getCount() - 1);
                         }
                     });
         }
