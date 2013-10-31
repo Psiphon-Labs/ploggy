@@ -22,16 +22,15 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collection;
 
 import com.google.gson.FieldNamingStrategy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
@@ -61,9 +60,20 @@ public class Json {
     }
 
     public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws Utils.ApplicationError {
+        // TODO: could just call fromJson() with new TypeToken<ArrayList<[type]>>(){}.getType();
+        //       but TypeToken must be instantiated by caller (type erasure issues with ArrayList generic)
         try {
-            Type collectionType = new TypeToken<Collection<T>>(){}.getType();
-            return mSerializer.fromJson(json, collectionType);
+            JsonReader jsonReader = new JsonReader(new StringReader(json));
+            ArrayList<T> array = new ArrayList<T>();
+            jsonReader.beginArray();
+            while (jsonReader.hasNext()) {
+                array.add((T)mSerializer.fromJson(jsonReader, type));
+            }
+            jsonReader.endArray();
+            jsonReader.close();
+            return array;
+        } catch (IOException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (JsonSyntaxException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }

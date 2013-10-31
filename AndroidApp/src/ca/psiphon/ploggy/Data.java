@@ -200,7 +200,6 @@ public class Data {
 			} catch (DataNotFoundException e) {
 				mFriends = new ArrayList<Friend>();
 			}
-	    	mFriends = new ArrayList<Friend>();
         }
     }
     
