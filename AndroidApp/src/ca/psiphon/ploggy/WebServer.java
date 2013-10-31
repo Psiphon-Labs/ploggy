@@ -44,6 +44,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     private static final String LOG_TAG = "Web Server";
 
+    private static final int READ_TIMEOUT_MILLISECONDS = 60000;
+
     public interface RequestHandler {
         public void submitTask(Runnable task);
         public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
@@ -79,8 +81,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     }
 
     @Override
+    protected int getReadTimeout() {
+        return READ_TIMEOUT_MILLISECONDS;
+    }
+
+    @Override
     public void exec(Runnable webRequestTask) {
-        // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables        
+        // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables
+        Log.addEntry(LOG_TAG, "got web request");
         mRequestHandler.submitTask(webRequestTask);
     }
 

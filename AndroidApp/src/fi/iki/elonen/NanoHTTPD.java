@@ -61,12 +61,6 @@ public abstract class NanoHTTPD {
     private static final String LOG_TAG = "NanoHTTPD";
     // ================
     /**
-     * Maximum time to wait on Socket.getInputStream().read() (in milliseconds)
-     * This is required as the Keep-Alive HTTP connections would otherwise
-     * block the socket reading thread forever (or as long the browser is open).
-     */
-    public static final int SOCKET_READ_TIMEOUT = 5000;
-    /**
      * Common mime type for dynamic content: plain text
      */
     public static final String MIME_PLAINTEXT = "text/plain";
@@ -139,6 +133,17 @@ public abstract class NanoHTTPD {
     }
 
     /**
+     * Maximum time to wait on Socket.getInputStream().read() (in milliseconds)
+     * This is required as the Keep-Alive HTTP connections would otherwise
+     * block the socket reading thread forever (or as long the browser is open).
+     */
+    // ==== ploggy ====
+    protected int getReadTimeout() {
+        return 5000;
+    }
+    // ================
+
+    /**
      * Start the server.
      *
      * @throws IOException if the socket is in use.
@@ -155,7 +160,7 @@ public abstract class NanoHTTPD {
                 do {
                     try {
                         final Socket finalAccept = myServerSocket.accept();
-                        finalAccept.setSoTimeout(SOCKET_READ_TIMEOUT);
+                        finalAccept.setSoTimeout(getReadTimeout());
                         final InputStream inputStream = finalAccept.getInputStream();
                         if (inputStream == null) {
                             safeClose(finalAccept);

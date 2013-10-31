@@ -254,7 +254,7 @@ public class Data {
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
 	    	insertOrUpdate(friend, mFriends);
             // TODO: string resource; log friend nickname
-	        Log.addEntry(LOG_TAG, "updated friend");
+	        Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
 	 	    Events.post(new Events.UpdatedFriend(friend.mId));
     	}
     }
@@ -303,7 +303,7 @@ public class Data {
 	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
 	        removeFriendHelper(id, mFriends);
             // TODO: string resource; log friend nickname
-            Log.addEntry(LOG_TAG, "removed friend");
+            Log.addEntry(LOG_TAG, "removed friend: " + id);
             Events.post(new Events.RemovedFriend(id));
     	}
     }
@@ -317,7 +317,7 @@ public class Data {
     	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
     	writeFile(filename, Json.toJson(status));
         // TODO: string resource; log friend nickname
-        Log.addEntry(LOG_TAG, "updated friend status");
+        Log.addEntry(LOG_TAG, "updated friend status: " + id);
         Events.post(new Events.UpdatedFriendStatus(id));
     }
 

@@ -214,6 +214,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         Data.Self self = data.getSelf();
                         Data.Status selfStatus = data.getSelfStatus();
                         Data.Friend friend = data.getFriendById(taskFriendId);
+                        Log.addEntry(LOG_TAG, "make push status request to: " + friend.mPublicIdentity.mNickname);
                         WebClient.makePostRequest(
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
@@ -242,6 +243,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data data = Data.getInstance();
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(taskFriendId);
+                    Log.addEntry(LOG_TAG, "make pull status request to: " + friend.mPublicIdentity.mNickname);
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
@@ -282,6 +284,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Status status = data.getSelfStatus();
         // TODO: we don't yet know the friend really received the response bytes
         data.updateFriendLastSentStatusTimestamp(friend.mId);
+        Log.addEntry(LOG_TAG, "served pull status request for: " + friend.mPublicIdentity.mNickname);
         return status;        
     }
     
@@ -294,6 +297,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         data.updateFriendLastReceivedStatusTimestamp(friend.mId);        
         // Reschedule (delay) any outstanding pull from this friend
         schedulePullFriend(friend.mId);
+        Log.addEntry(LOG_TAG, "served push status request for: " + friend.mPublicIdentity.mNickname);
     }
     
     public synchronized Context getContext() {

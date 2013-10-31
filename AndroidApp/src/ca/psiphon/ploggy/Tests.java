@@ -85,7 +85,18 @@ public class Tests {
 	private static class MockRequestHandler implements WebServer.RequestHandler {
         
 	    private ExecutorService mThreadPool = Executors.newCachedThreadPool();
+        private String mMockTimestamp;
+        private double mMockLongitude;
+        private double mMockLatitude;
+        private String mMockAddress;
 
+        MockRequestHandler() {
+            mMockTimestamp = Utils.getCurrentTimestamp();
+            mMockLongitude = Math.random()*100.0 - 50.0;
+            mMockLatitude = Math.random()*100.0 - 50.0;
+            mMockAddress = "301 Front St W, Toronto, ON M5V 2T6";
+        }
+        
 	    public void stop() {
 	        Utils.shutdownExecutorService(mThreadPool);
 	    }
@@ -97,11 +108,11 @@ public class Tests {
 
         public Status getMockStatus() {
             return new Status(
-                    Utils.getCurrentTimestamp(),
-                    Math.random()*100.0 - 50.0,
-                    Math.random()*100.0 - 50.0,
+                    mMockTimestamp,
+                    mMockLongitude,
+                    mMockLatitude,
                     10,
-                    "301 Front St W, Toronto, ON M5V 2T6");
+                    mMockAddress);
         }
 
         @Override
@@ -168,7 +179,8 @@ public class Tests {
                     webServer.getListeningPort(),
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(Json.toJson(mockRequestHandler.getMockStatus()))) {
+            String expectedResponse = Json.toJson(mockRequestHandler.getMockStatus());
+            if (!response.equals(expectedResponse)) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Run self Tor...");
@@ -207,7 +219,7 @@ public class Tests {
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(Json.toJson(mockRequestHandler.getMockStatus()))) {
+            if (!response.equals(expectedResponse)) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
