@@ -114,7 +114,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
                 return;
             }
             try {
-                Data.getInstance().insertOrUpdateFriend(mReceivedFriend);
+                Data.getInstance().addFriend(mReceivedFriend);
                 finish();
             } catch (Utils.ApplicationError e) {
                 // TODO: log?

@@ -164,7 +164,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
             }
 
             return;
-        } catch (Data.DataNotFoundException e) {
+        } catch (Data.DataNotFoundError e) {
             // TODO: could render Friend without selfStatus, omitting distance?
             Toast toast = Toast.makeText(this, getString(R.string.prompt_location_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
@@ -188,7 +188,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                                 if (mFriendId != null) {
                                     try {
                                         Data.getInstance().removeFriend(mFriendId);
-                                    } catch (Data.DataNotFoundException e) {
+                                    } catch (Data.DataNotFoundError e) {
                                         // Ignore
                                     } catch (Utils.ApplicationError e) {
                                         // TODO: log?

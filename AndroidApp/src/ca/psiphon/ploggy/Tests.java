@@ -58,7 +58,7 @@ public class Tests {
                 // TODO: NetworkOnMainThreadException
                 //HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial = new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
-                data.insertOrUpdateFriend(
+                data.addFriend(
                         new Data.Friend(
                                 new Identity.PublicIdentity(
                                         nickname,

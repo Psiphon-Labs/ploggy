@@ -199,8 +199,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
-        schedulePullFriend(updatedFriend.mId);
+    public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
+        schedulePullFriend(addedFriend.mId);
     }
     
     private void pushToFriends() throws Utils.ApplicationError {
@@ -224,7 +224,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 Protocol.PUSH_STATUS_REQUEST_PATH,
                                 Json.toJson(selfStatus));
                         data.updateFriendLastSentStatusTimestamp(taskFriendId);
-                    } catch (Data.DataNotFoundException e) {
+                    } catch (Data.DataNotFoundError e) {
                         // TODO: ...Deleted; Next pull won't be scheduled
                     } catch (Utils.ApplicationError e) {
                         // TODO: ...?
@@ -254,7 +254,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
                     data.updateFriendStatus(taskFriendId, friendStatus);
                     data.updateFriendLastReceivedStatusTimestamp(taskFriendId);
-                } catch (Data.DataNotFoundException e) {
+                } catch (Data.DataNotFoundError e) {
                     // TODO: ...Deleted; Next pull won't be scheduled
                 } catch (Utils.ApplicationError e) {
                     // TODO: ...?
@@ -265,7 +265,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (mFriendPullTasks.containsKey(taskFriendId)) {
             mFriendPullTasks.get(taskFriendId).cancel(false);
         }
-        ScheduledFuture<?> future = mTaskThreadPool.scheduleAtFixedRate(
+        // TODO: scheduleAtFixedRate has backlog issue
+        ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
                 task, 0, Protocol.PULL_PERIOD_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
         mFriendPullTasks.put(taskFriendId, future);
     }

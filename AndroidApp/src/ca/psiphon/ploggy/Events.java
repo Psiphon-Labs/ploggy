@@ -87,6 +87,14 @@ public class Events {
         }
     }
 
+    public static class AddedFriend  {
+        public final String mId;
+
+        public AddedFriend(String id) {
+            mId = id;
+        }
+    }
+
     public static class UpdatedFriend  {
         public final String mId;
 
