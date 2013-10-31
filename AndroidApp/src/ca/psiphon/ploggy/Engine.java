@@ -167,13 +167,21 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: apply precision factor to long/lat/address
         // TODO: factor Location.getAccuracy() into precision?
         try {
+            StringBuilder address = new StringBuilder();
+            if (newSelfLocation.mAddress != null) {
+                for (int i = 0; i < newSelfLocation.mAddress.getMaxAddressLineIndex(); i++) {
+                    // TODO: internationalization
+                    if (i > 0) address.append(", ");
+                    address.append(newSelfLocation.mAddress.getAddressLine(i));
+                }
+            }
             Data.getInstance().updateSelfStatus(
                     new Data.Status(
                             Utils.getCurrentTimestamp(),
                             newSelfLocation.mLocation.getLongitude(),
                             newSelfLocation.mLocation.getLatitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            newSelfLocation.mAddress.getCountryName()));
+                            address.toString()));
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update self status with new location");
         }
