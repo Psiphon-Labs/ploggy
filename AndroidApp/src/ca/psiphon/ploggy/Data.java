@@ -64,17 +64,17 @@ public class Data {
     public static class Friend {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
-        public final String mLastSentStatusTimestamp;
-        public final String mLastReceivedStatusTimestamp;
+        public final Date mLastSentStatusTimestamp;
+        public final Date mLastReceivedStatusTimestamp;
 
         public Friend(
                 Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
-            this(publicIdentity, "", "");
+            this(publicIdentity, null, null);
         }
         public Friend(
                 Identity.PublicIdentity publicIdentity,
-                String lastSentStatusTimestamp,
-                String lastReceivedStatusTimestamp) throws Utils.ApplicationError {
+                Date lastSentStatusTimestamp,
+                Date lastReceivedStatusTimestamp) throws Utils.ApplicationError {
             mId = Utils.encodeHex(publicIdentity.getFingerprint());
             mPublicIdentity = publicIdentity;
             mLastSentStatusTimestamp = lastSentStatusTimestamp;
@@ -83,7 +83,7 @@ public class Data {
     }
     
     public static class Status {
-        public final String mTimestamp;
+        public final Date mTimestamp;
         public final double mLongitude;
         public final double mLatitude;
         public final int mPrecision;
@@ -93,7 +93,7 @@ public class Data {
         // TODO: public final String mPhotoId;
 
         public Status(
-                String timestamp,
+                Date timestamp,
                 double longitude,
                 double latitude,
                 int precision,
@@ -172,7 +172,7 @@ public class Data {
     }
     
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundError {
-    	if (mSelf == null) {
+        if (mSelf == null) {
             mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
         }
         return mSelf;
@@ -203,16 +203,16 @@ public class Data {
 
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
-	    	try {
-				mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
-			} catch (DataNotFoundError e) {
-				mFriends = new ArrayList<Friend>();
-			}
+            try {
+                mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
+            } catch (DataNotFoundError e) {
+                mFriends = new ArrayList<Friend>();
+            }
         }
     }
     
     public synchronized final ArrayList<Friend> getFriends() throws Utils.ApplicationError {
-    	loadFriends();
+        loadFriends();
         return new ArrayList<Friend>(mFriends);
     }
 
@@ -271,75 +271,75 @@ public class Data {
     }
 
     public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
-    	loadFriends();
-    	synchronized(mFriends) {
-	    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-	    	updateFriendHelper(newFriends, friend);
-	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-	        updateFriendHelper(mFriends, friend);
+        loadFriends();
+        synchronized(mFriends) {
+            ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+            updateFriendHelper(newFriends, friend);
+            writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+            updateFriendHelper(mFriends, friend);
             // TODO: string resource; log friend nickname
-	        Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
-	 	    Events.post(new Events.UpdatedFriend(friend.mId));
-    	}
+            Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
+             Events.post(new Events.UpdatedFriend(friend.mId));
+        }
     }
 
     public synchronized Date getFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
         Friend friend = getFriendById(friendId);
-        return Utils.parseISO8601Date(friend.mLastSentStatusTimestamp);
+        return friend.mLastSentStatusTimestamp;
     }
     
     public synchronized void updateFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
-        updateFriend(new Friend(friend.mPublicIdentity, Utils.getCurrentTimestamp(), friend.mLastReceivedStatusTimestamp));
+        updateFriend(new Friend(friend.mPublicIdentity, new Date(), friend.mLastReceivedStatusTimestamp));
     }
     
     public synchronized Date getFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
         Friend friend = getFriendById(friendId);
-        return Utils.parseISO8601Date(friend.mLastReceivedStatusTimestamp);
+        return friend.mLastReceivedStatusTimestamp;
     }
     
     public synchronized void updateFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
-        updateFriend(new Friend(friend.mPublicIdentity, friend.mLastSentStatusTimestamp, Utils.getCurrentTimestamp()));
+        updateFriend(new Friend(friend.mPublicIdentity, friend.mLastSentStatusTimestamp, new Date()));
     }
     
     private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundError {
-    	boolean found = false;
+        boolean found = false;
         for (int i = 0; i < list.size(); i++) {
-        	if (list.get(i).mId.equals(id)) {
-        		list.remove(i);
-        		found = true;
-        		break;
-        	}
+            if (list.get(i).mId.equals(id)) {
+                list.remove(i);
+                found = true;
+                break;
+            }
         }
         if (!found) {
-        	throw new DataNotFoundError();
+            throw new DataNotFoundError();
         }
     }
 
     public synchronized void removeFriend(String id) throws Utils.ApplicationError, DataNotFoundError {
-    	loadFriends();
-    	synchronized(mFriends) {
-	    	ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-	    	removeFriendHelper(id, newFriends);
-	        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-	        removeFriendHelper(id, mFriends);
+        loadFriends();
+        synchronized(mFriends) {
+            ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+            removeFriendHelper(id, newFriends);
+            writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+            removeFriendHelper(id, mFriends);
             // TODO: string resource; log friend nickname
             Log.addEntry(LOG_TAG, "removed friend: " + id);
             Events.post(new Events.RemovedFriend(id));
-    	}
+        }
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundError {
-    	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
+        String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         return Json.fromJson(readFile(filename), Status.class);
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
-    	String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-    	writeFile(filename, Json.toJson(status));
+        String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
+        writeFile(filename, Json.toJson(status));
         // TODO: string resource; log friend nickname
         Log.addEntry(LOG_TAG, "updated friend status: " + id);
         Events.post(new Events.UpdatedFriendStatus(id));
@@ -349,10 +349,10 @@ public class Data {
         FileInputStream inputStream = null;
         try {
             File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-        	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
+            String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
             File commitFile = new File(directory, commitFilename);
             File file = new File(directory, filename);
-        	replaceFileIfExists(commitFile, file);
+            replaceFileIfExists(commitFile, file);
             inputStream = new FileInputStream(file);
             return Utils.readInputStreamToString(inputStream);
         } catch (FileNotFoundException e) {
@@ -373,7 +373,7 @@ public class Data {
         FileOutputStream outputStream = null;
         try {
             File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-        	String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
+            String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
             File commitFile = new File(directory, commitFilename);
             File file = new File(directory, filename);
             outputStream = new FileOutputStream(commitFile);
@@ -394,8 +394,8 @@ public class Data {
 
     private static void replaceFileIfExists(File commitFile, File file) throws IOException {
         if (commitFile.exists()) {
-	        file.delete();
-	        commitFile.renameTo(file);
+            file.delete();
+            commitFile.renameTo(file);
         }
     }
 }

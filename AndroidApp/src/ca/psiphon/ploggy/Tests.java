@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -42,13 +43,13 @@ import ca.psiphon.ploggy.Utils.ApplicationError;
  * - WebServer
  */
 public class Tests {
-	
+    
     private static final String LOG_TAG = "Tests";
 
-	private static Timer mTimer = new Timer();
+    private static Timer mTimer = new Timer();
 
-	public static void insertMockFriends() {
-	    try {
+    public static void insertMockFriends() {
+        try {
             Data data = Data.getInstance();
             for (int i = 0; i < 50; i++) {
                 String nickname = String.format((Locale)null, "Nickname%02d", i);
@@ -66,12 +67,12 @@ public class Tests {
                                         hiddenServiceKeyMaterial.mHostname,
                                         "")));
             }
-	    } catch (Utils.ApplicationError e) {
+        } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "insertMockFriends failed");
-	    }
-	}
-	
-	public static void scheduleComponentTests() {
+        }
+    }
+    
+    public static void scheduleComponentTests() {
         mTimer.schedule(
                 new TimerTask() {          
                     @Override
@@ -80,27 +81,27 @@ public class Tests {
                     }
                 },
                 2000);
-	}
-	
-	private static class MockRequestHandler implements WebServer.RequestHandler {
+    }
+    
+    private static class MockRequestHandler implements WebServer.RequestHandler {
         
-	    private ExecutorService mThreadPool = Executors.newCachedThreadPool();
-        private String mMockTimestamp;
+        private ExecutorService mThreadPool = Executors.newCachedThreadPool();
+        private Date mMockTimestamp;
         private double mMockLongitude;
         private double mMockLatitude;
         private String mMockAddress;
 
         MockRequestHandler() {
-            mMockTimestamp = Utils.getCurrentTimestamp();
+            mMockTimestamp = new Date();
             mMockLongitude = Math.random()*100.0 - 50.0;
             mMockLatitude = Math.random()*100.0 - 50.0;
             mMockAddress = "301 Front St W, Toronto, ON M5V 2T6";
         }
         
-	    public void stop() {
-	        Utils.shutdownExecutorService(mThreadPool);
-	    }
-	    
+        public void stop() {
+            Utils.shutdownExecutorService(mThreadPool);
+        }
+        
         @Override
         public void submitTask(Runnable task) {
             mThreadPool.execute(task);
@@ -123,15 +124,15 @@ public class Tests {
         @Override
         public void handlePushStatusRequest(String friendId, Status status) throws ApplicationError {
         }
-	}
-	
-	public static void runComponentTests() {
-	    MockRequestHandler mockRequestHandler = null;
-	    WebServer webServer = null;
+    }
+    
+    public static void runComponentTests() {
+        MockRequestHandler mockRequestHandler = null;
+        WebServer webServer = null;
         TorWrapper selfTor = null;
         TorWrapper friendTor = null;
-	    try {
-	        String selfNickname = "Me";
+        try {
+            String selfNickname = "Me";
             Log.addEntry(LOG_TAG, "Generate X509 key material...");
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Generate hidden service key material...");
@@ -246,21 +247,21 @@ public class Tests {
             Log.addEntry(LOG_TAG, "Invalid request from friend...");
             // TODO: implement
             Log.addEntry(LOG_TAG, "Component test run success");
-	    } catch (Utils.ApplicationError e) {
-	        Log.addEntry(LOG_TAG, "Test failed");
-	    } finally {
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "Test failed");
+        } finally {
             if (selfTor != null) {
                 selfTor.stop();
             }
             if (friendTor != null) {
                 friendTor.stop();
             }
-	        if (webServer != null) {
-	            webServer.stop();
-	        }
-	        if (mockRequestHandler != null) {
-	            mockRequestHandler.stop();
-	        }
-	    }
-	}
+            if (webServer != null) {
+                webServer.stop();
+            }
+            if (mockRequestHandler != null) {
+                mockRequestHandler.stop();
+            }
+        }
+    }
 }

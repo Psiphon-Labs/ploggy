@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.security.SecureRandom;
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import android.content.Context;
 import android.location.Location;
 import android.os.FileObserver;
+import android.text.format.DateUtils;
 import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
@@ -204,6 +206,28 @@ public class Utils {
         }
     }
 
+    public static int calculateLocationDistanceInMeters(
+            double longitudeA,
+            double latitudeA,
+            double longitudeB,
+            double latitudeB) {
+        Location locationA = new Location("");
+        locationA.setLongitude(longitudeA);
+        locationA.setLatitude(latitudeA);
+        Location locationB = new Location("");
+        locationB.setLongitude(longitudeA);
+        locationB.setLatitude(latitudeA);
+        return Math.round(locationA.distanceTo(locationB));
+    }
+    
+    public static String formatSameDayTime(Date date) {
+        return DateUtils.formatSameDayTime(
+                date.getTime(),
+                (new Date()).getTime(),
+                DateFormat.DEFAULT,
+                DateFormat.DEFAULT).toString();
+    }
+    
     public static void shutdownExecutorService(ExecutorService threadPool) {
         try
         {
@@ -219,37 +243,6 @@ public class Utils {
         }
     }
 
-    public static int calculateLocationDistanceInMeters(
-            double longitudeA,
-            double latitudeA,
-            double longitudeB,
-            double latitudeB) {
-        Location locationA = new Location("");
-        locationA.setLongitude(longitudeA);
-        locationA.setLatitude(latitudeA);
-        Location locationB = new Location("");
-        locationB.setLongitude(longitudeA);
-        locationB.setLatitude(latitudeA);
-        return Math.round(locationA.distanceTo(locationB));
-    }
-    
-    public static String getISO8601String(Date date) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String dateStr = sdf.format(date);
-        dateStr += "Z";
-        return dateStr;
-    }
-
-    public static Date parseISO8601Date(String date) throws Utils.ApplicationError {
-        // TODO: implement
-        return null;
-    }
-
-    public static String getCurrentTimestamp() {
-        return getISO8601String(new Date());
-    }
-    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {

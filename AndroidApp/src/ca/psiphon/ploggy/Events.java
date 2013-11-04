@@ -38,14 +38,14 @@ public class Events {
     private static final String LOG_TAG = "Events";
 
     // TODO: final?
-	private static Bus mBus;
-	private static Handler mHandler;
+    private static Bus mBus;
+    private static Handler mHandler;
 
-	public static void initialize() {
-	    mBus = new Bus(ThreadEnforcer.MAIN);
-	    mHandler = new Handler();
-	}
-	
+    public static void initialize() {
+        mBus = new Bus(ThreadEnforcer.MAIN);
+        mHandler = new Handler();
+    }
+    
     public static void register(Object object) {
         mBus.register(object);
     }

@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
+
 import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
@@ -54,10 +56,11 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     private TextView mDistanceText;
     private TextView mCoordinatesText;
     private TextView mPrecisionText;
-    private TextView mLastReceivedTimestampLabel;
-    private TextView mLastReceivedTimestampText;
-    private TextView mLastSentTimestampLabel;
-    private TextView mLastSentTimestampText;
+    private TextView mStatusTimestampText;
+    private TextView mLastReceivedStatusTimestampLabel;
+    private TextView mLastReceivedStatusTimestampText;
+    private TextView mLastSentStatusTimestampLabel;
+    private TextView mLastSentStatusTimestampText;
     private ImageView mMapImage;
     private Button mDeleteFriendButton;
 
@@ -77,10 +80,11 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
         mDistanceText = (TextView)findViewById(R.id.location_details_distance_text);
         mCoordinatesText = (TextView)findViewById(R.id.location_details_coordinates_text);
         mPrecisionText = (TextView)findViewById(R.id.location_details_precision_text);
-        mLastReceivedTimestampLabel = (TextView)findViewById(R.id.location_details_last_received_timestamp_label);
-        mLastReceivedTimestampText = (TextView)findViewById(R.id.location_details_last_received_timestamp_text);
-        mLastSentTimestampLabel = (TextView)findViewById(R.id.location_details_last_sent_timestamp_label);
-        mLastSentTimestampText = (TextView)findViewById(R.id.location_details_last_sent_timestamp_text);
+        mStatusTimestampText = (TextView)findViewById(R.id.location_details_status_timestamp_text);
+        mLastReceivedStatusTimestampLabel = (TextView)findViewById(R.id.location_details_last_received_status_timestamp_label);
+        mLastReceivedStatusTimestampText = (TextView)findViewById(R.id.location_details_last_received_status_timestamp_text);
+        mLastSentStatusTimestampLabel = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_label);
+        mLastSentStatusTimestampText = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_text);
         mMapImage = (ImageView)findViewById(R.id.location_details_map_image);
         mDeleteFriendButton = (Button)findViewById(R.id.location_details_delete_friend_button);
         mDeleteFriendButton.setOnClickListener(this);
@@ -116,35 +120,56 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
         try {
             Data data = Data.getInstance();
             Data.Self self = data.getSelf();
-            Data.Status selfStatus = data.getSelfStatus();
+            Data.Status selfStatus = null;
             Data.Friend friend = null;
             Data.Status friendStatus = null;
             
             // TODO: mMapImage is just a static placeholder
             
             if (mFriendId != null) {
+                try {
+                    selfStatus = data.getSelfStatus();
+                } catch (Data.DataNotFoundError e) {
+                 // Won't be able to compute distance
+                }                
                 friend = data.getFriendById(mFriendId);
                 friendStatus = data.getFriendStatus(mFriendId);
+                Date lastSentStatusTimestamp = data.getFriendLastSentStatusTimestamp(friend.mId);
+                Date lastReceivedStatusTimestamp = data.getFriendLastReceivedStatusTimestamp(friend.mId);
 
                 Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
                 mNicknameText.setText(friend.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.encodeHex(friend.mPublicIdentity.getFingerprint()));        
                 mStreetAddressText.setText(friendStatus.mStreetAddress);
-                int distance = Utils.calculateLocationDistanceInMeters(
-                        selfStatus.mLongitude,
-                        selfStatus.mLatitude,
-                        friendStatus.mLongitude,
-                        friendStatus.mLatitude);
-                mDistanceText.setText(
-                        getString(R.string.format_location_details_distance, distance));
+                if (selfStatus != null) {
+                    int distance = Utils.calculateLocationDistanceInMeters(
+                            selfStatus.mLongitude,
+                            selfStatus.mLatitude,
+                            friendStatus.mLongitude,
+                            friendStatus.mLatitude);
+                    mDistanceText.setText(
+                            getString(R.string.format_location_details_distance, distance));
+                } else {
+                    mDistanceText.setText(R.string.prompt_no_data);
+                }
                 mCoordinatesText.setText(
                         getString(R.string.format_location_details_coordinates, friendStatus.mLongitude, friendStatus.mLatitude));
                 mPrecisionText.setText(
                         getString(R.string.format_location_details_precision, friendStatus.mPrecision));
-                mLastReceivedTimestampText.setText(friendStatus.mTimestamp);
-                // TODO: where are last-sent timestamps recorded?
-                mLastSentTimestampText.setText("");
+                mStatusTimestampText.setText(Utils.formatSameDayTime(friendStatus.mTimestamp));
+                if (lastReceivedStatusTimestamp != null) {
+                    mLastReceivedStatusTimestampText.setText(Utils.formatSameDayTime(lastReceivedStatusTimestamp));
+                } else {
+                    mLastReceivedStatusTimestampText.setText(R.string.prompt_no_data);
+                }
+                if (lastSentStatusTimestamp != null) {
+                    mLastSentStatusTimestampText.setText(Utils.formatSameDayTime(lastSentStatusTimestamp));
+                } else {
+                    mLastSentStatusTimestampText.setText(R.string.prompt_no_data);
+                }
             } else {
+                selfStatus = data.getSelfStatus();
+
                 Robohash.setRobohashImage(this, mAvatarImage, true, self.mPublicIdentity);
                 mNicknameText.setText(self.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
@@ -155,17 +180,17 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                         getString(R.string.format_location_details_coordinates, selfStatus.mLongitude, selfStatus.mLatitude));
                 mPrecisionText.setText(
                         getString(R.string.format_location_details_precision, selfStatus.mPrecision));
-                mLastReceivedTimestampLabel.setVisibility(View.GONE);
-                mLastReceivedTimestampText.setVisibility(View.GONE);
-                mLastSentTimestampLabel.setVisibility(View.GONE);
-                mLastSentTimestampText.setVisibility(View.GONE);
+                mStatusTimestampText.setText(Utils.formatSameDayTime(selfStatus.mTimestamp));
+                mLastReceivedStatusTimestampLabel.setVisibility(View.GONE);
+                mLastReceivedStatusTimestampText.setVisibility(View.GONE);
+                mLastSentStatusTimestampLabel.setVisibility(View.GONE);
+                mLastSentStatusTimestampText.setVisibility(View.GONE);
                 mDeleteFriendButton.setVisibility(View.GONE);
                 mDeleteFriendButton.setEnabled(false);
             }
 
             return;
         } catch (Data.DataNotFoundError e) {
-            // TODO: could render Friend without selfStatus, omitting distance?
             Toast toast = Toast.makeText(this, getString(R.string.prompt_location_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
             finish();

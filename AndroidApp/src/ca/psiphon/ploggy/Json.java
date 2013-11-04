@@ -44,10 +44,12 @@ public class Json {
     private static final String LOG_TAG = "Json";
 
     private static final Gson mSerializer =
-            new GsonBuilder().setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
+            new GsonBuilder().
+                    setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").
+                    setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
     
     public static String toJson(Object object) {
-    	return mSerializer.toJson(object);
+        return mSerializer.toJson(object);
     }
 
     public static <T> T fromJson(String json, Class<T> type) throws Utils.ApplicationError {

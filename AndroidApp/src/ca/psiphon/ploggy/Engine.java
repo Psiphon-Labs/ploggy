@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -87,13 +88,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Events.unregister(this);
         stopSharingService();
         if (mLocationMonitor != null) {
-        	mLocationMonitor.stop();
-        	mLocationMonitor = null;
+            mLocationMonitor.stop();
+            mLocationMonitor = null;
         }
         if (mTaskThreadPool != null) {
             Utils.shutdownExecutorService(mTaskThreadPool);
-	        mTaskThreadPool = null;
-	        mFriendPullTasks = null;
+            mTaskThreadPool = null;
+            mFriendPullTasks = null;
         }
     }
 
@@ -136,12 +137,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     private void stopSharingService() {
-    	if (mTorWrapper != null) {
-    		mTorWrapper.stop();
-    	}
-    	if (mWebServer != null) {
-    		mWebServer.stop();
-    	}
+        if (mTorWrapper != null) {
+            mTorWrapper.stop();
+        }
+        if (mWebServer != null) {
+            mWebServer.stop();
+        }
     }
     
     public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
@@ -177,7 +178,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
             Data.getInstance().updateSelfStatus(
                     new Data.Status(
-                            Utils.getCurrentTimestamp(),
+                            new Date(),
                             newSelfLocation.mLocation.getLongitude(),
                             newSelfLocation.mLocation.getLatitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),

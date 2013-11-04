@@ -147,45 +147,45 @@ public class LocationMonitor implements android.location.LocationListener {
     }
 
     public void reportLocation() throws Utils.ApplicationError {
-    	if (mCurrentLocation == null) {
-    		return;
-    	}
+        if (mCurrentLocation == null) {
+            return;
+        }
 
-    	if (mLastReportedLocation != null &&
-    		mLastReportedLocation.distanceTo(mCurrentLocation)
-    			<= mEngine.getIntPreference(R.string.preferenceLocationSharingDistanceThresholdInMeters)) {
-    		return;
-    	}
+        if (mLastReportedLocation != null &&
+            mLastReportedLocation.distanceTo(mCurrentLocation)
+                <= mEngine.getIntPreference(R.string.preferenceLocationSharingDistanceThresholdInMeters)) {
+            return;
+        }
 
-		mLastReportedLocation = mCurrentLocation;
+        mLastReportedLocation = mCurrentLocation;
 
-    	if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
-    	    // Run a background task to map and reverse geocode the location
+        if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
+            // Run a background task to map and reverse geocode the location
             Runnable task = new Runnable() {
                 public void run() {
                     Geocoder geocoder = new Geocoder(mEngine.getContext());
                     List<Address> addresses = null;
-					try {
-						// TODO: Google terms of service prohibit use of this data with non-Google maps.
-					    //       In any case, all will be replaced with Open Street Map (geocoding and maps)
-						addresses = geocoder.getFromLocation(
-								mLastReportedLocation.getLatitude(),
-								mLastReportedLocation.getLongitude(),
-								1);
-					} catch (IOException e) {
-					    Log.addEntry(LOG_TAG, "failed reverse geocode");
+                    try {
+                        // TODO: Google terms of service prohibit use of this data with non-Google maps.
+                        //       In any case, all will be replaced with Open Street Map (geocoding and maps)
+                        addresses = geocoder.getFromLocation(
+                                mLastReportedLocation.getLatitude(),
+                                mLastReportedLocation.getLongitude(),
+                                1);
+                    } catch (IOException e) {
+                        Log.addEntry(LOG_TAG, "failed reverse geocode");
                     }
-					
-					// TODO: get map					
-					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
-					Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
+                    
+                    // TODO: get map                    
+                    Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
+                    Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
             };
             mEngine.submitTask(task);
-    		
-    	} else {
-    		Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
-    	}
+            
+        } else {
+            Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+        }
     }
 
     @Override
@@ -195,32 +195,32 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onProviderDisabled(String provider) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        try {
+            restart();
+        } catch (Utils.ApplicationError e) {
+        }
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        try {
+            restart();
+        } catch (Utils.ApplicationError e) {
+        }
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        try {
+            restart();
+        } catch (Utils.ApplicationError e) {
+        }
     }
 
     protected void updateCurrentLocation(Location location) {
         if (location != null) {
             if (isBetterLocation(location, mCurrentLocation)) {
-            	mCurrentLocation = location;
+                mCurrentLocation = location;
             }
         }
     }

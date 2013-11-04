@@ -55,7 +55,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     private RequestHandler mRequestHandler;
     private X509.KeyMaterial mX509KeyMaterial;
     private ArrayList<String> mFriendCertificates;
-	
+    
     public WebServer(
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,

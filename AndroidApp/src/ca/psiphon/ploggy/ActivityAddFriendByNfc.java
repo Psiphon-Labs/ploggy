@@ -132,9 +132,9 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
         try {
             String payload = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
             return new NdefMessage(
-            		new NdefRecord[] {
-            		        NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
-            				NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
+                    new NdefRecord[] {
+                            NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
+                            NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
             // TODO: log?
         }
