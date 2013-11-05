@@ -60,26 +60,6 @@ public class Json {
         }
     }
 
-    public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws Utils.ApplicationError {
-        // TODO: could just call fromJson() with new TypeToken<ArrayList<[type]>>(){}.getType();
-        //       but TypeToken must be instantiated by caller (type erasure issues with ArrayList generic)
-        try {
-            JsonReader jsonReader = new JsonReader(new StringReader(json));
-            ArrayList<T> array = new ArrayList<T>();
-            jsonReader.beginArray();
-            while (jsonReader.hasNext()) {
-                array.add((T)mSerializer.fromJson(jsonReader, type));
-            }
-            jsonReader.endArray();
-            jsonReader.close();
-            return array;
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
-    }
-
     public static <T> ArrayList<T> fromJsonStream(InputStream inputStream, Class<T> type) throws Utils.ApplicationError {
         // Reads succession of JSON objects from a stream. This does *not* expect a well-formed JSON array.
         // Designed to work with the log file, which is constantly appended to.

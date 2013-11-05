@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -204,7 +205,7 @@ public class Data {
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
             try {
-                mFriends = Json.fromJsonArray(readFile(FRIENDS_FILENAME), Friend.class);
+                mFriends = Arrays.asList(Json.fromJson(readFile(FRIENDS_FILENAME), Friend[].class));
             } catch (DataNotFoundError e) {
                 mFriends = new ArrayList<Friend>();
             }
