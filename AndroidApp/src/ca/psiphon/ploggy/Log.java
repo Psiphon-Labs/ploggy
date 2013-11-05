@@ -31,11 +31,11 @@ import android.content.Context;
 /**
  * Logging facility.
  *
- * A persistent log is maintained, for important events such as added-friend. Also
- * maintains an insensitive log, omitting PII, that could be sent, with user constent
- * as diagnostic feedback.
- * Supports the log view in the main activity: supports reading back older logs
- * from disk, as well as posting a bus event when a log is added.
+ * TODO: consider using Log4J or Logback (http://tony19.github.io/logback-android/)
+ * 
+ * Posts log events to bus subscribers.
+ * A persistent, JSON-format log is maintained for important events such
+ * as added-friend. This persistent log is read back and posted on start up.
  */
 public class Log {
     
@@ -55,24 +55,27 @@ public class Log {
         }
     }
 
+    public static void addPersistentEntry(String tag, String message) {
+        addEntry(true, tag, message);
+    }
+
     public static void addEntry(String tag, String message) {
+        addEntry(false, tag, message);
+    }
+
+    private static void addEntry(boolean persist, String tag, String message) {
         if (message == null) {
             message = "(null)";
         }
         
         Entry entry = new Entry(tag, message);
 
-        // TODO: consider using http://tony19.github.io/logback-android/
-        // TODO: only persist important entries -- added friend, etc.
-        //       maintain two files:
-        //       1. permanent logs (with sensitive info)
-        //       2. session logs (with no sensitive info -- can be sent as diagnostics)
-        //       session log rotates (or use ring buffer structure)
-        //       readEntries merges both files
-        try {
-            appendEntryToFile(entry);
-        } catch (IOException e) {
-            // TODO: ...
+        if (persist) {
+            try {
+                appendEntryToFile(entry);
+            } catch (IOException e) {
+                // TODO: ...
+            }
         }
         
         Events.post(new Events.LoggedEntry(entry));

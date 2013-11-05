@@ -152,7 +152,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         startRunServices();
                     }
                 } catch (Utils.ApplicationError e) {
-                    Log.addEntry(LOG_TAG, "failed to start Tor");
+                    Log.addEntry(logTag(), "failed to start Tor");
                     // Save this to throw from awaitStarted
                     mStartupError = e;
                 }

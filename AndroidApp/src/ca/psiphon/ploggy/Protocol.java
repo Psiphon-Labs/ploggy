@@ -35,9 +35,7 @@ public class Protocol {
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
 
     // TODO: adjust for foreground, battery, sleep, network type
-    // TODO: temporary
-    public static final int PULL_PERIOD_IN_MILLISECONDS = 60 * 1000;
-    //public static final int PULL_PERIOD_IN_MILLISECONDS = 5 * 60 * 1000;
+    public static final int PULL_PERIOD_IN_MILLISECONDS = 10 * 60 * 1000;
     
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?

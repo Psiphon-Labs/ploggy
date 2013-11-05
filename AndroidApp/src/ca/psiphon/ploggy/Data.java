@@ -182,7 +182,7 @@ public class Data {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
         // TODO: string resource; log self fingerprint
-        Log.addEntry(LOG_TAG, "updated self");
+        Log.addPersistentEntry(LOG_TAG, "updated self");
         Events.post(new Events.UpdatedSelf());
     }
 
@@ -251,7 +251,7 @@ public class Data {
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             mFriends.add(friend);
             // TODO: string resource; log friend nickname
-            Log.addEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
+            Log.addPersistentEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.AddedFriend(friend.mId));
         }
     }
@@ -279,7 +279,7 @@ public class Data {
             updateFriendHelper(mFriends, friend);
             // TODO: string resource; log friend nickname
             Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
-             Events.post(new Events.UpdatedFriend(friend.mId));
+            Events.post(new Events.UpdatedFriend(friend.mId));
         }
     }
 
@@ -327,7 +327,7 @@ public class Data {
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             removeFriendHelper(id, mFriends);
             // TODO: string resource; log friend nickname
-            Log.addEntry(LOG_TAG, "removed friend: " + id);
+            Log.addPersistentEntry(LOG_TAG, "removed friend: " + id);
             Events.post(new Events.RemovedFriend(id));
         }
     }

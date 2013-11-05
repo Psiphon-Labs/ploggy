@@ -362,6 +362,8 @@ public class ActivityMain extends Activity {
         private ArrayList<Log.Entry> mEntries;
         private DateFormat mDateFormat;
 
+        private static final int MAX_LOG_LIST_SIZE = 500;
+        
         public LogAdapter(Context context, ArrayList<Log.Entry> entries) {
             mContext = context;
             mEntries = entries;
@@ -370,6 +372,9 @@ public class ActivityMain extends Activity {
         
         public void addEntry(Log.Entry entry) {
             mEntries.add(entry);
+            while (mEntries.size() > MAX_LOG_LIST_SIZE) {
+                mEntries.remove(0);
+            }
             notifyDataSetChanged();
         }
 
