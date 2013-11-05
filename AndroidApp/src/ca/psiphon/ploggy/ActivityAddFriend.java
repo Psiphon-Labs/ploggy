@@ -116,8 +116,10 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
             try {
                 Data.getInstance().addFriend(mReceivedFriend);
                 finish();
+            } catch (Data.DataAlreadyExistsError e) {
+                // TODO: display error message (toast): friend already exists
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                // TODO: log? display error message (toast): friend already exists
             }            
         }
     }

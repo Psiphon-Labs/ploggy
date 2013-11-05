@@ -197,13 +197,31 @@ public class ActivityMain extends Activity {
         }
 
         @Subscribe
-        public void onAddedFriend(Events.UpdatedFriend updatedFriend) {
+        public void onAddedFriend(Events.AddedFriend addedFriend) {
             try {
                 mFriendAdapter.updateFriends();
             } catch (Utils.ApplicationError e) {
                 // TODO: log, or flip to log tab, or display toast?
             }
         }        
+
+        @Subscribe
+        public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
+            try {
+                mFriendAdapter.updateFriends();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log, or flip to log tab, or display toast?
+            }
+        }        
+
+        @Subscribe
+        public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+            try {
+                mFriendAdapter.updateFriends();
+            } catch (Utils.ApplicationError e) {
+                // TODO: log, or flip to log tab, or display toast?
+            }
+        }       
 
         @Subscribe
         public void onDeletedFriend(Events.RemovedFriend removedFriend) {
@@ -212,16 +230,7 @@ public class ActivityMain extends Activity {
             } catch (Utils.ApplicationError e) {
                 // TODO: log, or flip to log tab, or display toast?
             }
-        }        
-
-        @Subscribe
-        public void onNewFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
-            try {
-                mFriendAdapter.updateFriends();
-            } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
-            }
-        }       
+        }
     }
 
     private static class FriendAdapter extends BaseAdapter {

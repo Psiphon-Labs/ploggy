@@ -115,11 +115,11 @@ public class Data {
         }
     }
 
-    public static class DataAlreadyFoundError extends Utils.ApplicationError {
+    public static class DataAlreadyExistsError extends Utils.ApplicationError {
         private static final long serialVersionUID = 6287628326991088141L;
 
-        public DataAlreadyFoundError() {
-            super(LOG_TAG, "data already found");
+        public DataAlreadyExistsError() {
+            super(LOG_TAG, "data already exists");
         }
     }
 
@@ -244,8 +244,14 @@ public class Data {
     public synchronized void addFriend(Friend friend) throws Utils.ApplicationError {
         loadFriends();
         synchronized(mFriends) {
-            if (getFriendById(friend.mId) != null) {
-                throw new DataAlreadyFoundError();
+            boolean friendExists = true;
+            try {
+                getFriendById(friend.mId);
+            } catch (DataNotFoundError e) {
+                friendExists = false;
+            }
+            if (friendExists) {
+                throw new DataAlreadyExistsError();
             }
             ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
             newFriends.add(friend);

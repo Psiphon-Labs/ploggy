@@ -194,7 +194,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void onNewSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
+    public synchronized void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
         try {
             // Immediately push new status to all friends. If this fails for any reason,
             // implicitly fall back to friends pulling status.
