@@ -94,12 +94,12 @@
     <string name="preference_location_fix_period_summary">How long to run location services when obtaining a new location fix (longer period is more accurate but uses more battery)</string>
     <string name="preference_location_fix_period_units">seconds</string>
     <string-array name="weekday_names">
+        <item>"Sunday"</item>
         <item>"Monday"</item>
         <item>"Tuesday"</item>
         <item>"Wednesday"</item>
         <item>"Thursday"</item>
         <item>"Friday"</item>
         <item>"Saturday"</item>
-        <item>"Sunday"</item>
     </string-array>
 </resources>

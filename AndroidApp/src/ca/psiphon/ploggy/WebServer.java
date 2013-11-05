@@ -117,6 +117,10 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             Method method = session.getMethod();
             if (Method.GET.equals(method) && uri.equals(Protocol.PULL_STATUS_REQUEST_PATH)) {
                 Data.Status status = mRequestHandler.handlePullStatusRequest(certificate);
+                if (status == null) {
+                    // TODO: not currently sharing; serve old status?
+                    return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
+                }
                 return new Response(NanoHTTPD.Response.Status.OK, Protocol.RESPONSE_MIME_TYPE, Json.toJson(status));
             } else if (Method.POST.equals(method) && uri.equals(Protocol.PUSH_STATUS_REQUEST_PATH)) {
                 String body = Utils.readInputStreamToString(session.getInputStream());

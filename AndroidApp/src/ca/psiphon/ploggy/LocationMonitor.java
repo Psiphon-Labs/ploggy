@@ -123,8 +123,8 @@ public class LocationMonitor implements android.location.LocationListener {
             public void run() {
                 try {
                     LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-                    locationManager.removeUpdates(finalLocationMonitor);        
-    
+                    locationManager.removeUpdates(finalLocationMonitor);
+                    
                     reportLocation();
     
                     // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period

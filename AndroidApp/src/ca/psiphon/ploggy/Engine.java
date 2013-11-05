@@ -21,8 +21,11 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -32,6 +35,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.preference.PreferenceManager;
+
+import ca.psiphon.ploggy.widgets.TimePickerPreference;
 
 import com.squareup.otto.Subscribe;
 
@@ -206,6 +211,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     private void pushToFriends() throws Utils.ApplicationError {
         // TODO: check for existing pushes in worker thread queue
+        if (!currentlySharingLocation()) {
+            return;
+        }
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             final String taskFriendId = friend.mId;
             Runnable task = new Runnable() {
@@ -280,6 +288,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
         // Friend is requesting (pulling) self status
+        if (!currentlySharingLocation()) {
+            return null;
+        }
         // TODO: cancel any pending push to this friend?
         Data data = Data.getInstance();
         Data.Friend friend = data.getFriendByCertificate(friendCertificate);
@@ -320,5 +331,49 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
         }
         return mSharedPreferences.getInt(key, 0);        
+    }
+
+    public synchronized boolean currentlySharingLocation() throws Utils.ApplicationError {
+        if (!getBooleanPreference(R.string.preferenceAutomaticLocationSharing)) {
+            return false;
+        }
+        
+        Calendar now = Calendar.getInstance();
+        
+        if (getBooleanPreference(R.string.preferenceLimitLocationSharingTime)) {
+            int currentHour = now.get(Calendar.HOUR_OF_DAY);
+            int currentMinute = now.get(Calendar.MINUTE);
+            
+            String sharingTimeNotBefore = mSharedPreferences.getString(
+                    mContext.getString(R.string.preferenceLimitLocationSharingTimeNotBefore), "");
+            int notBeforeHour = TimePickerPreference.getHour(sharingTimeNotBefore);
+            int notBeforeMinute = TimePickerPreference.getMinute(sharingTimeNotBefore);
+            String sharingTimeNotAfter = mSharedPreferences.getString(
+                    mContext.getString(R.string.preferenceLimitLocationSharingTimeNotAfter), "");
+            int notAfterHour = TimePickerPreference.getHour(sharingTimeNotAfter);
+            int notAfterMinute = TimePickerPreference.getMinute(sharingTimeNotAfter);
+
+            if ((currentHour < notBeforeHour) ||
+                (currentHour == notBeforeHour && currentMinute < notBeforeMinute) ||
+                (currentHour > notAfterHour) ||
+                (currentHour == notAfterHour && currentMinute > notAfterMinute)) {
+                return false;
+            }
+        }
+
+        // Map current Calendar.DAY_OF_WEEK (1..7) to preference's SUNDAY..SATURDAY symbols
+        assert(Calendar.SUNDAY == 1 && Calendar.SATURDAY == 7);
+        String[] weekdays = mContext.getResources().getStringArray(R.array.weekdays);
+        String currentWeekday = weekdays[now.get(Calendar.DAY_OF_WEEK) - 1];
+
+        Set<String> sharingDays = mSharedPreferences.getStringSet(
+                mContext.getString(R.string.preferenceLimitLocationSharingDay),
+                new HashSet<String>());
+    
+        if (!sharingDays.contains(currentWeekday)) {
+            return false;
+        }
+
+        return true;
     }
 }

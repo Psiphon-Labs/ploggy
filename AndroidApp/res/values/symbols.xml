@@ -2,13 +2,13 @@
 <resources>
     <string name="foregroundServiceNotificationId">ploggyService</string>
     <string-array name="weekdays">
+        <item>SUNDAY</item>
         <item>MONDAY</item>
         <item>TUESDAY</item>
         <item>WEDNESDAY</item>
         <item>THURSDAY</item>
         <item>FRIDAY</item>
         <item>SATURDAY</item>
-        <item>SUNDAY</item>
     </string-array>
     <string name="preferencesPrivacy">preferencesPrivacy</string>
     <string name="preferenceUseGeoCoder">preferenceUseGeoCoder</string>
