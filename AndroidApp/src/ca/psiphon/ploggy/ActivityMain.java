@@ -32,7 +32,6 @@ import android.app.FragmentTransaction;
 import android.app.ListFragment;
 import android.content.Context;
 import android.content.Intent;
-import android.database.DataSetObserver;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -315,25 +314,14 @@ public class ActivityMain extends Activity {
         }
     }
 
-    public static class LogFragment extends ListFragment {
+    public static class LogFragment extends ListFragment implements Log.Observer {
         private LogAdapter mLogAdapter;
-        private DataSetObserver mDataSetObserver;
         
         @Override
         public void onActivityCreated(Bundle savedInstanceState) {
             super.onActivityCreated(savedInstanceState);
-            
-            // TODO: use endless list (e.g., https://github.com/commonsguy/cwac-endless) and populate on scroll
-            mLogAdapter = new LogAdapter(getActivity(), Log.readEntries());
+            mLogAdapter = new LogAdapter(getActivity());
             setListAdapter(mLogAdapter);
-
-            Events.register(this);
-        }
-
-        @Override
-        public void onDestroy() {
-            super.onDestroy();
-            Events.unregister(this);
         }
 
         @Override
@@ -341,59 +329,38 @@ public class ActivityMain extends Activity {
             super.onStart();
             getListView().setSelection(mLogAdapter.getCount() - 1);
             getListView().setTranscriptMode(ListView.TRANSCRIPT_MODE_ALWAYS_SCROLL);
-            if (mDataSetObserver == null) {
-                mDataSetObserver =
-                        new DataSetObserver() {
-                            @Override
-                            public void onChanged() {
-                                super.onChanged();
-                                getListView().setSelection(mLogAdapter.getCount() - 1);
-                            }
-                        };
-            }
-            mLogAdapter.registerDataSetObserver(mDataSetObserver);
+            Log.registerObserver(this);
         }
 
         @Override
         public void onStop() {
             super.onStop();
-            mLogAdapter.unregisterDataSetObserver(mDataSetObserver);
+            Log.unregisterObserver(this);
         }
 
-        @Subscribe
-        public void onLoggedEntry(Events.LoggedEntry loggedEntry) {
-            mLogAdapter.addEntry(loggedEntry.mEntry);
+        @Override
+        public void onUpdatedRecentEntries() {
+            mLogAdapter.notifyDataSetChanged();
+            getListView().setSelection(mLogAdapter.getCount() - 1);
         }        
     }
 
     private static class LogAdapter extends BaseAdapter {
         private Context mContext;
-        private ArrayList<Log.Entry> mEntries;
         private DateFormat mDateFormat;
 
-        private static final int MAX_LOG_LIST_SIZE = 500;
-        
-        public LogAdapter(Context context, ArrayList<Log.Entry> entries) {
+        public LogAdapter(Context context) {
             mContext = context;
-            mEntries = entries;
             mDateFormat = DateFormat.getDateTimeInstance();
         }
         
-        public void addEntry(Log.Entry entry) {
-            mEntries.add(entry);
-            while (mEntries.size() > MAX_LOG_LIST_SIZE) {
-                mEntries.remove(0);
-            }
-            notifyDataSetChanged();
-        }
-
         @Override
         public View getView(int position, View view, ViewGroup parent) {
             if (view == null) {
                 LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
                 view = inflater.inflate(R.layout.log_row, null);
             }
-            Log.Entry entry = mEntries.get(position);
+            Log.Entry entry = Log.getRecentEntry(position);
             if (entry != null) {
                 TextView timestampText = (TextView)view.findViewById(R.id.log_timestamp_text);
                 TextView tagText = (TextView)view.findViewById(R.id.log_tag_text);
@@ -408,12 +375,12 @@ public class ActivityMain extends Activity {
 
         @Override
         public int getCount() {
-            return mEntries.size();
+            return Log.getRecentEntryCount();
         }
 
         @Override
         public Object getItem(int position) {
-            return mEntries.get(position);
+            return Log.getRecentEntry(position);
         }
 
         @Override

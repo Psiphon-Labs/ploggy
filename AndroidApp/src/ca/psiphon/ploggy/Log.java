@@ -27,22 +27,24 @@ import java.util.ArrayList;
 import java.util.Date;
 
 import android.content.Context;
+import android.os.Handler;
 
 /**
  * Logging facility.
  *
  * TODO: consider using Log4J or Logback (http://tony19.github.io/logback-android/)
  * 
- * Posts log events to bus subscribers.
- * A persistent, JSON-format log is maintained for important events such
- * as added-friend. This persistent log is read back and posted on start up.
+ * Maintains a fixed-size queue of recent log entries. Posts events to observers of
+ * recent entries using the main UI thread for compatibility with ListView Adapters.
+ * 
+ * Also maintains a persistent, JSON-format log is for important entries such as
+ * added-friend. This persistent log is read back and posted to the recent queue on
+ * start up.
  */
 public class Log {
     
     private static final String LOG_TAG = "Log";
 
-    private static final String LOG_FILE_NAME = "log";    
-    
     public static class Entry {
         public final Date mTimestamp;
         public final String mTag;
@@ -54,15 +56,51 @@ public class Log {
             mMessage = message;
         }
     }
+    
+    public interface Observer {
+        void onUpdatedRecentEntries();
+    }
 
-    public static void addPersistentEntry(String tag, String message) {
+    private static final String LOG_FILE_NAME = "log";    
+    private static final int MAX_RECENT_ENTRIES = 500;
+
+    private static ArrayList<Entry> mRecentEntries;
+    private static ArrayList<Observer> mObservers;
+    private static Handler mHandler;
+    
+    // TODO: explicit singleton?
+    
+    public synchronized static void initialize() {
+        mRecentEntries = readEntriesFromFile();
+        mHandler = new Handler();
+    }
+
+    public synchronized static void addPersistentEntry(String tag, String message) {
         addEntry(true, tag, message);
     }
 
-    public static void addEntry(String tag, String message) {
+    public synchronized static void addEntry(String tag, String message) {
         addEntry(false, tag, message);
     }
+   
+    public synchronized static int getRecentEntryCount() {
+        return mRecentEntries.size();
+    }
 
+    public synchronized static Entry getRecentEntry(int index) {
+        return mRecentEntries.get(index);
+    }
+    
+    public synchronized static void registerObserver(Observer observer) {
+        if (!mObservers.contains(observer)) {
+            mObservers.add(observer);
+        }
+    }
+    
+    public synchronized static void unregisterObserver(Observer observer) {
+        mObservers.remove(observer);
+    }
+    
     private static void addEntry(boolean persist, String tag, String message) {
         if (message == null) {
             message = "(null)";
@@ -78,13 +116,32 @@ public class Log {
             }
         }
         
-        Events.post(new Events.LoggedEntry(entry));
+        // Update the in-memory entry list on the UI thread (also
+        // notifies any ListView adapters subscribed to that list)
+        postAddEntry(entry);
 
         // TODO: temp
         android.util.Log.e(tag, message);
     }
 
-    public synchronized static ArrayList<Entry> readEntries() {
+    private static void postAddEntry(Entry entry) {
+        final Entry finalEntry = entry;
+        mHandler.post(
+            new Runnable() {
+                @Override
+                public void run() {
+                    mRecentEntries.add(finalEntry);
+                    while (mRecentEntries.size() > MAX_RECENT_ENTRIES) {
+                        mRecentEntries.remove(0);
+                    }
+                    for (Observer observer : mObservers) {
+                        observer.onUpdatedRecentEntries();
+                    }
+                }
+            });
+    }
+    
+    private static ArrayList<Entry> readEntriesFromFile() {
         FileInputStream inputStream = null;
         try {
             Context context = Utils.getApplicationContext();
@@ -107,7 +164,7 @@ public class Log {
         }        
     }
     
-    private synchronized static void appendEntryToFile(Entry entry) throws IOException {
+    private static void appendEntryToFile(Entry entry) throws IOException {
         FileOutputStream outputStream = null;
         try {
             Context context = Utils.getApplicationContext();

@@ -118,12 +118,4 @@ public class Events {
             mId = id;
         }
     }
-
-    public static class LoggedEntry {
-        Log.Entry mEntry;
-
-        public LoggedEntry(Log.Entry entry) {
-            mEntry = entry;
-        }
-    }
 }

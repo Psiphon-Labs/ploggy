@@ -33,6 +33,7 @@ public class PloggyApplication extends Application {
         // TODO: distinct instance of preferences for each persona
         // e.g., setDefaultValues("persona1");
         PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
+        Log.initialize();
         Events.initialize();
     }
 }
