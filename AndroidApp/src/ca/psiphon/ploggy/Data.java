@@ -182,7 +182,6 @@ public class Data {
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
-        // TODO: string resource; log self fingerprint
         Log.addPersistentEntry(LOG_TAG, "updated self");
         Events.post(new Events.UpdatedSelf());
     }
@@ -197,7 +196,6 @@ public class Data {
     public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
-        // TODO: string resource
         Log.addEntry(LOG_TAG, "updated self status");
         Events.post(new Events.UpdatedSelfStatus());
     }
@@ -257,7 +255,6 @@ public class Data {
             newFriends.add(friend);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             mFriends.add(friend);
-            // TODO: string resource; log friend nickname
             Log.addPersistentEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.AddedFriend(friend.mId));
         }
@@ -284,7 +281,6 @@ public class Data {
             updateFriendHelper(newFriends, friend);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             updateFriendHelper(mFriends, friend);
-            // TODO: string resource; log friend nickname
             Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.UpdatedFriend(friend.mId));
         }
@@ -329,12 +325,12 @@ public class Data {
     public synchronized void removeFriend(String id) throws Utils.ApplicationError, DataNotFoundError {
         loadFriends();
         synchronized(mFriends) {
+            Friend friend = getFriendById(id);
             ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
             removeFriendHelper(id, newFriends);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             removeFriendHelper(id, mFriends);
-            // TODO: string resource; log friend nickname
-            Log.addPersistentEntry(LOG_TAG, "removed friend: " + id);
+            Log.addPersistentEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.RemovedFriend(id));
         }
     }
@@ -345,10 +341,10 @@ public class Data {
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+        Friend friend = getFriendById(id);
         String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         writeFile(filename, Json.toJson(status));
-        // TODO: string resource; log friend nickname
-        Log.addEntry(LOG_TAG, "updated friend status: " + id);
+        Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.UpdatedFriendStatus(id));
     }
 
