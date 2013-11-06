@@ -65,7 +65,8 @@ public class Tests {
                                         nickname,
                                         x509KeyMaterial.mCertificate,
                                         hiddenServiceKeyMaterial.mHostname,
-                                        "")));
+                                        ""),
+                        new Date()));
             }
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "insertMockFriends failed");
@@ -158,7 +159,7 @@ public class Tests {
                     Identity.makePrivateIdentity(
                             friendX509KeyMaterial,
                             friendHiddenServiceKeyMaterial));
-            Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity);
+            Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Start web server...");

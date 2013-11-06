@@ -65,19 +65,23 @@ public class Data {
     public static class Friend {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
+        public final Date mAddedTimestamp;
         public final Date mLastSentStatusTimestamp;
         public final Date mLastReceivedStatusTimestamp;
 
         public Friend(
-                Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
-            this(publicIdentity, null, null);
+                Identity.PublicIdentity publicIdentity,
+                Date addedTimestamp) throws Utils.ApplicationError {
+            this(publicIdentity, addedTimestamp, null, null);
         }
         public Friend(
                 Identity.PublicIdentity publicIdentity,
+                Date addedTimestamp,
                 Date lastSentStatusTimestamp,
                 Date lastReceivedStatusTimestamp) throws Utils.ApplicationError {
             mId = Utils.encodeHex(publicIdentity.getFingerprint());
             mPublicIdentity = publicIdentity;
+            mAddedTimestamp = addedTimestamp;
             mLastSentStatusTimestamp = lastSentStatusTimestamp;
             mLastReceivedStatusTimestamp = lastReceivedStatusTimestamp;
         }
@@ -294,7 +298,12 @@ public class Data {
     public synchronized void updateFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
-        updateFriend(new Friend(friend.mPublicIdentity, new Date(), friend.mLastReceivedStatusTimestamp));
+        updateFriend(
+            new Friend(
+                friend.mPublicIdentity,
+                friend.mAddedTimestamp,
+                new Date(),
+                friend.mLastReceivedStatusTimestamp));
     }
     
     public synchronized Date getFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
@@ -305,7 +314,12 @@ public class Data {
     public synchronized void updateFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
-        updateFriend(new Friend(friend.mPublicIdentity, friend.mLastSentStatusTimestamp, new Date()));
+        updateFriend(
+            new Friend(
+                friend.mPublicIdentity,
+                friend.mAddedTimestamp,
+                friend.mLastSentStatusTimestamp,
+                new Date()));
     }
     
     private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundError {

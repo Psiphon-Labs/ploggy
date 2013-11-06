@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
+
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
@@ -114,7 +116,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
             try {
                 Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
                 Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
                 // TODO: display validation error?
                 mReceivedFriend = friend;
                 showFriend();

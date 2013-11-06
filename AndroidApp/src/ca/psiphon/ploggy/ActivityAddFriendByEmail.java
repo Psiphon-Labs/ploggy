@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Date;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -83,7 +84,7 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                 String payload = Utils.readInputStreamToString(inputStream);
                 Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
                 Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
                 // TODO: display validation error?
                 mReceivedFriend = friend;
                 showFriend();                

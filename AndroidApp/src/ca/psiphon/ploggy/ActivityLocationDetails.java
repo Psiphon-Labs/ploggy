@@ -58,6 +58,7 @@ public class ActivityLocationDetails extends Activity {
     private TextView mLastReceivedStatusTimestampText;
     private TextView mLastSentStatusTimestampLabel;
     private TextView mLastSentStatusTimestampText;
+    private TextView mAddedTimestampText;
     private ImageView mMapImage;
 
     public ActivityLocationDetails() {
@@ -81,6 +82,7 @@ public class ActivityLocationDetails extends Activity {
         mLastReceivedStatusTimestampText = (TextView)findViewById(R.id.location_details_last_received_status_timestamp_text);
         mLastSentStatusTimestampLabel = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_label);
         mLastSentStatusTimestampText = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_text);
+        mAddedTimestampText = (TextView)findViewById(R.id.location_details_added_timestamp_text);
         mMapImage = (ImageView)findViewById(R.id.location_details_map_image);
 
         // TODO: onNewIntent?
@@ -165,6 +167,7 @@ public class ActivityLocationDetails extends Activity {
                 } else {
                     mLastSentStatusTimestampText.setText(R.string.prompt_no_location_updates_sent);
                 }
+                mAddedTimestampText.setText(Utils.formatSameDayTime(friend.mAddedTimestamp));
             } else {
                 selfStatus = data.getSelfStatus();
 
@@ -183,6 +186,7 @@ public class ActivityLocationDetails extends Activity {
                 mLastReceivedStatusTimestampText.setVisibility(View.GONE);
                 mLastSentStatusTimestampLabel.setVisibility(View.GONE);
                 mLastSentStatusTimestampText.setVisibility(View.GONE);
+                mAddedTimestampText.setVisibility(View.GONE);
             }
 
             return;
