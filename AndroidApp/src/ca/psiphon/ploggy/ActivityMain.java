@@ -27,17 +27,21 @@ import com.squareup.otto.Subscribe;
 import android.os.Bundle;
 import android.app.ActionBar;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.app.ListFragment;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -170,14 +174,13 @@ public class ActivityMain extends Activity {
         @Override
         public void onActivityCreated(Bundle savedInstanceState) {
             super.onActivityCreated(savedInstanceState);
-
             try {
                 mFriendAdapter = new FriendAdapter(getActivity());
                 setListAdapter(mFriendAdapter);
             } catch (Utils.ApplicationError e) {
                 // TODO: log, or flip to log tab, or display toast?
             }
-
+            registerForContextMenu(this.getListView());            
             Events.register(this);
         }
 
@@ -188,13 +191,50 @@ public class ActivityMain extends Activity {
         }
         
         @Override
-        public void onListItemClick (ListView listView, View view, int position, long id) {
+        public void onListItemClick(ListView listView, View view, int position, long id) {
             Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
             Intent intent = new Intent(getActivity(), ActivityLocationDetails.class);
             Bundle bundle = new Bundle();
             bundle.putString(ActivityLocationDetails.FRIEND_ID_BUNDLE_KEY, friend.mId);
             intent.putExtras(bundle);
             startActivity(intent);
+        }
+
+        @Override
+        public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
+            super.onCreateContextMenu(menu, view, menuInfo);
+            MenuInflater inflater = this.getActivity().getMenuInflater();
+            inflater.inflate(R.menu.friend_list_context, menu);
+        }
+
+        @Override
+        public boolean onContextItemSelected(MenuItem item) {
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+            final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
+            switch (item.getItemId()) {
+                case R.id.action_delete_friend:
+                    new AlertDialog.Builder(getActivity())
+                        .setTitle(getString(R.string.label_delete_friend_title))
+                        .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
+                        .setPositiveButton(getString(R.string.label_delete_friend_positive),
+                                new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        try {
+                                            Data.getInstance().removeFriend(finalFriend.mId);
+                                        } catch (Data.DataNotFoundError e) {
+                                            // Ignore
+                                        } catch (Utils.ApplicationError e) {
+                                            Log.addEntry(LOG_TAG, "failed to delete: " + finalFriend.mPublicIdentity.mNickname);
+                                        }
+                                    }
+                                })
+                        .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
+                        .show();
+                    return true;
+                default:
+                    return super.onContextItemSelected(item);
+            }
         }
 
         @Subscribe

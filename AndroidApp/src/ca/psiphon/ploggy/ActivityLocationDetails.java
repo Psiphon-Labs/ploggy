@@ -25,13 +25,10 @@ import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 
 /**
  * User interface for displaying self and friend location details.
@@ -43,7 +40,7 @@ import android.content.DialogInterface;
  * This class subscribes to status events to update displayed data
  * while in the foreground.
  */
-public class ActivityLocationDetails extends Activity implements View.OnClickListener {
+public class ActivityLocationDetails extends Activity {
     
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
@@ -62,7 +59,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
     private TextView mLastSentStatusTimestampLabel;
     private TextView mLastSentStatusTimestampText;
     private ImageView mMapImage;
-    private Button mDeleteFriendButton;
 
     public ActivityLocationDetails() {
     }
@@ -86,8 +82,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
         mLastSentStatusTimestampLabel = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_label);
         mLastSentStatusTimestampText = (TextView)findViewById(R.id.location_details_last_sent_status_timestamp_text);
         mMapImage = (ImageView)findViewById(R.id.location_details_map_image);
-        mDeleteFriendButton = (Button)findViewById(R.id.location_details_delete_friend_button);
-        mDeleteFriendButton.setOnClickListener(this);
 
         // TODO: onNewIntent?
         Bundle bundle = getIntent().getExtras();
@@ -189,8 +183,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                 mLastReceivedStatusTimestampText.setVisibility(View.GONE);
                 mLastSentStatusTimestampLabel.setVisibility(View.GONE);
                 mLastSentStatusTimestampText.setVisibility(View.GONE);
-                mDeleteFriendButton.setVisibility(View.GONE);
-                mDeleteFriendButton.setEnabled(false);
             }
 
             return;
@@ -201,33 +193,6 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
         } catch (Utils.ApplicationError e) {
             // TODO: log?
             finish();
-        }
-    }
-
-    @Override
-    public void onClick(View view) {
-        if (view.equals(mDeleteFriendButton)) {
-            new AlertDialog.Builder(this)
-                .setTitle(getString(R.string.label_location_details_delete_friend_title))
-                .setMessage(getString(R.string.label_location_details_delete_friend_message))
-                .setPositiveButton(getString(R.string.label_location_details_delete_friend_positive),
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                if (mFriendId != null) {
-                                    try {
-                                        Data.getInstance().removeFriend(mFriendId);
-                                    } catch (Data.DataNotFoundError e) {
-                                        // Ignore
-                                    } catch (Utils.ApplicationError e) {
-                                        // TODO: log?
-                                    }
-                                    finish();
-                                }
-                            }
-                        })
-                .setNegativeButton(getString(R.string.label_location_details_delete_friend_negative), null)
-                .show();            
         }
     }
 }

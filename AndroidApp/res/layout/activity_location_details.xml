@@ -236,17 +236,6 @@
             android:layout_height="wrap_content"
             android:layout_below="@+id/location_details_last_sent_status_timestamp_text" />
 
-        <Button
-            android:id="@+id/location_details_delete_friend_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_toRightOf="@+id/location_details_avatar"
-            android:layout_below="@+id/location_details_map_image"
-            android:layout_alignParentRight="true"
-            android:text="@string/button_location_details_delete_friend"
-            android:typeface="sans"
-            android:textSize="16dip" />
-
     </RelativeLayout>
 
 </LinearLayout>
