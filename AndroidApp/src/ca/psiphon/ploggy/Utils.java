@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,7 +54,9 @@ public class Utils {
         private static final long serialVersionUID = -3656367025650685613L;
 
         public ApplicationError(String tag, String message) {
-            Log.addEntry(tag, message);
+            if (tag != null) {
+                Log.addEntry(tag, message);
+            }
         }
 
         public ApplicationError(String tag, Exception e) {

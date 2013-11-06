@@ -118,7 +118,8 @@ public class Data {
         private static final long serialVersionUID = -8736069103392081076L;
         
         public DataNotFoundError() {
-            super(LOG_TAG, "data not found");
+            // No log for this expected condition
+            super(null, "");
         }
     }
 
@@ -126,7 +127,8 @@ public class Data {
         private static final long serialVersionUID = 6287628326991088141L;
 
         public DataAlreadyExistsError() {
-            super(LOG_TAG, "data already exists");
+            // No log for this expected condition
+            super(null, "");
         }
     }
 

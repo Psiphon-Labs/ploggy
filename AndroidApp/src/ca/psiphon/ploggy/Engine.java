@@ -105,6 +105,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     @Override
     public synchronized void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        // TODO: slows UI -- this is invoked while the SeekBar preferences are moved
         try {
             stop();
             start();
