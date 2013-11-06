@@ -50,6 +50,8 @@ import java.util.Locale;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
@@ -252,8 +254,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             ProcessBuilder processBuilder =
                     new ProcessBuilder(
                             mExecutableFile.getAbsolutePath(),
-                            // TEMP: show all Tor output for prototype testing
-                            //"--hush",
+                            "--hush",
                             "-f", mConfigFile.getAbsolutePath());
             processBuilder.environment().put("HOME", mRootDirectory.getAbsolutePath());
             processBuilder.directory(mRootDirectory);
@@ -472,11 +473,15 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     @Override
     public void unrecognized(String type, String message) {
         if (type.equals("STATUS_CLIENT") && message.equals("NOTICE CIRCUIT_ESTABLISHED")) {
+            Log.addEntry(logTag(), "circuit established");
             mCircuitEstablishedLatch.countDown();
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
-            // TODO: parse and display components (https://gitweb.torproject.org/torspec.git/blob/HEAD:/control-spec.txt)
-            Log.addEntry(logTag(), message);
+            Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");
+            Matcher matcher = pattern.matcher(message);
+            if (matcher.find() && matcher.groupCount() == 2) {
+                Log.addEntry(logTag(), "bootstrap " + matcher.group(1) + "%: " + matcher.group(2));
+            }
         }
     }
 }

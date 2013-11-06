@@ -71,6 +71,7 @@ public class Log {
     
     public synchronized static void initialize() {
         mRecentEntries = new ArrayList<Entry>();
+        mObservers = new ArrayList<Observer>();
         mHandler = new Handler();
     }
 
