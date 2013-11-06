@@ -139,8 +139,12 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
 
                 Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
                 mNicknameText.setText(friend.mPublicIdentity.mNickname);
-                mFingerprintText.setText(Utils.encodeHex(friend.mPublicIdentity.getFingerprint()));        
-                mStreetAddressText.setText(friendStatus.mStreetAddress);
+                mFingerprintText.setText(Utils.encodeHex(friend.mPublicIdentity.getFingerprint()));
+                if (friendStatus.mStreetAddress.length() > 0) {
+                    mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
+                } else {
+                    mStreetAddressText.setText(friendStatus.mStreetAddress);
+                }
                 if (selfStatus != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
                             selfStatus.mLongitude,
@@ -150,7 +154,7 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                     mDistanceText.setText(
                             getString(R.string.format_location_details_distance, distance));
                 } else {
-                    mDistanceText.setText(R.string.prompt_no_data);
+                    mDistanceText.setText(R.string.prompt_unknown_distance);
                 }
                 mCoordinatesText.setText(
                         getString(R.string.format_location_details_coordinates, friendStatus.mLongitude, friendStatus.mLatitude));
@@ -160,12 +164,12 @@ public class ActivityLocationDetails extends Activity implements View.OnClickLis
                 if (lastReceivedStatusTimestamp != null) {
                     mLastReceivedStatusTimestampText.setText(Utils.formatSameDayTime(lastReceivedStatusTimestamp));
                 } else {
-                    mLastReceivedStatusTimestampText.setText(R.string.prompt_no_data);
+                    mLastReceivedStatusTimestampText.setText(R.string.prompt_no_location_updates_received);
                 }
                 if (lastSentStatusTimestamp != null) {
                     mLastSentStatusTimestampText.setText(Utils.formatSameDayTime(lastSentStatusTimestamp));
                 } else {
-                    mLastSentStatusTimestampText.setText(R.string.prompt_no_data);
+                    mLastSentStatusTimestampText.setText(R.string.prompt_no_location_updates_sent);
                 }
             } else {
                 selfStatus = data.getSelfStatus();

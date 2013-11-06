@@ -54,6 +54,8 @@ import android.widget.TextView;
  */
 public class ActivityMain extends Activity {
 
+    private static final String LOG_TAG = "Main Activity";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -275,7 +277,7 @@ public class ActivityMain extends Activity {
                     if (friendStatus.mStreetAddress.length() > 0) {
                         streetAddressText.setText(friendStatus.mStreetAddress);                        
                     } else {
-                        streetAddressText.setText(R.string.prompt_friend_list_no_street_address);
+                        streetAddressText.setText(R.string.prompt_no_street_address_reported);
                     }
                     if (selfStatus != null) {
                         int distance = Utils.calculateLocationDistanceInMeters(
@@ -286,13 +288,17 @@ public class ActivityMain extends Activity {
                         distanceText.setText(
                                 mContext.getString(R.string.format_friend_list_distance, distance));
                     } else {
-                        distanceText.setText(R.string.prompt_no_data);
+                        distanceText.setText(R.string.prompt_unknown_distance);
                     }
+                } catch (Data.DataNotFoundError e) {
+                    timestampText.setText(R.string.prompt_no_location_updates_received);
+                    streetAddressText.setText("");
+                    distanceText.setText("");
                 } catch (Utils.ApplicationError e) {
-                    // TODO: treat DataNotFoundException differently?
-                    timestampText.setText(R.string.prompt_no_data);
-                    streetAddressText.setText(R.string.prompt_no_data);
-                    distanceText.setText(R.string.prompt_no_data);
+                    Log.addEntry(LOG_TAG, "failed to display friend");
+                    timestampText.setText("");
+                    streetAddressText.setText("");
+                    distanceText.setText("");
                 }
             }            
             return view;
