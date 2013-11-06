@@ -159,7 +159,7 @@ public class Data {
     
     Self mSelf;
     Status mSelfStatus;
-    List<Friend> mFriends;
+    ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
 
     public synchronized void reset() throws Utils.ApplicationError {
@@ -212,7 +212,7 @@ public class Data {
     private void loadFriends() throws Utils.ApplicationError {
         if (mFriends == null) {
             try {
-                mFriends = Arrays.asList(Json.fromJson(readFile(FRIENDS_FILENAME), Friend[].class));
+                mFriends = new ArrayList<Friend>(Arrays.asList(Json.fromJson(readFile(FRIENDS_FILENAME), Friend[].class)));
             } catch (DataNotFoundError e) {
                 mFriends = new ArrayList<Friend>();
             }
@@ -364,6 +364,7 @@ public class Data {
         loadFriends();
         synchronized(mFriends) {
             Friend friend = getFriendById(id);
+            deleteFile(String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id));
             ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
             removeFriendHelper(id, newFriends);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
@@ -437,6 +438,16 @@ public class Data {
         if (commitFile.exists()) {
             file.delete();
             commitFile.renameTo(file);
+        }
+    }
+    
+    private static void deleteFile(String filename) throws Utils.ApplicationError {
+        File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
+        File file = new File(directory, filename);
+        if (!file.delete()) {
+            if (file.exists()) {
+                throw new Utils.ApplicationError(LOG_TAG, "failed to delete file");
+            }
         }
     }
 }
