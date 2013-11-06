@@ -58,6 +58,7 @@
     <string name="label_location_details_status_timestamp">Location updated at:</string>
     <string name="label_location_details_last_received_status_timestamp">Last location update received from friend:</string>
     <string name="label_location_details_last_sent_status_timestamp">Last location update sent to friend:</string>
+    <string name="label_location_details_added_timestamp">Friend added at:</string>
     <string name="format_location_details_distance">%1$d meters</string>
     <string name="format_location_details_coordinates">%1$.4f°, %2$.4f°</string>
     <string name="format_location_details_precision">%1$d meters</string>
