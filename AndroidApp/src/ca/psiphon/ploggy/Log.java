@@ -19,9 +19,18 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
 
 /**
@@ -94,7 +103,31 @@ public class Log {
     public synchronized static void unregisterObserver(Observer observer) {
         mObservers.remove(observer);
     }
-    
+
+    public synchronized static void composeEmail(Context context) {
+        // TODO: temporary feature for debugging prototype -- will compromise unlinkability
+        try {
+            StringBuilder body = new StringBuilder();
+            for (Entry entry : mRecentEntries) {
+                body.append(entry.mTimestamp);
+                body.append(" ");
+                body.append(entry.mTag);
+                body.append(": ");
+                body.append(entry.mMessage);
+                body.append("\n");
+            }
+            
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("message/rfc822");
+            intent.putExtra(Intent.EXTRA_EMAIL, new String[]{"feedback+ploggy@psiphon.ca"});
+            intent.putExtra(Intent.EXTRA_SUBJECT, "Ploggy Logs");
+            intent.putExtra(Intent.EXTRA_TEXT, body.toString());
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.addEntry(LOG_TAG, e.getMessage());
+        }
+    }
+
     private static void postAddEntry(Entry entry) {
         final Entry finalEntry = entry;
         mHandler.post(

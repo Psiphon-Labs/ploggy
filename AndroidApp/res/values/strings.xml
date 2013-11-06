@@ -8,6 +8,7 @@
     <string name="action_add_friend">Add Friend</string>
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">[TEMP] Run Tests</string>
+    <string name="action_email_log">[TEMP] Email Log</string>
     <string name="action_quit">Quit</string>
     <string name="action_delete_friend">Delete Friend</string>
     <string name="label_delete_friend_title">Delete Friend</string>

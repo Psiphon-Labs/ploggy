@@ -107,7 +107,7 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
     // TODO: per-persona filenames?
     private static final String EMAIL_ATTACHMENT_FILENAME = "identity.ploggy";
 
-    public static void sendAttachment(Context context) {
+    public static void composeEmail(Context context) {
         final Context finalContext = context;
         new AlertDialog.Builder(finalContext)
             .setTitle(finalContext.getString(R.string.label_email_self_title))

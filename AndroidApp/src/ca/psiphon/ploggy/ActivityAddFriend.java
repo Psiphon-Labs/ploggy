@@ -73,7 +73,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
             Data.Self self = Data.getInstance().getSelf();
             Robohash.setRobohashImage(this, mSelfAvatarImage, true, self.mPublicIdentity);
             mSelfNicknameText.setText(self.mPublicIdentity.mNickname);
-            mSelfFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
+            mSelfFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));        
             return;
         } catch (Utils.ApplicationError e) {
             // TODO: log?
@@ -88,7 +88,7 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
             try {
                 Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);        
-                mFriendFingerprintText.setText(Utils.encodeHex(mReceivedFriend.mPublicIdentity.getFingerprint()));        
+                mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));        
                 mFriendAddButton.setEnabled(mSelfPushComplete);
                 mFriendSectionLayout.setVisibility(View.VISIBLE);
                 return;

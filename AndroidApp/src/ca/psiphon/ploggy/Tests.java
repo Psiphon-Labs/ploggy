@@ -48,31 +48,6 @@ public class Tests {
 
     private static Timer mTimer = new Timer();
 
-    public static void insertMockFriends() {
-        try {
-            Data data = Data.getInstance();
-            for (int i = 0; i < 50; i++) {
-                String nickname = String.format((Locale)null, "Nickname%02d", i);
-                // TODO: too slow
-                //X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
-                X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
-                // TODO: NetworkOnMainThreadException
-                //HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
-                HiddenService.KeyMaterial hiddenServiceKeyMaterial = new HiddenService.KeyMaterial(Utils.getRandomHexString(1024), Utils.getRandomHexString(1024));
-                data.addFriend(
-                        new Data.Friend(
-                                new Identity.PublicIdentity(
-                                        nickname,
-                                        x509KeyMaterial.mCertificate,
-                                        hiddenServiceKeyMaterial.mHostname,
-                                        ""),
-                        new Date()));
-            }
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "insertMockFriends failed");
-        }
-    }
-    
     public static void scheduleComponentTests() {
         mTimer.schedule(
                 new TimerTask() {          

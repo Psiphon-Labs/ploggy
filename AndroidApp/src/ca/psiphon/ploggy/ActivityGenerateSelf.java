@@ -90,7 +90,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         if (publicIdentity.mNickname.length() > 0) {
             try {
                 Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
-                mFingerprintText.setText(Utils.encodeHex(publicIdentity.getFingerprint()));        
+                mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));        
                 return;
             } catch (Utils.ApplicationError e) {
                 // TODO: log

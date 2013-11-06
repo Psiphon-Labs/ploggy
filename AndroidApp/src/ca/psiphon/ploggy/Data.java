@@ -82,7 +82,7 @@ public class Data {
                 Date addedTimestamp,
                 Date lastSentStatusTimestamp,
                 Date lastReceivedStatusTimestamp) throws Utils.ApplicationError {
-            mId = Utils.encodeHex(publicIdentity.getFingerprint());
+            mId = Utils.formatFingerprint(publicIdentity.getFingerprint());
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
             mLastSentStatusTimestamp = lastSentStatusTimestamp;

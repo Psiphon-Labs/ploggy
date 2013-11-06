@@ -117,7 +117,7 @@ public class ActivityMain extends Activity {
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
         case R.id.action_email_self:
-            ActivityAddFriendByEmail.sendAttachment(this);
+            ActivityAddFriendByEmail.composeEmail(this);
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));
@@ -126,6 +126,10 @@ public class ActivityMain extends Activity {
             // TODO: temporary
             Tests.scheduleComponentTests();
             getActionBar().setSelectedNavigationItem(1);
+            return true;
+        case R.id.action_email_log:
+            // TODO: temporary
+            Log.composeEmail(this);
             return true;
         case R.id.action_quit:
             stopService(new Intent(this, PloggyService.class));

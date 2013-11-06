@@ -174,23 +174,6 @@ public class Utils {
         new LinuxSecureRandom();
     }
     
-    public static String getRandomHexString(int bits) {
-        byte[] buffer = new byte[bits/4];
-        new SecureRandom().nextBytes(buffer);
-        return encodeHex(buffer);
-    }
-    
-    // From: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
-    public static String encodeHex(byte[] bytes) {
-        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-        char[] hexChars = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++)  {
-            hexChars[i*2] = hexArray[(bytes[i] & 0xFF)/16];
-            hexChars[i*2 + 1] = hexArray[(bytes[i] & 0xFF)%16];
-        }
-        return new String(hexChars);
-    }
-
     public static String encodeBase64(byte[] data) {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
@@ -203,6 +186,20 @@ public class Utils {
         }
     }
 
+    public static String formatFingerprint(byte[] fingerprintBytes) {
+        // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+        char[] hexChars = new char[fingerprintBytes.length * 3 - 1];
+        for (int i = 0; i < fingerprintBytes.length; i++)  {
+            hexChars[i*3] = hexArray[(fingerprintBytes[i] & 0xFF)/16];
+            hexChars[i*3 + 1] = hexArray[(fingerprintBytes[i] & 0xFF)%16];
+            if (i < fingerprintBytes.length - 1) {
+                hexChars[i*3 + 2] = ':';
+            }
+        }
+        return new String(hexChars);
+    }
+    
     public static int calculateLocationDistanceInMeters(
             double longitudeA,
             double latitudeA,

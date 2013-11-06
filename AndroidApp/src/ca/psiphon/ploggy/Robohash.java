@@ -120,7 +120,8 @@ public class Robohash {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             byte[] digest = sha1.digest(data);
 
-            String cacheKey = Utils.encodeHex(digest);
+            // TODO: byte[] key?
+            String cacheKey = Utils.formatFingerprint(digest);
             if (mCache.containsKey(cacheKey)) {
                 return mCache.get(cacheKey);
             }

@@ -135,7 +135,7 @@ public class ActivityLocationDetails extends Activity {
 
                 Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
                 mNicknameText.setText(friend.mPublicIdentity.mNickname);
-                mFingerprintText.setText(Utils.encodeHex(friend.mPublicIdentity.getFingerprint()));
+                mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
                 if (friendStatus.mStreetAddress.length() > 0) {
                     mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 } else {
@@ -173,7 +173,7 @@ public class ActivityLocationDetails extends Activity {
 
                 Robohash.setRobohashImage(this, mAvatarImage, true, self.mPublicIdentity);
                 mNicknameText.setText(self.mPublicIdentity.mNickname);
-                mFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
+                mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));        
                 mStreetAddressText.setText(selfStatus.mStreetAddress);
                 mDistanceLabel.setVisibility(View.GONE);
                 mDistanceText.setVisibility(View.GONE);
