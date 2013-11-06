@@ -123,12 +123,12 @@ public class ActivityMain extends Activity {
             startActivity(new Intent(this, ActivitySettings.class));
             return true;
         case R.id.action_run_tests:
-            // TODO: temporary
+            // TODO: temporary feature for prototype
             Tests.scheduleComponentTests();
             getActionBar().setSelectedNavigationItem(1);
             return true;
         case R.id.action_email_log:
-            // TODO: temporary
+            // TODO: temporary feature for prototype
             Log.composeEmail(this);
             return true;
         case R.id.action_quit:
@@ -182,7 +182,7 @@ public class ActivityMain extends Activity {
                 mFriendAdapter = new FriendAdapter(getActivity());
                 setListAdapter(mFriendAdapter);
             } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
+                Log.addEntry(LOG_TAG, "failed to initialize friend list");
             }
             registerForContextMenu(this.getListView());            
             Events.register(this);
@@ -229,7 +229,7 @@ public class ActivityMain extends Activity {
                                         } catch (Data.DataNotFoundError e) {
                                             // Ignore
                                         } catch (Utils.ApplicationError e) {
-                                            Log.addEntry(LOG_TAG, "failed to delete: " + finalFriend.mPublicIdentity.mNickname);
+                                            Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
                                         }
                                     }
                                 })
@@ -243,38 +243,30 @@ public class ActivityMain extends Activity {
 
         @Subscribe
         public void onAddedFriend(Events.AddedFriend addedFriend) {
-            try {
-                mFriendAdapter.updateFriends();
-            } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
-            }
+            updateFriends();
         }        
 
         @Subscribe
         public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
-            try {
-                mFriendAdapter.updateFriends();
-            } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
-            }
+            updateFriends();
         }        
 
         @Subscribe
         public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
-            try {
-                mFriendAdapter.updateFriends();
-            } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
-            }
+            updateFriends();
         }       
 
         @Subscribe
         public void onDeletedFriend(Events.RemovedFriend removedFriend) {
+            updateFriends();
+        }
+        
+        private void updateFriends() {
             try {
                 mFriendAdapter.updateFriends();
             } catch (Utils.ApplicationError e) {
-                // TODO: log, or flip to log tab, or display toast?
-            }
+                Log.addEntry(LOG_TAG, "failed to update friend list");
+            }            
         }
     }
 

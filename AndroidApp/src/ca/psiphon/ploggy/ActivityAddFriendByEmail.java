@@ -91,8 +91,9 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
             }
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
         } finally {
             if (inputStream != null) {
                 try {
@@ -132,10 +133,12 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                                 finalContext.startActivity(intent);
                             } catch (IOException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             } catch (Utils.ApplicationError e) {
-                                // TODO: log?
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             }
                         }
                     })

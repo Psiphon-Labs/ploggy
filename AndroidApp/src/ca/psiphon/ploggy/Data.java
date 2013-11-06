@@ -234,6 +234,18 @@ public class Data {
         throw new DataNotFoundError();
     }
 
+    public synchronized Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, DataNotFoundError {
+        loadFriends();
+        synchronized(mFriends) {
+            for (Friend friend : mFriends) {
+                if (friend.mPublicIdentity.mNickname.equals(nickname)) {
+                    return friend;
+                }
+            }
+        }
+        throw new DataNotFoundError();
+    }
+
     public synchronized Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, DataNotFoundError {
         loadFriends();
         synchronized(mFriends) {
@@ -249,13 +261,20 @@ public class Data {
     public synchronized void addFriend(Friend friend) throws Utils.ApplicationError {
         loadFriends();
         synchronized(mFriends) {
-            boolean friendExists = true;
+            boolean friendWithIdExists = true;
+            boolean friendWithNicknameExists = true;
             try {
                 getFriendById(friend.mId);
             } catch (DataNotFoundError e) {
-                friendExists = false;
+                friendWithIdExists = false;
             }
-            if (friendExists) {
+            try {
+                getFriendByNickname(friend.mPublicIdentity.mNickname);
+            } catch (DataNotFoundError e) {
+                friendWithNicknameExists = false;
+            }
+            // TODO: report which conflict occurred
+            if (friendWithIdExists || friendWithNicknameExists) {
                 throw new DataAlreadyExistsError();
             }
             ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);

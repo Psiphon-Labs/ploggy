@@ -42,6 +42,8 @@ import android.app.Activity;
  */
 public class ActivityLocationDetails extends Activity {
     
+    private static final String LOG_TAG = "Location Details";
+
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
     private String mFriendId;
@@ -173,7 +175,7 @@ public class ActivityLocationDetails extends Activity {
 
                 Robohash.setRobohashImage(this, mAvatarImage, true, self.mPublicIdentity);
                 mNicknameText.setText(self.mPublicIdentity.mNickname);
-                mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));        
+                mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
                 mStreetAddressText.setText(selfStatus.mStreetAddress);
                 mDistanceLabel.setVisibility(View.GONE);
                 mDistanceText.setVisibility(View.GONE);
@@ -195,7 +197,7 @@ public class ActivityLocationDetails extends Activity {
             toast.show();
             finish();
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to show location details");
             finish();
         }
     }

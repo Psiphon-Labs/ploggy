@@ -74,11 +74,6 @@ public class LocationMonitor implements android.location.LocationListener {
         mHandler.post(mStopLocationUpdatesTask);
     }
 
-    public void restart() throws Utils.ApplicationError {
-        stop();
-        start();
-    }
-
     private void initRunnables() {
         final LocationMonitor finalLocationMonitor = this; 
 
@@ -195,29 +190,29 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onProviderDisabled(String provider) {
-        try {
-            restart();
-        } catch (Utils.ApplicationError e) {
-        }
+        restart();
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-        try {
-            restart();
-        } catch (Utils.ApplicationError e) {
-        }
+        restart();
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
+        restart();
+    }
+
+    private void restart() {
         try {
-            restart();
+            stop();
+            start();
         } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to restart");
         }
     }
 
-    protected void updateCurrentLocation(Location location) {
+    private void updateCurrentLocation(Location location) {
         if (location != null) {
             if (isBetterLocation(location, mCurrentLocation)) {
                 mCurrentLocation = location;
@@ -226,7 +221,7 @@ public class LocationMonitor implements android.location.LocationListener {
     }
     
     // From: http://developer.android.com/guide/topics/location/strategies.html
-    protected boolean isBetterLocation(Location location, Location currentBestLocation) {
+    private boolean isBetterLocation(Location location, Location currentBestLocation) {
 
         final int TWO_MINUTES = 1000 * 60 * 2;
 

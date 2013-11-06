@@ -48,6 +48,8 @@ import android.content.IntentFilter;
  */
 public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
 
+    private static final String LOG_TAG = "Add Friend By NFC";
+
     private static final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
     private static final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
     
@@ -78,7 +80,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
         try {
             intentFilter.addDataType(NFC_MIME_TYPE);
         } catch (IntentFilter.MalformedMimeTypeException e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, e.getMessage());
             return;
         }
         mNfcAdapter.enableForegroundDispatch(
@@ -124,7 +126,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
                 int promptId = mSelfPushComplete ? R.string.prompt_nfc_friend_received_and_push_complete : R.string.prompt_nfc_friend_received_without_push_complete;
                 Toast.makeText(this, promptId, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
             }
         }
     }
@@ -138,7 +140,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
                             NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
                             NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to create outbound NFC message");
         }
         return null;
     }

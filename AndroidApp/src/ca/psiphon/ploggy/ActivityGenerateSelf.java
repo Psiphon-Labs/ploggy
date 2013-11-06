@@ -90,10 +90,10 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         if (publicIdentity.mNickname.length() > 0) {
             try {
                 Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
-                mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));        
+                mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
                 return;
             } catch (Utils.ApplicationError e) {
-                // TODO: log
+                Log.addEntry(LOG_TAG, "failed to show self");
             }
         }
         Robohash.setRobohashImage(this, mAvatarImage, false, null);
@@ -170,7 +170,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                 new Date()));
                 finish();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to update self");
             }            
         }
     }
@@ -201,7 +201,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 Log.addEntry(LOG_TAG, "generated Tor hidden service key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
             } catch (Utils.ApplicationError e) {
-                Log.addEntry(LOG_TAG, "key generation failed");
+                Log.addEntry(LOG_TAG, "failed to generate key material");
                 return null;
             }
         }        
@@ -283,7 +283,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         try {
             self = Data.getInstance().getSelf();
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            // Treat as no self
         }
         return self;
     }

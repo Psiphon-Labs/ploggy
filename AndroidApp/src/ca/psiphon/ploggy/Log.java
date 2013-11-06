@@ -125,6 +125,7 @@ public class Log {
             context.startActivity(intent);
         } catch (ActivityNotFoundException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "compose log email failed");
         }
     }
 

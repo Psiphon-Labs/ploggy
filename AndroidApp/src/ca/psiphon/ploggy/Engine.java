@@ -109,7 +109,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             stop();
             start();
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed restart engine after preference change");
         }
     }
 
@@ -163,7 +163,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         try {
             startSharingService();
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed restart sharing service after self updated");
         }                        
     }
 
@@ -200,13 +200,18 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             // implicitly fall back to friends pulling status.
             pushToFriends();
         } catch (Utils.ApplicationError e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, "failed push to friends after self status updated");
         }
     }
     
     @Subscribe
     public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
         schedulePullFriend(addedFriend.mId);
+    }
+    
+    @Subscribe
+    public synchronized void RemovedFriend(Events.RemovedFriend removedFriend) {
+        cancelPullFriend(removedFriend.mId);
     }
     
     private void pushToFriends() throws Utils.ApplicationError {
@@ -234,24 +239,31 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 Json.toJson(selfStatus));
                         data.updateFriendLastSentStatusTimestamp(taskFriendId);
                     } catch (Data.DataNotFoundError e) {
-                        // TODO: ...Deleted; Next pull won't be scheduled
+                        // Friend was deleted while push was enqueued. Ignore error.
                     } catch (Utils.ApplicationError e) {
-                        // TODO: ...?
+                        Log.addEntry(LOG_TAG, "failed to push to friend");
                     }
                 }
             };
             submitTask(task);
         }
     }
+
+    private void cancelPullFriend(String friendId) {
+        // Cancel any existing pull schedule for this friend
+        if (mFriendPullTasks.containsKey(friendId)) {
+            mFriendPullTasks.get(friendId).cancel(false);
+        }
+    }
     
     private void schedulePullFriend(String friendId) {
-        final String taskFriendId = friendId;
+        final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
                 try {
                     Data data = Data.getInstance();
                     Data.Self self = data.getSelf();
-                    Data.Friend friend = data.getFriendById(taskFriendId);
+                    Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "make pull status request to: " + friend.mPublicIdentity.mNickname);
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
@@ -261,23 +273,21 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
                             Protocol.PULL_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    data.updateFriendStatus(taskFriendId, friendStatus);
-                    data.updateFriendLastReceivedStatusTimestamp(taskFriendId);
+                    data.updateFriendStatus(finalFriendId, friendStatus);
+                    data.updateFriendLastReceivedStatusTimestamp(finalFriendId);
                 } catch (Data.DataNotFoundError e) {
-                    // TODO: ...Deleted; Next pull won't be scheduled
+                    // Friend was deleted while pull was enqueued. Ignore error.
+                    // RemovedFriend should eventually cancel schedule.
                 } catch (Utils.ApplicationError e) {
-                    // TODO: ...?
+                    Log.addEntry(LOG_TAG, "failed to pull from friend");
                 }
             }
         };
-        // Cancel any existing pull schedule for this friend
-        if (mFriendPullTasks.containsKey(taskFriendId)) {
-            mFriendPullTasks.get(taskFriendId).cancel(false);
-        }
+        cancelPullFriend(friendId);
         // TODO: scheduleAtFixedRate has backlog issue
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
                 task, 0, Protocol.PULL_PERIOD_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
-        mFriendPullTasks.put(taskFriendId, future);
+        mFriendPullTasks.put(friendId, future);
     }
 
     private void schedulePullFriends() throws Utils.ApplicationError {

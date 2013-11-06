@@ -130,8 +130,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             }
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "failed to serve request");
         } catch (Utils.ApplicationError e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, "failed to serve request");
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }

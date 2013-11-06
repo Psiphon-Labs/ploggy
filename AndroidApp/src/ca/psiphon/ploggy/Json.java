@@ -60,6 +60,8 @@ public class Json {
         }
     }
 
+    // TODO: remove this function if not used
+    /*
     public static <T> ArrayList<T> fromJsonStream(InputStream inputStream, Class<T> type) throws Utils.ApplicationError {
         // Reads succession of JSON objects from a stream. This does *not* expect a well-formed JSON array.
         // Designed to work with the log file, which is constantly appended to.
@@ -78,6 +80,7 @@ public class Json {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
+    */
 
     private static class CustomFieldNamingStrategy implements FieldNamingStrategy {
 

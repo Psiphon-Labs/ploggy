@@ -46,6 +46,7 @@
     <string name="prompt_nfc_push_complete_and_friend_received">Identity beamed to friend. Click Add to remember friend.</string>
     <string name="prompt_nfc_friend_received_without_push_complete">Identity received from friend. Repeat to beam your identity.</string>
     <string name="prompt_nfc_friend_received_and_push_complete">Identity received from friend. Click Add to remember friend.</string>
+    <string name="prompt_add_friend_friend_already_exists">A friend with this identity already exists</string>
     <string name="label_location_details_title">Location Details</string>
     <string name="label_location_details_description">(description)</string>
     <string name="label_location_details_nickname">Nickname:</string>

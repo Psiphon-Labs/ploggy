@@ -95,13 +95,11 @@ public class Robohash {
             Identity.PublicIdentity publicIdentity) {
         if (publicIdentity != null) {
             try {
-                // TODO: cache bitmap
                 imageView.setImageBitmap(Robohash.getRobohash(
                         context, cacheCandidate, publicIdentity.getFingerprint()));
                 return;
             } catch (Utils.ApplicationError e) {
-                // TODO: log
-                // TODO: loss of security if fail over to no image?
+                Log.addEntry(LOG_TAG, "failed to create image");
             }
         }
         imageView.setImageResource(R.drawable.ic_unknown_avatar); 

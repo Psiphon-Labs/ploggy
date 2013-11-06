@@ -304,7 +304,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             try {
                 awaitStarted();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(logTag(), "failed to stop gracefully");
             }
             mStartupThread = null;
             mStartupError = null;
@@ -317,7 +317,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 mControlSocket.close();
             }
         } catch (IOException e) {
-            // TODO: log
+            Log.addEntry(logTag(), e.getMessage());
+            Log.addEntry(logTag(), "failed to stop gracefully");
         }
 
         if (mProcess != null) {
