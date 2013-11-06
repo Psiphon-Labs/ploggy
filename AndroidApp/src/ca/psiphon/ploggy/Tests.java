@@ -146,7 +146,8 @@ public class Tests {
                             selfHiddenServiceKeyMaterial),
                     Identity.makePrivateIdentity(
                             selfX509KeyMaterial,
-                            selfHiddenServiceKeyMaterial));
+                            selfHiddenServiceKeyMaterial),
+                    new Date());
             Log.addEntry(LOG_TAG, "Make friend...");
             String friendNickname = "My Friend";
             X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial();
@@ -158,7 +159,8 @@ public class Tests {
                             friendHiddenServiceKeyMaterial),
                     Identity.makePrivateIdentity(
                             friendX509KeyMaterial,
-                            friendHiddenServiceKeyMaterial));
+                            friendHiddenServiceKeyMaterial),
+                    new Date());
             Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();

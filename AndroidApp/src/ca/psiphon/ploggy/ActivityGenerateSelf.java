@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -165,7 +166,8 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                         mGenerateResult.mHiddenServiceKeyMaterial),
                                 Identity.makePrivateIdentity(
                                         mGenerateResult.mX509KeyMaterial,
-                                        mGenerateResult.mHiddenServiceKeyMaterial)));
+                                        mGenerateResult.mHiddenServiceKeyMaterial),
+                                new Date()));
                 finish();
             } catch (Utils.ApplicationError e) {
                 // TODO: log?

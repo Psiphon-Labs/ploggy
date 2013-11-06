@@ -53,12 +53,15 @@ public class Data {
     public static class Self {
         public final Identity.PublicIdentity mPublicIdentity;
         public final Identity.PrivateIdentity mPrivateIdentity;
+        public final Date mCreatedTimestamp;
 
         public Self(
                 Identity.PublicIdentity publicIdentity,
-                Identity.PrivateIdentity privateIdentity) {
+                Identity.PrivateIdentity privateIdentity,
+                Date createdTimestamp) {
             mPublicIdentity = publicIdentity;
             mPrivateIdentity = privateIdentity;
+            mCreatedTimestamp = createdTimestamp;
         }
     }
     
@@ -186,7 +189,7 @@ public class Data {
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
-        Log.addPersistentEntry(LOG_TAG, "updated self");
+        Log.addEntry(LOG_TAG, "updated self");
         Events.post(new Events.UpdatedSelf());
     }
 
@@ -259,7 +262,7 @@ public class Data {
             newFriends.add(friend);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             mFriends.add(friend);
-            Log.addPersistentEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
+            Log.addEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.AddedFriend(friend.mId));
         }
     }
@@ -344,7 +347,7 @@ public class Data {
             removeFriendHelper(id, newFriends);
             writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
             removeFriendHelper(id, mFriends);
-            Log.addPersistentEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
+            Log.addEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
             Events.post(new Events.RemovedFriend(id));
         }
     }

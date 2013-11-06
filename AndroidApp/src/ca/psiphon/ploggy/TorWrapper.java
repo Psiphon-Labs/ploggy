@@ -252,7 +252,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             ProcessBuilder processBuilder =
                     new ProcessBuilder(
                             mExecutableFile.getAbsolutePath(),
-                            "--hush",
+                            // TEMP: show all Tor output for prototype testing
+                            //"--hush",
                             "-f", mConfigFile.getAbsolutePath());
             processBuilder.environment().put("HOME", mRootDirectory.getAbsolutePath());
             processBuilder.directory(mRootDirectory);

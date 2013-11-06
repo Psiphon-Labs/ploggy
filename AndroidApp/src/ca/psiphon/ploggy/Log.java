@@ -19,14 +19,9 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
-import android.content.Context;
 import android.os.Handler;
 
 /**
@@ -36,10 +31,6 @@ import android.os.Handler;
  * 
  * Maintains a fixed-size queue of recent log entries. Posts events to observers of
  * recent entries using the main UI thread for compatibility with ListView Adapters.
- * 
- * Also maintains a persistent, JSON-format log is for important entries such as
- * added-friend. This persistent log is read back and posted to the recent queue on
- * start up.
  */
 public class Log {
     
@@ -61,7 +52,6 @@ public class Log {
         void onUpdatedRecentEntries();
     }
 
-    private static final String LOG_FILE_NAME = "log";    
     private static final int MAX_RECENT_ENTRIES = 500;
 
     private static ArrayList<Entry> mRecentEntries;
@@ -71,16 +61,20 @@ public class Log {
     // TODO: explicit singleton?
     
     public synchronized static void initialize() {
-        mRecentEntries = readEntriesFromFile();
+        mRecentEntries = new ArrayList<Entry>();
         mHandler = new Handler();
     }
 
-    public synchronized static void addPersistentEntry(String tag, String message) {
-        addEntry(true, tag, message);
-    }
-
     public synchronized static void addEntry(String tag, String message) {
-        addEntry(false, tag, message);
+        if (message == null) {
+            message = "(null)";
+        }
+        
+        Entry entry = new Entry(tag, message);
+
+        // Update the in-memory entry list on the UI thread (also
+        // notifies any ListView adapters subscribed to that list)
+        postAddEntry(entry);
     }
    
     public synchronized static int getRecentEntryCount() {
@@ -101,29 +95,6 @@ public class Log {
         mObservers.remove(observer);
     }
     
-    private static void addEntry(boolean persist, String tag, String message) {
-        if (message == null) {
-            message = "(null)";
-        }
-        
-        Entry entry = new Entry(tag, message);
-
-        if (persist) {
-            try {
-                appendEntryToFile(entry);
-            } catch (IOException e) {
-                // TODO: ...
-            }
-        }
-        
-        // Update the in-memory entry list on the UI thread (also
-        // notifies any ListView adapters subscribed to that list)
-        postAddEntry(entry);
-
-        // TODO: temp
-        android.util.Log.e(tag, message);
-    }
-
     private static void postAddEntry(Entry entry) {
         final Entry finalEntry = entry;
         mHandler.post(
@@ -139,43 +110,5 @@ public class Log {
                     }
                 }
             });
-    }
-    
-    private static ArrayList<Entry> readEntriesFromFile() {
-        FileInputStream inputStream = null;
-        try {
-            Context context = Utils.getApplicationContext();
-            inputStream = context.openFileInput(LOG_FILE_NAME);
-            return Json.fromJsonStream(inputStream, Entry.class);
-        } catch (FileNotFoundException e) {
-            return new ArrayList<Entry>();
-        } catch (Utils.ApplicationError e) {
-            ArrayList<Entry> array = new ArrayList<Entry>();
-            array.add(new Entry(LOG_TAG, "failed to load log file"));
-            return array;
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    // TODO: log (to log view at least)?
-                }
-            }
-        }        
-    }
-    
-    private static void appendEntryToFile(Entry entry) throws IOException {
-        FileOutputStream outputStream = null;
-        try {
-            Context context = Utils.getApplicationContext();
-            outputStream = context.openFileOutput(
-                    LOG_FILE_NAME,
-                    Context.MODE_PRIVATE|Context.MODE_APPEND);
-            outputStream.write(Json.toJson(entry).getBytes());
-        } finally {
-            if (outputStream != null) {
-                outputStream.close();
-            }
-        }        
     }
 }
