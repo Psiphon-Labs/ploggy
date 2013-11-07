@@ -87,17 +87,16 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
 
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
-        if (publicIdentity.mNickname.length() > 0) {
-            try {
+        try {
+            if (publicIdentity.mNickname.length() > 0) {
                 Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
-                mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
-                return;
-            } catch (Utils.ApplicationError e) {
-                Log.addEntry(LOG_TAG, "failed to show self");
+            } else {
+                Robohash.setRobohashImage(this, mAvatarImage, false, null);
             }
+            mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to show self");
         }
-        Robohash.setRobohashImage(this, mAvatarImage, false, null);
-        mFingerprintText.setText("");        
     }
     
     @Override
@@ -123,6 +122,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     private void startGenerating() {
         Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mNicknameEdit.setText("");
+        mFingerprintText.setText("");
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
         mSaveButton.setEnabled(false);
@@ -251,6 +251,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 
                 mSaveButton.setEnabled(mGenerateResult != null && Protocol.isValidNickname(nickname));
 
+                // TODO: use Handler instead of Timer
                 if (mAvatarTimerTask != null) {
                     mAvatarTimerTask.cancel();
                 }
