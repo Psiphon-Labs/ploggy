@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 
 import ca.psiphon.ploggy.widgets.TimePickerPreference;
@@ -59,6 +60,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private static final String LOG_TAG = "Engine";
 
     private Context mContext;
+    private Handler mHandler;
+    private Runnable mRestartTask;
     private SharedPreferences mSharedPreferences;
     private ScheduledExecutorService mTaskThreadPool;
     private HashMap<String, ScheduledFuture<?>> mFriendPullTasks;
@@ -71,13 +74,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public Engine(Context context) {
         Utils.initSecureRandom();
         mContext = context;
-
+        mHandler = new Handler();
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
     }
 
     public synchronized void start() throws Utils.ApplicationError {
+        Log.addEntry(LOG_TAG, "starting...");
         Events.register(this);
         mTaskThreadPool = Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
         mFriendPullTasks = new HashMap<String, ScheduledFuture<?>>();
@@ -86,9 +90,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         startSharingService();
         schedulePullFriends();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
+        Log.addEntry(LOG_TAG, "started");
     }
 
     public synchronized void stop() {
+        Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.unregister(this);
         stopSharingService();
@@ -101,17 +107,30 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             mTaskThreadPool = null;
             mFriendPullTasks = null;
         }
+        Log.addEntry(LOG_TAG, "stopped");
     }
 
     @Override
     public synchronized void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
-        // TODO: slows UI -- this is invoked while the SeekBar preferences are moved
-        try {
-            stop();
-            start();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed restart engine after preference change");
+        // Restart engine to apply changed preferences. Delay restart until user inputs are idle.
+        // (This idle delay is important due to how SeekBarPreferences trigger onSharedPreferenceChanged
+        // continuously as the user slides the seek bar). Delayed restart runs on main thread.
+        if (mRestartTask == null) {
+            mRestartTask = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        stop();
+                        start();
+                    } catch (Utils.ApplicationError e) {
+                        Log.addEntry(LOG_TAG, "failed restart engine after preference change");
+                    }
+                }
+            };
+        } else {
+            mHandler.removeCallbacks(mRestartTask);
         }
+        mHandler.postDelayed(mRestartTask, 5000);
     }
 
     public synchronized void submitTask(Runnable task) {
