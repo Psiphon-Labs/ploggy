@@ -139,9 +139,9 @@ public class ActivityLocationDetails extends Activity {
                 mNicknameText.setText(friend.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
                 if (friendStatus.mStreetAddress.length() > 0) {
-                    mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
-                } else {
                     mStreetAddressText.setText(friendStatus.mStreetAddress);
+                } else {
+                    mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
                 if (selfStatus != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
@@ -176,7 +176,11 @@ public class ActivityLocationDetails extends Activity {
                 Robohash.setRobohashImage(this, mAvatarImage, true, self.mPublicIdentity);
                 mNicknameText.setText(self.mPublicIdentity.mNickname);
                 mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
-                mStreetAddressText.setText(selfStatus.mStreetAddress);
+                if (selfStatus.mStreetAddress.length() > 0) {
+                    mStreetAddressText.setText(selfStatus.mStreetAddress);
+                } else {
+                    mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
+                }
                 mDistanceLabel.setVisibility(View.GONE);
                 mDistanceText.setVisibility(View.GONE);
                 mCoordinatesText.setText(
