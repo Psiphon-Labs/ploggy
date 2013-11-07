@@ -92,8 +92,8 @@ public class Data {
     
     public static class Status {
         public final Date mTimestamp;
-        public final double mLongitude;
         public final double mLatitude;
+        public final double mLongitude;
         public final int mPrecision;
         public final String mStreetAddress;
         // TODO: public final ArrayList<String> mMapTileIds;
@@ -102,13 +102,13 @@ public class Data {
 
         public Status(
                 Date timestamp,
-                double longitude,
                 double latitude,
+                double longitude,
                 int precision,
                 String streetAddress) {
             mTimestamp = timestamp;
-            mLongitude = longitude;
             mLatitude = latitude;
+            mLongitude = longitude;
             mPrecision = precision;
             mStreetAddress = streetAddress;            
         }

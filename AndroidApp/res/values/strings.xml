@@ -65,7 +65,7 @@
     <string name="prompt_location_details_data_not_found">Location details not found</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
-    <string name="preference_use_geocoder_summary">Use 3rd party service to map current longitude/latitude to street address</string>
+    <string name="preference_use_geocoder_summary">Use 3rd party service to map current latitude/longitude to street address</string>
     <string name="preference_limit_location_precision_title">Limit Location Precision</string>
     <string name="preference_limit_location_precision_summary">Reduce the precision of shared location</string>
     <string name="preference_location_precision_title">Location Precision</string>

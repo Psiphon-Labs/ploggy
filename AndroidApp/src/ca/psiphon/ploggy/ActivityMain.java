@@ -317,10 +317,10 @@ public class ActivityMain extends Activity {
                     }
                     if (selfStatus != null) {
                         int distance = Utils.calculateLocationDistanceInMeters(
-                                selfStatus.mLongitude,
                                 selfStatus.mLatitude,
-                                friendStatus.mLongitude,
-                                friendStatus.mLatitude);
+                                selfStatus.mLongitude,
+                                friendStatus.mLatitude,
+                                friendStatus.mLongitude);
                         distanceText.setText(
                                 mContext.getString(R.string.format_friend_list_distance, distance));
                     } else {

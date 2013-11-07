@@ -202,17 +202,13 @@ public class Utils {
     }
     
     public static int calculateLocationDistanceInMeters(
-            double longitudeA,
             double latitudeA,
-            double longitudeB,
-            double latitudeB) {
-        Location locationA = new Location("");
-        locationA.setLongitude(longitudeA);
-        locationA.setLatitude(latitudeA);
-        Location locationB = new Location("");
-        locationB.setLongitude(longitudeA);
-        locationB.setLatitude(latitudeA);
-        return Math.round(locationA.distanceTo(locationB));
+            double longitudeA,
+            double latitudeB,
+            double longitudeB) {
+        float[] results = new float[1];
+        Location.distanceBetween(latitudeA, longitudeA, latitudeB, longitudeB, results);
+        return Math.round(results[0]);
     }
     
     public static String formatSameDayTime(Date date) {

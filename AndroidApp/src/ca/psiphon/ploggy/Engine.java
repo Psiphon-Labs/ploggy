@@ -185,8 +185,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Data.getInstance().updateSelfStatus(
                     new Data.Status(
                             new Date(),
-                            newSelfLocation.mLocation.getLongitude(),
                             newSelfLocation.mLocation.getLatitude(),
+                            newSelfLocation.mLocation.getLongitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),
                             address.toString()));
         } catch (Utils.ApplicationError e) {

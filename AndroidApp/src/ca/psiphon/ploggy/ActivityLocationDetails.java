@@ -145,17 +145,17 @@ public class ActivityLocationDetails extends Activity {
                 }
                 if (selfStatus != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
-                            selfStatus.mLongitude,
                             selfStatus.mLatitude,
-                            friendStatus.mLongitude,
-                            friendStatus.mLatitude);
+                            selfStatus.mLongitude,
+                            friendStatus.mLatitude,
+                            friendStatus.mLongitude);
                     mDistanceText.setText(
                             getString(R.string.format_location_details_distance, distance));
                 } else {
                     mDistanceText.setText(R.string.prompt_unknown_distance);
                 }
                 mCoordinatesText.setText(
-                        getString(R.string.format_location_details_coordinates, friendStatus.mLongitude, friendStatus.mLatitude));
+                        getString(R.string.format_location_details_coordinates, friendStatus.mLatitude, friendStatus.mLongitude));
                 mPrecisionText.setText(
                         getString(R.string.format_location_details_precision, friendStatus.mPrecision));
                 mStatusTimestampText.setText(Utils.formatSameDayTime(friendStatus.mTimestamp));
@@ -184,7 +184,7 @@ public class ActivityLocationDetails extends Activity {
                 mDistanceLabel.setVisibility(View.GONE);
                 mDistanceText.setVisibility(View.GONE);
                 mCoordinatesText.setText(
-                        getString(R.string.format_location_details_coordinates, selfStatus.mLongitude, selfStatus.mLatitude));
+                        getString(R.string.format_location_details_coordinates, selfStatus.mLatitude, selfStatus.mLongitude));
                 mPrecisionText.setText(
                         getString(R.string.format_location_details_precision, selfStatus.mPrecision));
                 mStatusTimestampText.setText(Utils.formatSameDayTime(selfStatus.mTimestamp));

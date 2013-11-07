@@ -63,14 +63,14 @@ public class Tests {
         
         private ExecutorService mThreadPool = Executors.newCachedThreadPool();
         private Date mMockTimestamp;
-        private double mMockLongitude;
         private double mMockLatitude;
+        private double mMockLongitude;
         private String mMockAddress;
 
         MockRequestHandler() {
             mMockTimestamp = new Date();
-            mMockLongitude = Math.random()*100.0 - 50.0;
             mMockLatitude = Math.random()*100.0 - 50.0;
+            mMockLongitude = Math.random()*100.0 - 50.0;
             mMockAddress = "301 Front St W, Toronto, ON M5V 2T6";
         }
         
@@ -86,8 +86,8 @@ public class Tests {
         public Status getMockStatus() {
             return new Status(
                     mMockTimestamp,
-                    mMockLongitude,
                     mMockLatitude,
+                    mMockLongitude,
                     10,
                     mMockAddress);
         }
