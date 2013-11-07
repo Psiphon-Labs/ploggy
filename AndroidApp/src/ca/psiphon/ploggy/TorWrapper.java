@@ -50,6 +50,8 @@ import java.util.Locale;
 import java.util.Scanner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
@@ -142,7 +144,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     public void start() {
         stop();
-        // Performs start sequence asychronously, in a background thread
+        // Performs start sequence asynchronously, in a background thread
         Runnable startTask = new Runnable() {
             public void run() {
                 try {
@@ -152,7 +154,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         startRunServices();
                     }
                 } catch (Utils.ApplicationError e) {
-                    Log.addEntry(LOG_TAG, "failed to start Tor");
+                    Log.addEntry(logTag(), "failed to start Tor");
                     // Save this to throw from awaitStarted
                     mStartupError = e;
                 }
@@ -163,13 +165,15 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     public void awaitStarted() throws Utils.ApplicationError {
-        try {
-            mStartupThread.join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        if (mStartupError != null) {
-            throw mStartupError;
+        if (mStartupThread != null) {
+            try {
+                mStartupThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            if (mStartupError != null) {
+                throw mStartupError;
+            }
         }
     }
     
@@ -236,6 +240,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     
     private void startDaemon(boolean awaitFirstCircuit) throws Utils.ApplicationError, IOException, InterruptedException {
         try {
+            mDataDirectory.mkdirs();
             mCircuitEstablishedLatch = new CountDownLatch(1);
             mControlAuthCookieFile.delete();
             Utils.FileInitializedObserver controlInitializedObserver =
@@ -300,7 +305,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             try {
                 awaitStarted();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(logTag(), "failed to stop gracefully");
             }
             mStartupThread = null;
             mStartupError = null;
@@ -313,7 +318,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 mControlSocket.close();
             }
         } catch (IOException e) {
-            // TODO: log
+            Log.addEntry(logTag(), e.getMessage());
+            Log.addEntry(logTag(), "failed to stop gracefully");
         }
 
         if (mProcess != null) {
@@ -467,11 +473,15 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     @Override
     public void unrecognized(String type, String message) {
         if (type.equals("STATUS_CLIENT") && message.equals("NOTICE CIRCUIT_ESTABLISHED")) {
+            Log.addEntry(logTag(), "circuit established");
             mCircuitEstablishedLatch.countDown();
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
-            // TODO: parse and display components (https://gitweb.torproject.org/torspec.git/blob/HEAD:/control-spec.txt)
-            Log.addEntry(logTag(), message);
+            Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");
+            Matcher matcher = pattern.matcher(message);
+            if (matcher.find() && matcher.groupCount() == 2) {
+                Log.addEntry(logTag(), "bootstrap " + matcher.group(1) + "%: " + matcher.group(2));
+            }
         }
     }
 }

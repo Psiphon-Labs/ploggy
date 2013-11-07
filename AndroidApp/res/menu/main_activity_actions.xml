@@ -23,4 +23,10 @@
           android:icon="@drawable/ic_action_run_tests"
           android:title="@string/action_run_tests"
           android:showAsAction="ifRoom|withText" />
+    <item android:id="@+id/action_email_log"
+          android:title="@string/action_email_log"
+          android:showAsAction="ifRoom|withText" />
+    <item android:id="@+id/action_quit"
+          android:title="@string/action_quit"
+          android:showAsAction="ifRoom|withText" />
 </menu>

@@ -19,30 +19,32 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Environment;
+import android.os.Handler;
 
 /**
  * Logging facility.
  *
- * A persistent log is maintained, for important events such as added-friend. Also
- * maintains an insensitive log, omitting PII, that could be sent, with user constent
- * as diagnostic feedback.
- * Supports the log view in the main activity: supports reading back older logs
- * from disk, as well as posting a bus event when a log is added.
+ * TODO: consider using Log4J or Logback (http://tony19.github.io/logback-android/)
+ * 
+ * Maintains a fixed-size queue of recent log entries. Posts events to observers of
+ * recent entries using the main UI thread for compatibility with ListView Adapters.
  */
 public class Log {
     
     private static final String LOG_TAG = "Log";
 
-    private static final String LOG_FILE_NAME = "log";    
-    
     public static class Entry {
         public final Date mTimestamp;
         public final String mTag;
@@ -54,68 +56,94 @@ public class Log {
             mMessage = message;
         }
     }
+    
+    public interface Observer {
+        void onUpdatedRecentEntries();
+    }
 
-    public static void addEntry(String tag, String message) {
+    private static final int MAX_RECENT_ENTRIES = 500;
+
+    private static ArrayList<Entry> mRecentEntries;
+    private static ArrayList<Observer> mObservers;
+    private static Handler mHandler;
+    
+    // TODO: explicit singleton?
+    
+    public synchronized static void initialize() {
+        mRecentEntries = new ArrayList<Entry>();
+        mObservers = new ArrayList<Observer>();
+        mHandler = new Handler();
+    }
+
+    public synchronized static void addEntry(String tag, String message) {
         if (message == null) {
             message = "(null)";
         }
         
         Entry entry = new Entry(tag, message);
 
-        // TODO: consider using http://tony19.github.io/logback-android/
-        // TODO: only persist important entries -- added friend, etc.
-        //       maintain two files:
-        //       1. permanent logs (with sensitive info)
-        //       2. session logs (with no sensitive info -- can be sent as diagnostics)
-        //       session log rotates (or use ring buffer structure)
-        //       readEntries merges both files
-        try {
-            appendEntryToFile(entry);
-        } catch (IOException e) {
-            // TODO: ...
-        }
-        
-        Events.post(new Events.LoggedEntry(entry));
-
-        // TODO: temp
-        android.util.Log.e(tag, message);
+        // Update the in-memory entry list on the UI thread (also
+        // notifies any ListView adapters subscribed to that list)
+        postAddEntry(entry);
+    }
+   
+    public synchronized static int getRecentEntryCount() {
+        return mRecentEntries.size();
     }
 
-    public synchronized static ArrayList<Entry> readEntries() {
-        FileInputStream inputStream = null;
-        try {
-            Context context = Utils.getApplicationContext();
-            inputStream = context.openFileInput(LOG_FILE_NAME);
-            return Json.fromJsonStream(inputStream, Entry.class);
-        } catch (FileNotFoundException e) {
-            return new ArrayList<Entry>();
-        } catch (Utils.ApplicationError e) {
-            ArrayList<Entry> array = new ArrayList<Entry>();
-            array.add(new Entry(LOG_TAG, "failed to load log file"));
-            return array;
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    // TODO: log (to log view at least)?
-                }
-            }
-        }        
+    public synchronized static Entry getRecentEntry(int index) {
+        return mRecentEntries.get(index);
     }
     
-    private synchronized static void appendEntryToFile(Entry entry) throws IOException {
-        FileOutputStream outputStream = null;
+    public synchronized static void registerObserver(Observer observer) {
+        if (!mObservers.contains(observer)) {
+            mObservers.add(observer);
+        }
+    }
+    
+    public synchronized static void unregisterObserver(Observer observer) {
+        mObservers.remove(observer);
+    }
+
+    public synchronized static void composeEmail(Context context) {
+        // TODO: temporary feature for debugging prototype -- will compromise unlinkability
         try {
-            Context context = Utils.getApplicationContext();
-            outputStream = context.openFileOutput(
-                    LOG_FILE_NAME,
-                    Context.MODE_PRIVATE|Context.MODE_APPEND);
-            outputStream.write(Json.toJson(entry).getBytes());
-        } finally {
-            if (outputStream != null) {
-                outputStream.close();
+            StringBuilder body = new StringBuilder();
+            for (Entry entry : mRecentEntries) {
+                body.append(entry.mTimestamp);
+                body.append(" ");
+                body.append(entry.mTag);
+                body.append(": ");
+                body.append(entry.mMessage);
+                body.append("\n");
             }
-        }        
+            
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("message/rfc822");
+            intent.putExtra(Intent.EXTRA_EMAIL, new String[]{"feedback+ploggy@psiphon.ca"});
+            intent.putExtra(Intent.EXTRA_SUBJECT, "Ploggy Logs");
+            intent.putExtra(Intent.EXTRA_TEXT, body.toString());
+            context.startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "compose log email failed");
+        }
+    }
+
+    private static void postAddEntry(Entry entry) {
+        final Entry finalEntry = entry;
+        mHandler.post(
+            new Runnable() {
+                @Override
+                public void run() {
+                    mRecentEntries.add(finalEntry);
+                    while (mRecentEntries.size() > MAX_RECENT_ENTRIES) {
+                        mRecentEntries.remove(0);
+                    }
+                    for (Observer observer : mObservers) {
+                        observer.onUpdatedRecentEntries();
+                    }
+                }
+            });
     }
 }

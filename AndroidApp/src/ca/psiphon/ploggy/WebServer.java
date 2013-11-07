@@ -44,6 +44,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     private static final String LOG_TAG = "Web Server";
 
+    private static final int READ_TIMEOUT_MILLISECONDS = 60000;
+
     public interface RequestHandler {
         public void submitTask(Runnable task);
         public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
@@ -53,7 +55,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     private RequestHandler mRequestHandler;
     private X509.KeyMaterial mX509KeyMaterial;
     private ArrayList<String> mFriendCertificates;
-	
+    
     public WebServer(
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,
@@ -79,8 +81,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     }
 
     @Override
+    protected int getReadTimeout() {
+        return READ_TIMEOUT_MILLISECONDS;
+    }
+
+    @Override
     public void exec(Runnable webRequestTask) {
-        // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables        
+        // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables
+        Log.addEntry(LOG_TAG, "got web request");
         mRequestHandler.submitTask(webRequestTask);
     }
 
@@ -109,6 +117,10 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             Method method = session.getMethod();
             if (Method.GET.equals(method) && uri.equals(Protocol.PULL_STATUS_REQUEST_PATH)) {
                 Data.Status status = mRequestHandler.handlePullStatusRequest(certificate);
+                if (status == null) {
+                    // TODO: not currently sharing; serve old status?
+                    return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
+                }
                 return new Response(NanoHTTPD.Response.Status.OK, Protocol.RESPONSE_MIME_TYPE, Json.toJson(status));
             } else if (Method.POST.equals(method) && uri.equals(Protocol.PUSH_STATUS_REQUEST_PATH)) {
                 String body = Utils.readInputStreamToString(session.getInputStream());
@@ -118,8 +130,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             }
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "failed to serve request");
         } catch (Utils.ApplicationError e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, "failed to serve request");
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }

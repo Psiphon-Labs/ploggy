@@ -27,13 +27,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.security.SecureRandom;
-import java.text.SimpleDateFormat;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import android.content.Context;
 import android.location.Location;
 import android.os.FileObserver;
+import android.text.format.DateUtils;
 import android.util.Base64;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
@@ -56,7 +54,9 @@ public class Utils {
         private static final long serialVersionUID = -3656367025650685613L;
 
         public ApplicationError(String tag, String message) {
-            Log.addEntry(tag, message);
+            if (tag != null) {
+                Log.addEntry(tag, message);
+            }
         }
 
         public ApplicationError(String tag, Exception e) {
@@ -175,23 +175,6 @@ public class Utils {
         new LinuxSecureRandom();
     }
     
-    public static String getRandomHexString(int bits) {
-        byte[] buffer = new byte[bits/4];
-        new SecureRandom().nextBytes(buffer);
-        return encodeHex(buffer);
-    }
-    
-    // From: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
-    public static String encodeHex(byte[] bytes) {
-        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-        char[] hexChars = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++)  {
-            hexChars[i*2] = hexArray[(bytes[i] & 0xFF)/16];
-            hexChars[i*2 + 1] = hexArray[(bytes[i] & 0xFF)%16];
-        }
-        return new String(hexChars);
-    }
-
     public static String encodeBase64(byte[] data) {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
@@ -204,6 +187,38 @@ public class Utils {
         }
     }
 
+    public static String formatFingerprint(byte[] fingerprintBytes) {
+        // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
+        char[] hexChars = new char[fingerprintBytes.length * 3 - 1];
+        for (int i = 0; i < fingerprintBytes.length; i++)  {
+            hexChars[i*3] = hexArray[(fingerprintBytes[i] & 0xFF)/16];
+            hexChars[i*3 + 1] = hexArray[(fingerprintBytes[i] & 0xFF)%16];
+            if (i < fingerprintBytes.length - 1) {
+                hexChars[i*3 + 2] = ':';
+            }
+        }
+        return new String(hexChars);
+    }
+    
+    public static int calculateLocationDistanceInMeters(
+            double latitudeA,
+            double longitudeA,
+            double latitudeB,
+            double longitudeB) {
+        float[] results = new float[1];
+        Location.distanceBetween(latitudeA, longitudeA, latitudeB, longitudeB, results);
+        return Math.round(results[0]);
+    }
+    
+    public static String formatSameDayTime(Date date) {
+        return DateUtils.formatSameDayTime(
+                date.getTime(),
+                (new Date()).getTime(),
+                DateFormat.DEFAULT,
+                DateFormat.DEFAULT).toString();
+    }
+    
     public static void shutdownExecutorService(ExecutorService threadPool) {
         try
         {
@@ -219,37 +234,6 @@ public class Utils {
         }
     }
 
-    public static int calculateLocationDistanceInMeters(
-            double longitudeA,
-            double latitudeA,
-            double longitudeB,
-            double latitudeB) {
-        Location locationA = new Location("");
-        locationA.setLongitude(longitudeA);
-        locationA.setLatitude(latitudeA);
-        Location locationB = new Location("");
-        locationB.setLongitude(longitudeA);
-        locationB.setLatitude(latitudeA);
-        return Math.round(locationA.distanceTo(locationB));
-    }
-    
-    public static String getISO8601String(Date date) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US);
-        sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String dateStr = sdf.format(date);
-        dateStr += "Z";
-        return dateStr;
-    }
-
-    public static Date parseISO8601Date(String date) throws Utils.ApplicationError {
-        // TODO: implement
-        return null;
-    }
-
-    public static String getCurrentTimestamp() {
-        return getISO8601String(new Date());
-    }
-    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {

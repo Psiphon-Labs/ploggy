@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Date;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -83,15 +84,16 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                 String payload = Utils.readInputStreamToString(inputStream);
                 Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
                 Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
                 // TODO: display validation error?
                 mReceivedFriend = friend;
                 showFriend();                
             }
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
+            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
         } finally {
             if (inputStream != null) {
                 try {
@@ -106,7 +108,7 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
     // TODO: per-persona filenames?
     private static final String EMAIL_ATTACHMENT_FILENAME = "identity.ploggy";
 
-    public static void sendAttachment(Context context) {
+    public static void composeEmail(Context context) {
         final Context finalContext = context;
         new AlertDialog.Builder(finalContext)
             .setTitle(finalContext.getString(R.string.label_email_self_title))
@@ -131,10 +133,12 @@ public class ActivityAddFriendByEmail extends ActivityAddFriend {
                                 finalContext.startActivity(intent);
                             } catch (IOException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             } catch (Utils.ApplicationError e) {
-                                // TODO: log?
+                                Log.addEntry(LOG_TAG, "failed to compose email with .ploggy attachment");
                             }
                         }
                     })

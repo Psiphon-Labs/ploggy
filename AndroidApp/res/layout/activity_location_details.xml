@@ -168,44 +168,84 @@
             android:layout_below="@+id/location_details_precision_label"
             android:typeface="sans"
             android:textSize="12dip" />
-
+            
         <TextView
-            android:id="@+id/location_details_last_received_timestamp_label"
+            android:id="@+id/location_details_status_timestamp_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/location_details_avatar"
             android:layout_below="@+id/location_details_precision_text"
-            android:text="@string/label_location_details_last_received_timestamp"
+            android:text="@string/label_location_details_status_timestamp"
             android:typeface="sans"
             android:textSize="12dip"
             android:textStyle="bold" />
  
         <TextView
-            android:id="@+id/location_details_last_received_timestamp_text"
+            android:id="@+id/location_details_status_timestamp_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/location_details_avatar"
-            android:layout_below="@+id/location_details_last_received_timestamp_label"
+            android:layout_below="@+id/location_details_status_timestamp_label"
             android:typeface="sans"
             android:textSize="12dip" />
 
         <TextView
-            android:id="@+id/location_details_last_sent_timestamp_label"
+            android:id="@+id/location_details_last_received_status_timestamp_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/location_details_avatar"
-            android:layout_below="@+id/location_details_last_received_timestamp_text"
-            android:text="@string/label_location_details_last_sent_timestamp"
+            android:layout_below="@+id/location_details_status_timestamp_text"
+            android:text="@string/label_location_details_last_received_status_timestamp"
             android:typeface="sans"
             android:textSize="12dip"
             android:textStyle="bold" />
  
         <TextView
-            android:id="@+id/location_details_last_sent_timestamp_text"
+            android:id="@+id/location_details_last_received_status_timestamp_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/location_details_avatar"
-            android:layout_below="@+id/location_details_last_sent_timestamp_label"
+            android:layout_below="@+id/location_details_last_received_status_timestamp_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_last_sent_status_timestamp_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_received_status_timestamp_text"
+            android:text="@string/label_location_details_last_sent_status_timestamp"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+ 
+        <TextView
+            android:id="@+id/location_details_last_sent_status_timestamp_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_sent_status_timestamp_label"
+            android:typeface="sans"
+            android:textSize="12dip" />
+
+        <TextView
+            android:id="@+id/location_details_added_timestamp_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_last_sent_status_timestamp_text"
+            android:text="@string/label_location_details_added_timestamp"
+            android:typeface="sans"
+            android:textSize="12dip"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/location_details_added_timestamp_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/location_details_avatar"
+            android:layout_below="@+id/location_details_added_timestamp_label"
             android:typeface="sans"
             android:textSize="12dip" />
 
@@ -214,18 +254,7 @@
             android:src="@drawable/sample_map"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@+id/location_details_last_sent_timestamp_text" />
-
-        <Button
-            android:id="@+id/location_details_delete_friend_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_toRightOf="@+id/location_details_avatar"
-            android:layout_below="@+id/location_details_map_image"
-            android:layout_alignParentRight="true"
-            android:text="@string/button_location_details_delete_friend"
-            android:typeface="sans"
-            android:textSize="16dip" />
+            android:layout_below="@+id/location_details_last_sent_status_timestamp_text" />
 
     </RelativeLayout>
 

@@ -25,12 +25,15 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 import android.app.Activity;
 
 /**
  * Common user interface for adding friends.
  */
 public class ActivityAddFriend extends Activity implements View.OnClickListener {
+
+    private static final String LOG_TAG = "Add Friend";
 
     private ImageView mSelfAvatarImage;
     private TextView mSelfNicknameText;
@@ -73,10 +76,10 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
             Data.Self self = Data.getInstance().getSelf();
             Robohash.setRobohashImage(this, mSelfAvatarImage, true, self.mPublicIdentity);
             mSelfNicknameText.setText(self.mPublicIdentity.mNickname);
-            mSelfFingerprintText.setText(Utils.encodeHex(self.mPublicIdentity.getFingerprint()));        
+            mSelfFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
             return;
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to show self");
         }
         Robohash.setRobohashImage(this, mSelfAvatarImage, true, null);
         mSelfNicknameText.setText("");
@@ -88,12 +91,12 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
             try {
                 Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);        
-                mFriendFingerprintText.setText(Utils.encodeHex(mReceivedFriend.mPublicIdentity.getFingerprint()));        
+                mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));
                 mFriendAddButton.setEnabled(mSelfPushComplete);
                 mFriendSectionLayout.setVisibility(View.VISIBLE);
                 return;
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to show friend");
             }
         }
         mFriendAddButton.setEnabled(false);
@@ -114,10 +117,12 @@ public class ActivityAddFriend extends Activity implements View.OnClickListener 
                 return;
             }
             try {
-                Data.getInstance().insertOrUpdateFriend(mReceivedFriend);
+                Data.getInstance().addFriend(mReceivedFriend);
                 finish();
+            } catch (Data.DataAlreadyExistsError e) {
+                Toast.makeText(this, R.string.prompt_add_friend_friend_already_exists, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to add friend");
             }            
         }
     }

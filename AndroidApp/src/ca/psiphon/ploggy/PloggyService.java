@@ -23,7 +23,6 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.IBinder;
 
 /**
@@ -31,6 +30,8 @@ import android.os.IBinder;
  */
 public class PloggyService extends Service {
     
+    private static final String LOG_TAG = "Service";
+
     Engine mEngine;
 
     public PloggyService() {
@@ -47,7 +48,9 @@ public class PloggyService extends Service {
             mEngine = new Engine(this);
             mEngine.start();
         } catch (Utils.ApplicationError e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, "failed to start Engine");
+            stopSelf();
+            return;
         }
         doForeground();
     }

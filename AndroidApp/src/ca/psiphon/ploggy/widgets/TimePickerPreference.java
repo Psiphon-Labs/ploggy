@@ -94,8 +94,9 @@ public class TimePickerPreference extends DialogPreference implements
                 tp = new TimePicker(getContext());
                 tp.setOnTimeChangedListener(this);
 
-                int h = getHour();
-                int m = getMinute();
+                String value = getPersistedString(this.defaultValue);
+                int h = getHour(value);
+                int m = getMinute(value);
                 if (h >= 0 && m >= 0) {
                         tp.setCurrentHour(h);
                         tp.setCurrentMinute(m);
@@ -150,13 +151,12 @@ public class TimePickerPreference extends DialogPreference implements
          *
          * @return The hour value, will be 0 to 23 (inclusive)
          */
-        private int getHour() {
-                String time = getPersistedString(this.defaultValue);
-                if (time == null || !time.matches(VALIDATION_EXPRESSION)) {
+        public static int getHour(String value) {
+                if (value == null || !value.matches(VALIDATION_EXPRESSION)) {
                         return -1;
                 }
 
-                return Integer.valueOf(time.split(":|/")[0]);
+                return Integer.valueOf(value.split(":|/")[0]);
         }
 
         /**
@@ -164,12 +164,11 @@ public class TimePickerPreference extends DialogPreference implements
          *
          * @return the minute value, will be 0 to 59 (inclusive)
          */
-        private int getMinute() {
-                String time = getPersistedString(this.defaultValue);
-                if (time == null || !time.matches(VALIDATION_EXPRESSION)) {
+        public static int getMinute(String value) {
+                if (value == null || !value.matches(VALIDATION_EXPRESSION)) {
                         return -1;
                 }
 
-                return Integer.valueOf(time.split(":|/")[1]);
+                return Integer.valueOf(value.split(":|/")[1]);
         }
 }

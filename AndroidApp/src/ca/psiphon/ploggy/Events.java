@@ -38,14 +38,14 @@ public class Events {
     private static final String LOG_TAG = "Events";
 
     // TODO: final?
-	private static Bus mBus;
-	private static Handler mHandler;
+    private static Bus mBus;
+    private static Handler mHandler;
 
-	public static void initialize() {
-	    mBus = new Bus(ThreadEnforcer.MAIN);
-	    mHandler = new Handler();
-	}
-	
+    public static void initialize() {
+        mBus = new Bus(ThreadEnforcer.MAIN);
+        mHandler = new Handler();
+    }
+    
     public static void register(Object object) {
         mBus.register(object);
     }
@@ -87,6 +87,14 @@ public class Events {
         }
     }
 
+    public static class AddedFriend  {
+        public final String mId;
+
+        public AddedFriend(String id) {
+            mId = id;
+        }
+    }
+
     public static class UpdatedFriend  {
         public final String mId;
 
@@ -108,14 +116,6 @@ public class Events {
 
         public RemovedFriend(String id) {
             mId = id;
-        }
-    }
-
-    public static class LoggedEntry {
-        Log.Entry mEntry;
-
-        public LoggedEntry(Log.Entry entry) {
-            mEntry = entry;
         }
     }
 }

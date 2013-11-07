@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
+
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
@@ -45,6 +47,8 @@ import android.content.IntentFilter;
  * this will be launched if Ploggy isn't in the foreground.
  */
 public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
+
+    private static final String LOG_TAG = "Add Friend By NFC";
 
     private static final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
     private static final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
@@ -76,7 +80,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
         try {
             intentFilter.addDataType(NFC_MIME_TYPE);
         } catch (IntentFilter.MalformedMimeTypeException e) {
-            // TODO: log
+            Log.addEntry(LOG_TAG, e.getMessage());
             return;
         }
         mNfcAdapter.enableForegroundDispatch(
@@ -114,7 +118,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
             try {
                 Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
                 Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
                 // TODO: display validation error?
                 mReceivedFriend = friend;
                 showFriend();
@@ -122,7 +126,7 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
                 int promptId = mSelfPushComplete ? R.string.prompt_nfc_friend_received_and_push_complete : R.string.prompt_nfc_friend_received_without_push_complete;
                 Toast.makeText(this, promptId, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
             }
         }
     }
@@ -132,11 +136,11 @@ public class ActivityAddFriendByNfc extends ActivityAddFriend implements NfcAdap
         try {
             String payload = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
             return new NdefMessage(
-            		new NdefRecord[] {
-            		        NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
-            				NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
+                    new NdefRecord[] {
+                            NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
+                            NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            Log.addEntry(LOG_TAG, "failed to create outbound NFC message");
         }
         return null;
     }

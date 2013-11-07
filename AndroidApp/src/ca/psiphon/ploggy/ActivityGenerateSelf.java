@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -46,6 +47,8 @@ import android.content.Intent;
  * after brief pauses in typing.
  */
 public class ActivityGenerateSelf extends Activity implements View.OnClickListener {
+    
+    private static final String LOG_TAG = "Generate Self";
 
     private ImageView mAvatarImage;
     private EditText mNicknameEdit;
@@ -84,17 +87,16 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     }
 
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
-        if (publicIdentity.mNickname.length() > 0) {
-            try {
+        try {
+            if (publicIdentity.mNickname.length() > 0) {
                 Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
-                mFingerprintText.setText(Utils.encodeHex(publicIdentity.getFingerprint()));        
-                return;
-            } catch (Utils.ApplicationError e) {
-                // TODO: log
+            } else {
+                Robohash.setRobohashImage(this, mAvatarImage, false, null);
             }
+            mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to show self");
         }
-        Robohash.setRobohashImage(this, mAvatarImage, false, null);
-        mFingerprintText.setText("");        
     }
     
     @Override
@@ -120,6 +122,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
     private void startGenerating() {
         Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mNicknameEdit.setText("");
+        mFingerprintText.setText("");
         mEditButton.setEnabled(false);
         mEditButton.setVisibility(View.GONE);
         mSaveButton.setEnabled(false);
@@ -163,10 +166,11 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                         mGenerateResult.mHiddenServiceKeyMaterial),
                                 Identity.makePrivateIdentity(
                                         mGenerateResult.mX509KeyMaterial,
-                                        mGenerateResult.mHiddenServiceKeyMaterial)));
+                                        mGenerateResult.mHiddenServiceKeyMaterial),
+                                new Date()));
                 finish();
             } catch (Utils.ApplicationError e) {
-                // TODO: log?
+                Log.addEntry(LOG_TAG, "failed to update self");
             }            
         }
     }
@@ -189,16 +193,17 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             try {
                 // TODO: possible to check isCancelled within the X509 key generation?
                 X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
+                Log.addEntry(LOG_TAG, "generated X.509 key material");
                 if (isCancelled()) {
                     return null;
                 }
                 HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                Log.addEntry(LOG_TAG, "generated Tor hidden service key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
             } catch (Utils.ApplicationError e) {
-                // TODO: log
-                // TODO: can't dismiss Activity if can't generate initial self key material...?
+                Log.addEntry(LOG_TAG, "failed to generate key material");
+                return null;
             }
-            return null;
         }        
 
         @Override
@@ -211,7 +216,11 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
             if (mProgressDialog.isShowing()) {
                 mProgressDialog.dismiss();
             }
-            if (result != null) {
+            if (result == null) {
+                // Failed, so dismiss the activity.
+                // For now, this will simply restart this activity.
+                finish();
+            } else {
                 mGenerateResult = result;
                 // Display fingerprint/avatar for blank nickname
                 showAvatarAndFingerprint(
@@ -242,6 +251,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                 
                 mSaveButton.setEnabled(mGenerateResult != null && Protocol.isValidNickname(nickname));
 
+                // TODO: use Handler instead of Timer
                 if (mAvatarTimerTask != null) {
                     mAvatarTimerTask.cancel();
                 }
@@ -274,7 +284,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         try {
             self = Data.getInstance().getSelf();
         } catch (Utils.ApplicationError e) {
-            // TODO: log?
+            // Treat as no self
         }
         return self;
     }

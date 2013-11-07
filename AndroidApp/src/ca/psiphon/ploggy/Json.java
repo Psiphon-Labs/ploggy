@@ -22,16 +22,14 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.lang.reflect.Field;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collection;
 
 import com.google.gson.FieldNamingStrategy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 
@@ -46,10 +44,12 @@ public class Json {
     private static final String LOG_TAG = "Json";
 
     private static final Gson mSerializer =
-            new GsonBuilder().setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
+            new GsonBuilder().
+                    setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").
+                    setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
     
     public static String toJson(Object object) {
-    	return mSerializer.toJson(object);
+        return mSerializer.toJson(object);
     }
 
     public static <T> T fromJson(String json, Class<T> type) throws Utils.ApplicationError {
@@ -60,15 +60,8 @@ public class Json {
         }
     }
 
-    public static <T> ArrayList<T> fromJsonArray(String json, Class<T> type) throws Utils.ApplicationError {
-        try {
-            Type collectionType = new TypeToken<Collection<T>>(){}.getType();
-            return mSerializer.fromJson(json, collectionType);
-        } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
-    }
-
+    // TODO: remove this function if not used
+    /*
     public static <T> ArrayList<T> fromJsonStream(InputStream inputStream, Class<T> type) throws Utils.ApplicationError {
         // Reads succession of JSON objects from a stream. This does *not* expect a well-formed JSON array.
         // Designed to work with the log file, which is constantly appended to.
@@ -87,6 +80,7 @@ public class Json {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
+    */
 
     private static class CustomFieldNamingStrategy implements FieldNamingStrategy {
 

@@ -74,11 +74,6 @@ public class LocationMonitor implements android.location.LocationListener {
         mHandler.post(mStopLocationUpdatesTask);
     }
 
-    public void restart() throws Utils.ApplicationError {
-        stop();
-        start();
-    }
-
     private void initRunnables() {
         final LocationMonitor finalLocationMonitor = this; 
 
@@ -123,14 +118,14 @@ public class LocationMonitor implements android.location.LocationListener {
             public void run() {
                 try {
                     LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-                    locationManager.removeUpdates(finalLocationMonitor);        
-    
+                    locationManager.removeUpdates(finalLocationMonitor);
+                    
                     reportLocation();
     
                     // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period
                     mHandler.postDelayed(
                             mStartLocationFixTask,
-                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationUpdateTimePeriodInMinutes));
+                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationFixFrequencyInMinutes));
                 } catch (Utils.ApplicationError e) {
                     Log.addEntry(LOG_TAG, "finish location fix failed");
                 }
@@ -147,45 +142,39 @@ public class LocationMonitor implements android.location.LocationListener {
     }
 
     public void reportLocation() throws Utils.ApplicationError {
-    	if (mCurrentLocation == null) {
-    		return;
-    	}
+        if (mCurrentLocation == null) {
+            return;
+        }
 
-    	if (mLastReportedLocation != null &&
-    		mLastReportedLocation.distanceTo(mCurrentLocation)
-    			<= mEngine.getIntPreference(R.string.preferenceLocationSharingDistanceThresholdInMeters)) {
-    		return;
-    	}
+        mLastReportedLocation = mCurrentLocation;
 
-		mLastReportedLocation = mCurrentLocation;
-
-    	if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
-    	    // Run a background task to map and reverse geocode the location
+        if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
+            // Run a background task to map and reverse geocode the location
             Runnable task = new Runnable() {
                 public void run() {
                     Geocoder geocoder = new Geocoder(mEngine.getContext());
                     List<Address> addresses = null;
-					try {
-						// TODO: Google terms of service prohibit use of this data with non-Google maps.
-					    //       In any case, all will be replaced with Open Street Map (geocoding and maps)
-						addresses = geocoder.getFromLocation(
-								mLastReportedLocation.getLatitude(),
-								mLastReportedLocation.getLongitude(),
-								1);
-					} catch (IOException e) {
-					    Log.addEntry(LOG_TAG, "failed reverse geocode");
+                    try {
+                        // TODO: Google terms of service prohibit use of this data with non-Google maps.
+                        //       In any case, all will be replaced with Open Street Map (geocoding and maps)
+                        addresses = geocoder.getFromLocation(
+                                mLastReportedLocation.getLatitude(),
+                                mLastReportedLocation.getLongitude(),
+                                1);
+                    } catch (IOException e) {
+                        Log.addEntry(LOG_TAG, "reverse geocode failed");
                     }
-					
-					// TODO: get map					
-					Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
-					Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
+                    
+                    // TODO: get map                    
+                    Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
+                    Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
             };
             mEngine.submitTask(task);
-    		
-    	} else {
-    		Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
-    	}
+            
+        } else {
+            Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+        }
     }
 
     @Override
@@ -195,38 +184,38 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onProviderDisabled(String provider) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        restart();
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        restart();
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-    	try {
-    		restart();
-    	} catch (Utils.ApplicationError e) {
-    	}
+        restart();
     }
 
-    protected void updateCurrentLocation(Location location) {
+    private void restart() {
+        try {
+            stop();
+            start();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to restart");
+        }
+    }
+
+    private void updateCurrentLocation(Location location) {
         if (location != null) {
             if (isBetterLocation(location, mCurrentLocation)) {
-            	mCurrentLocation = location;
+                mCurrentLocation = location;
             }
         }
     }
     
     // From: http://developer.android.com/guide/topics/location/strategies.html
-    protected boolean isBetterLocation(Location location, Location currentBestLocation) {
+    private boolean isBetterLocation(Location location, Location currentBestLocation) {
 
         final int TWO_MINUTES = 1000 * 60 * 2;
 
