@@ -226,7 +226,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     @Subscribe
     public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
-        schedulePullFriend(addedFriend.mId);
+        try {
+            schedulePullFriend(addedFriend.mId);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to schedule pull for added friend");
+        }
     }
     
     @Subscribe
@@ -276,7 +280,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
     
-    private void schedulePullFriend(String friendId) {
+    private void schedulePullFriend(String friendId) throws Utils.ApplicationError {
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
@@ -306,7 +310,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         cancelPullFriend(friendId);
         // TODO: scheduleAtFixedRate has backlog issue
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
-                task, 0, Protocol.PULL_PERIOD_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
+                task, 0, getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000, TimeUnit.MILLISECONDS);
         mFriendPullTasks.put(friendId, future);
     }
 

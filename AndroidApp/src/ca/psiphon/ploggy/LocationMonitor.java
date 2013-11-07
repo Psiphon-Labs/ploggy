@@ -125,7 +125,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period
                     mHandler.postDelayed(
                             mStartLocationFixTask,
-                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationUpdateTimePeriodInMinutes));
+                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationFixFrequencyInMinutes));
                 } catch (Utils.ApplicationError e) {
                     Log.addEntry(LOG_TAG, "finish location fix failed");
                 }
@@ -143,12 +143,6 @@ public class LocationMonitor implements android.location.LocationListener {
 
     public void reportLocation() throws Utils.ApplicationError {
         if (mCurrentLocation == null) {
-            return;
-        }
-
-        if (mLastReportedLocation != null &&
-            mLastReportedLocation.distanceTo(mCurrentLocation)
-                <= mEngine.getIntPreference(R.string.preferenceLocationSharingDistanceThresholdInMeters)) {
             return;
         }
 

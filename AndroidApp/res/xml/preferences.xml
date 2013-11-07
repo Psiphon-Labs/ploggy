@@ -94,25 +94,15 @@
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preferences_battery_saver_level_units"/>
         <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="@string/preferenceLocationUpdateTimePeriodInMinutes"
+            android:key="@string/preferenceLocationFixFrequencyInMinutes"
             android:dependency="preferenceAutomaticLocationSharing"           
-            android:title="@string/preference_location_sharing_time_frequency_title"
-            android:summary="@string/preference_location_sharing_time_frequency_summary"
+            android:title="@string/preference_location_fix_frequency_title"
+            android:summary="@string/preference_location_fix_frequency_summary"
             ploggy:min="1"
-            android:defaultValue="10"
+            android:defaultValue="2"
             android:max="60"
             ploggy:unitsLeft=""
-            ploggy:unitsRight="@string/preference_location_sharing_time_frequency_units"/>
-        <ca.psiphon.ploggy.widgets.SeekBarPreference
-            android:key="@string/preferenceLocationSharingDistanceThresholdInMeters"
-            android:dependency="preferenceAutomaticLocationSharing"           
-            android:title="@string/preference_location_sharing_distance_threshold_title"
-            android:summary="@string/preference_location_sharing_distance_threshold_summary"
-            ploggy:min="1"
-            android:defaultValue="10"
-            android:max="100"
-            ploggy:unitsLeft=""
-            ploggy:unitsRight="@string/preference_location_sharing_distance_threshold_units"/>
+            ploggy:unitsRight="@string/preference_location_fix_frequency_units"/>
         <ca.psiphon.ploggy.widgets.SeekBarPreference
             android:key="@string/preferenceLocationFixPeriodInSeconds"
             android:title="@string/preference_location_fix_period_title"
@@ -122,6 +112,15 @@
             android:max="120"
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preference_location_fix_period_units"/>        
+        <ca.psiphon.ploggy.widgets.SeekBarPreference
+            android:key="@string/preferenceLocationPullFrequencyInMinutes"
+            android:title="@string/preference_location_pull_frequency_title"
+            android:summary="@string/preference_location_pull_frequency_summary"
+            ploggy:min="1"
+            android:defaultValue="5"
+            android:max="100"
+            ploggy:unitsLeft=""
+            ploggy:unitsRight="@string/preference_location_pull_frequency_units"/>
     </PreferenceCategory>
 
 </PreferenceScreen>
