@@ -193,7 +193,6 @@ public class Tests {
                     friendX509KeyMaterial,
                     self.mPublicIdentity.mX509Certificate,
                     friendTor.getSocksProxyPort(),
-                    // TODO: helper; and/or encode pubic identity differently?
                     self.mPublicIdentity.getHiddenServiceHostnameUri(),
                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                     Protocol.PULL_STATUS_REQUEST_PATH);
@@ -208,7 +207,7 @@ public class Tests {
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         friendTor.getSocksProxyPort(),
-                        new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
+                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.PULL_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
