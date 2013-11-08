@@ -94,11 +94,13 @@ public class Tests {
 
         @Override
         public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+            Log.addEntry(LOG_TAG, "handle pull status request...");
             return getMockStatus();
         }
 
         @Override
         public void handlePushStatusRequest(String friendId, Status status) throws ApplicationError {
+            Log.addEntry(LOG_TAG, "handle push status request...");
         }
     }
     
@@ -161,18 +163,31 @@ public class Tests {
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
-            Log.addEntry(LOG_TAG, "Direct request from valid friend...");
-            String response = WebClient.makeGetRequest(
-                    friendX509KeyMaterial,
-                    self.mPublicIdentity.mX509Certificate,
-                    WebClient.UNTUNNELED_REQUEST,
-                    "127.0.0.1",
-                    selfWebServer.getListeningPort(),
-                    Protocol.PULL_STATUS_REQUEST_PATH);
-            Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
+            String response;
             String expectedResponse = Json.toJson(selfRequestHandler.getMockStatus());
-            if (!response.equals(expectedResponse)) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+            // Repeat multiple times to exercise keep-alive connection
+            for (int i = 0; i < 4; i++) {
+                Log.addEntry(LOG_TAG, "Direct GET request from valid friend...");
+                response = WebClient.makeGetRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        WebClient.UNTUNNELED_REQUEST,
+                        "127.0.0.1",
+                        selfWebServer.getListeningPort(),
+                        Protocol.PULL_STATUS_REQUEST_PATH);
+                Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
+                if (!response.equals(expectedResponse)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+                }
+                Log.addEntry(LOG_TAG, "Direct POST request from valid friend...");
+                WebClient.makePostRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        WebClient.UNTUNNELED_REQUEST,
+                        "127.0.0.1",
+                        selfWebServer.getListeningPort(),
+                        Protocol.PUSH_STATUS_REQUEST_PATH,
+                        expectedResponse);
             }
             Log.addEntry(LOG_TAG, "Run self Tor...");
             selfTor = new TorWrapper(
@@ -192,24 +207,26 @@ public class Tests {
             selfTor.awaitStarted();
             friendTor.awaitStarted();
             // TODO: monitor publication state via Tor control interface?
-            int publishWaitMilliseconds = 120000;
+            int publishWaitMilliseconds = 30000;
             Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
             try {
                 Thread.sleep(publishWaitMilliseconds);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            Log.addEntry(LOG_TAG, "Request from valid friend...");
-            response = WebClient.makeGetRequest(
-                    friendX509KeyMaterial,
-                    self.mPublicIdentity.mX509Certificate,
-                    friendTor.getSocksProxyPort(),
-                    self.mPublicIdentity.getHiddenServiceHostnameUri(),
-                    Protocol.WEB_SERVER_VIRTUAL_PORT,
-                    Protocol.PULL_STATUS_REQUEST_PATH);
-            Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(expectedResponse)) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+            for (int i = 0; i < 4; i++) {
+                Log.addEntry(LOG_TAG, "request from valid friend...");
+                response = WebClient.makeGetRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        friendTor.getSocksProxyPort(),
+                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
+                        Protocol.WEB_SERVER_VIRTUAL_PORT,
+                        Protocol.PULL_STATUS_REQUEST_PATH);
+                Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
+                if (!response.equals(expectedResponse)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+                }
             }
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
             boolean failed = false;
@@ -230,9 +247,9 @@ public class Tests {
             if (!failed) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
             }
-            Log.addEntry(LOG_TAG, "Request to invalid friend...");
+            // Log.addEntry(LOG_TAG, "Request to invalid friend...");
             // TODO: implement (create a distinct hidden service)
-            Log.addEntry(LOG_TAG, "Invalid request from friend...");
+            // Log.addEntry(LOG_TAG, "Invalid request from friend...");
             // TODO: implement
             Log.addEntry(LOG_TAG, "Component test run success");
         } catch (Utils.ApplicationError e) {
