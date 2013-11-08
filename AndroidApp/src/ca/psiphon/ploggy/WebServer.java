@@ -123,8 +123,15 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
                 }
                 return new Response(NanoHTTPD.Response.Status.OK, Protocol.RESPONSE_MIME_TYPE, Json.toJson(status));
             } else if (Method.POST.equals(method) && uri.equals(Protocol.PUSH_STATUS_REQUEST_PATH)) {
-                String body = Utils.readInputStreamToString(session.getInputStream());
-                Data.Status status = Json.fromJson(body, Data.Status.class);
+                if (!session.getHeaders().containsKey("content-length")) {
+                    throw new Utils.ApplicationError(LOG_TAG, "failed to get POST request content length");
+                }
+                int contentLength = Integer.parseInt(session.getHeaders().get("content-length"));
+                byte[] buffer = new byte[contentLength];
+                if (contentLength != session.getInputStream().read(buffer, 0, contentLength)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "failed to read POST content");
+                }
+                Data.Status status = Json.fromJson(new String(buffer), Data.Status.class);
                 mRequestHandler.handlePushStatusRequest(certificate, status);
                 return new Response(NanoHTTPD.Response.Status.OK, null, "");
             }
