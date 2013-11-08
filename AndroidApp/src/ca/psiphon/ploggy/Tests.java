@@ -103,8 +103,10 @@ public class Tests {
     }
     
     public static void runComponentTests() {
-        MockRequestHandler mockRequestHandler = null;
-        WebServer webServer = null;
+        WebServer selfWebServer = null;
+        MockRequestHandler selfRequestHandler = null;
+        WebServer friendWebServer = null;
+        MockRequestHandler friendRequestHandler = null;
         TorWrapper selfTor = null;
         TorWrapper friendTor = null;
         try {
@@ -139,13 +141,23 @@ public class Tests {
             Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();
-            Log.addEntry(LOG_TAG, "Start web server...");
+            Log.addEntry(LOG_TAG, "Start self web server...");
             ArrayList<String> friendCertificates = new ArrayList<String>();
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
-            mockRequestHandler = new MockRequestHandler();
-            webServer = new WebServer(mockRequestHandler, selfX509KeyMaterial, friendCertificates);
+            selfRequestHandler = new MockRequestHandler();
+            selfWebServer = new WebServer(selfRequestHandler, selfX509KeyMaterial, friendCertificates);
             try {
-                webServer.start();
+                selfWebServer.start();
+            } catch (IOException e) {
+                throw new Utils.ApplicationError(LOG_TAG, e);
+            }
+            Log.addEntry(LOG_TAG, "Start friend web server...");
+            ArrayList<String> selfCertificates = new ArrayList<String>();
+            selfCertificates.add(self.mPublicIdentity.mX509Certificate);
+            friendRequestHandler = new MockRequestHandler();
+            friendWebServer = new WebServer(friendRequestHandler, friendX509KeyMaterial, selfCertificates);
+            try {
+                friendWebServer.start();
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
@@ -155,10 +167,10 @@ public class Tests {
                     self.mPublicIdentity.mX509Certificate,
                     WebClient.UNTUNNELED_REQUEST,
                     "127.0.0.1",
-                    webServer.getListeningPort(),
+                    selfWebServer.getListeningPort(),
                     Protocol.PULL_STATUS_REQUEST_PATH);
             Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            String expectedResponse = Json.toJson(mockRequestHandler.getMockStatus());
+            String expectedResponse = Json.toJson(selfRequestHandler.getMockStatus());
             if (!response.equals(expectedResponse)) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
             }
@@ -167,15 +179,14 @@ public class Tests {
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-self",
                     selfHiddenServiceKeyMaterial,
-                    webServer.getListeningPort());
+                    selfWebServer.getListeningPort());
             selfTor.start();
             Log.addEntry(LOG_TAG, "Run friend Tor...");
-            // TODO: distinct web server
             friendTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-friend",
                     friendHiddenServiceKeyMaterial,
-                    webServer.getListeningPort());
+                    friendWebServer.getListeningPort());
             friendTor.start();
             selfTor.start();
             selfTor.awaitStarted();
@@ -233,11 +244,17 @@ public class Tests {
             if (friendTor != null) {
                 friendTor.stop();
             }
-            if (webServer != null) {
-                webServer.stop();
+            if (selfWebServer != null) {
+                selfWebServer.stop();
             }
-            if (mockRequestHandler != null) {
-                mockRequestHandler.stop();
+            if (selfRequestHandler != null) {
+                selfRequestHandler.stop();
+            }
+            if (friendWebServer != null) {
+                friendWebServer.stop();
+            }
+            if (friendRequestHandler != null) {
+                friendRequestHandler.stop();
             }
         }
     }
