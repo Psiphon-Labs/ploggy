@@ -253,6 +253,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (!currentlySharingLocation()) {
             return;
         }
+        if (!mTorWrapper.isCircuitEstablished()) {
+            // TODO: schedule another push in the future?
+            return;
+        }
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             final String taskFriendId = friend.mId;
             Runnable task = new Runnable() {
@@ -295,6 +299,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Runnable task = new Runnable() {
             public void run() {
                 try {
+                    if (!mTorWrapper.isCircuitEstablished()) {
+                        return;
+                    }
                     Data data = Data.getInstance();
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
