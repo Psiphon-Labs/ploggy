@@ -72,7 +72,7 @@ public class X509 {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
     }
 
-    public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
+    public static KeyMaterial generateKeyMaterial(String commonName) throws Utils.ApplicationError {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KEY_TYPE, "SC");
             keyPairGenerator.initialize(KEY_SPEC, new SecureRandom());
@@ -81,14 +81,14 @@ public class X509 {
             // TODO: use http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
             X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
 
-            // Using non-distinguishing validity dates and identifiers
             // TODO: use common -- e.g., generic Apache web server -- values? See what Tor does.
             Calendar calendar = Calendar.getInstance();
-            calendar.set(2013, Calendar.JANUARY, 1);
+            int currentYear = calendar.get(Calendar.YEAR);
+            calendar.set(currentYear, Calendar.JANUARY, 1);
             Date validityBeginDate = calendar.getTime(); 
             calendar.add(Calendar.YEAR, 30);
             Date validityEndDate = calendar.getTime();        
-            X500Principal subjectDN = new X500Principal("CN=server.example.com");
+            X500Principal subjectDN = new X500Principal("CN="+commonName);
             certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
             certificateGenerator.setSubjectDN(subjectDN);
             certificateGenerator.setIssuerDN(subjectDN);

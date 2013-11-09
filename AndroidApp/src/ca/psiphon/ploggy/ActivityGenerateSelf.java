@@ -191,14 +191,14 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
         @Override
         protected GenerateResult doInBackground(Void... params) {
             try {
-                // TODO: possible to check isCancelled within the X509 key generation?
-                X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial();
-                Log.addEntry(LOG_TAG, "generated X.509 key material");
+                HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+                Log.addEntry(LOG_TAG, "generated Tor hidden service key material");
+                // TODO: possible to check isCancelled within the key generation?
                 if (isCancelled()) {
                     return null;
                 }
-                HiddenService.KeyMaterial hiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
-                Log.addEntry(LOG_TAG, "generated Tor hidden service key material");
+                X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial(hiddenServiceKeyMaterial.mHostname);
+                Log.addEntry(LOG_TAG, "generated X.509 key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to generate key material");
