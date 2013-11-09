@@ -99,7 +99,7 @@
             android:title="@string/preference_location_fix_frequency_title"
             android:summary="@string/preference_location_fix_frequency_summary"
             ploggy:min="1"
-            android:defaultValue="2"
+            android:defaultValue="5"
             android:max="60"
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preference_location_fix_frequency_units"/>
@@ -117,7 +117,7 @@
             android:title="@string/preference_location_pull_frequency_title"
             android:summary="@string/preference_location_pull_frequency_summary"
             ploggy:min="1"
-            android:defaultValue="5"
+            android:defaultValue="10"
             android:max="100"
             ploggy:unitsLeft=""
             ploggy:unitsRight="@string/preference_location_pull_frequency_units"/>
