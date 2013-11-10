@@ -113,11 +113,9 @@ public class Tests {
         TorWrapper friendTor = null;
         try {
             String selfNickname = "Me";
-            Log.addEntry(LOG_TAG, "Generate X509 key material...");
-            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
-            Log.addEntry(LOG_TAG, "Generate hidden service key material...");
-            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Make self...");
+            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
             Data.Self self = new Data.Self(
                     Identity.makeSignedPublicIdentity(
                             selfNickname,
@@ -129,8 +127,8 @@ public class Tests {
                     new Date());
             Log.addEntry(LOG_TAG, "Make friend...");
             String friendNickname = "My Friend";
-            X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial();
             HiddenService.KeyMaterial friendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial(friendHiddenServiceKeyMaterial.mHostname);
             Data.Self friendSelf = new Data.Self(
                     Identity.makeSignedPublicIdentity(
                             friendNickname,
@@ -141,23 +139,30 @@ public class Tests {
                             friendHiddenServiceKeyMaterial),
                     new Date());
             Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
+            // Not running hidden service for other friend: this is to test multiple client certs in the web server
+            Log.addEntry(LOG_TAG, "Make other friend...");
+            HiddenService.KeyMaterial otherFriendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial otherFriendX509KeyMaterial = X509.generateKeyMaterial(otherFriendHiddenServiceKeyMaterial.mHostname);
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
-            X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();
+            HiddenService.KeyMaterial unfriendlyHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial(unfriendlyHiddenServiceKeyMaterial.mHostname);
             Log.addEntry(LOG_TAG, "Start self web server...");
-            ArrayList<String> friendCertificates = new ArrayList<String>();
-            friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
+            ArrayList<String> selfPeerCertificates = new ArrayList<String>();
+            selfPeerCertificates.add(friend.mPublicIdentity.mX509Certificate);
+            selfPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
             selfRequestHandler = new MockRequestHandler();
-            selfWebServer = new WebServer(selfRequestHandler, selfX509KeyMaterial, friendCertificates);
+            selfWebServer = new WebServer(selfRequestHandler, selfX509KeyMaterial, selfPeerCertificates);
             try {
                 selfWebServer.start();
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
             Log.addEntry(LOG_TAG, "Start friend web server...");
-            ArrayList<String> selfCertificates = new ArrayList<String>();
-            selfCertificates.add(self.mPublicIdentity.mX509Certificate);
+            ArrayList<String> friendPeerCertificates = new ArrayList<String>();
+            friendPeerCertificates.add(self.mPublicIdentity.mX509Certificate);
+            friendPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
             friendRequestHandler = new MockRequestHandler();
-            friendWebServer = new WebServer(friendRequestHandler, friendX509KeyMaterial, selfCertificates);
+            friendWebServer = new WebServer(friendRequestHandler, friendX509KeyMaterial, friendPeerCertificates);
             try {
                 friendWebServer.start();
             } catch (IOException e) {
