@@ -66,7 +66,6 @@ public class ActivityMain extends Activity {
         setContentView(R.layout.activity_main);
 
         ActionBar actionBar = getActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 
         // TODO: http://developer.android.com/reference/android/support/v4/view/ViewPager.html instead?
