@@ -116,6 +116,7 @@ public class WebClient {
             String requestPath,
             String requestBody) throws Utils.ApplicationError {
         HttpRequestBase request = null;
+        ClientConnectionManager connectionManager = null;
         try {
             URI uri = new URI(Protocol.WEB_SERVER_PROTOCOL, null, hostname, port, requestPath, null, null);
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
@@ -123,7 +124,6 @@ public class WebClient {
             // TODO: keep a persistent PoolingClientConnectionManager across makeRequest calls for connection reuse?
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
-            ClientConnectionManager connectionManager;
             if (localSocksProxyPort == UNTUNNELED_REQUEST) {
                 connectionManager = new PoolingClientConnectionManager(registry);
             } else {
@@ -166,6 +166,9 @@ public class WebClient {
         } finally {
             if (request != null && !request.isAborted()) {
                 request.abort();
+            }
+            if (connectionManager != null) {
+                connectionManager.shutdown();
             }
         }
     }
