@@ -46,12 +46,14 @@ import ch.boye.httpclientandroidlib.conn.scheme.Scheme;
 import ch.boye.httpclientandroidlib.conn.scheme.SchemeRegistry;
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 import ch.boye.httpclientandroidlib.entity.ByteArrayEntity;
+import ch.boye.httpclientandroidlib.entity.StringEntity;
 import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
 import ch.boye.httpclientandroidlib.impl.conn.DefaultClientConnectionOperator;
 import ch.boye.httpclientandroidlib.impl.conn.PoolingClientConnectionManager;
 import ch.boye.httpclientandroidlib.params.BasicHttpParams;
 import ch.boye.httpclientandroidlib.params.HttpConnectionParams;
 import ch.boye.httpclientandroidlib.params.HttpParams;
+import ch.boye.httpclientandroidlib.protocol.HTTP;
 import ch.boye.httpclientandroidlib.protocol.HttpContext;
 
 /**
@@ -114,6 +116,7 @@ public class WebClient {
             String requestPath,
             String requestBody) throws Utils.ApplicationError {
         HttpRequestBase request = null;
+        ClientConnectionManager connectionManager = null;
         try {
             URI uri = new URI(Protocol.WEB_SERVER_PROTOCOL, null, hostname, port, requestPath, null, null);
             SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
@@ -121,7 +124,6 @@ public class WebClient {
             // TODO: keep a persistent PoolingClientConnectionManager across makeRequest calls for connection reuse?
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
-            ClientConnectionManager connectionManager;
             if (localSocksProxyPort == UNTUNNELED_REQUEST) {
                 connectionManager = new PoolingClientConnectionManager(registry);
             } else {
@@ -135,8 +137,10 @@ public class WebClient {
             if (requestBody == null) {
                 request = new HttpGet(uri);
             } else {
-                HttpPost postRequest = new HttpPost(uri);                
-                postRequest.setEntity(new ByteArrayEntity(requestBody.getBytes()));
+                HttpPost postRequest = new HttpPost(uri);
+                StringEntity entity = new StringEntity(requestBody.toString(), HTTP.UTF_8);
+                entity.setContentType("application/json");
+                postRequest.setEntity(entity);
                 request = postRequest;
             }
             HttpResponse response = client.execute(request);
@@ -162,6 +166,9 @@ public class WebClient {
         } finally {
             if (request != null && !request.isAborted()) {
                 request.abort();
+            }
+            if (connectionManager != null) {
+                connectionManager.shutdown();
             }
         }
     }

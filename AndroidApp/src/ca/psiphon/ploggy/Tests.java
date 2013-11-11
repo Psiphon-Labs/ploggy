@@ -94,26 +94,28 @@ public class Tests {
 
         @Override
         public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+            Log.addEntry(LOG_TAG, "handle pull status request...");
             return getMockStatus();
         }
 
         @Override
         public void handlePushStatusRequest(String friendId, Status status) throws ApplicationError {
+            Log.addEntry(LOG_TAG, "handle push status request...");
         }
     }
     
     public static void runComponentTests() {
-        MockRequestHandler mockRequestHandler = null;
-        WebServer webServer = null;
+        WebServer selfWebServer = null;
+        MockRequestHandler selfRequestHandler = null;
+        WebServer friendWebServer = null;
+        MockRequestHandler friendRequestHandler = null;
         TorWrapper selfTor = null;
         TorWrapper friendTor = null;
         try {
             String selfNickname = "Me";
-            Log.addEntry(LOG_TAG, "Generate X509 key material...");
-            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial();
-            Log.addEntry(LOG_TAG, "Generate hidden service key material...");
-            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             Log.addEntry(LOG_TAG, "Make self...");
+            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
             Data.Self self = new Data.Self(
                     Identity.makeSignedPublicIdentity(
                             selfNickname,
@@ -125,8 +127,8 @@ public class Tests {
                     new Date());
             Log.addEntry(LOG_TAG, "Make friend...");
             String friendNickname = "My Friend";
-            X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial();
             HiddenService.KeyMaterial friendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial friendX509KeyMaterial = X509.generateKeyMaterial(friendHiddenServiceKeyMaterial.mHostname);
             Data.Self friendSelf = new Data.Self(
                     Identity.makeSignedPublicIdentity(
                             friendNickname,
@@ -137,69 +139,99 @@ public class Tests {
                             friendHiddenServiceKeyMaterial),
                     new Date());
             Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
+            // Not running hidden service for other friend: this is to test multiple client certs in the web server
+            Log.addEntry(LOG_TAG, "Make other friend...");
+            HiddenService.KeyMaterial otherFriendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial otherFriendX509KeyMaterial = X509.generateKeyMaterial(otherFriendHiddenServiceKeyMaterial.mHostname);
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
-            X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial();
-            Log.addEntry(LOG_TAG, "Start web server...");
-            ArrayList<String> friendCertificates = new ArrayList<String>();
-            friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
-            mockRequestHandler = new MockRequestHandler();
-            webServer = new WebServer(mockRequestHandler, selfX509KeyMaterial, friendCertificates);
+            HiddenService.KeyMaterial unfriendlyHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial(unfriendlyHiddenServiceKeyMaterial.mHostname);
+            Log.addEntry(LOG_TAG, "Start self web server...");
+            ArrayList<String> selfPeerCertificates = new ArrayList<String>();
+            selfPeerCertificates.add(friend.mPublicIdentity.mX509Certificate);
+            selfPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
+            selfRequestHandler = new MockRequestHandler();
+            selfWebServer = new WebServer(selfRequestHandler, selfX509KeyMaterial, selfPeerCertificates);
             try {
-                webServer.start();
+                selfWebServer.start();
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
-            Log.addEntry(LOG_TAG, "Direct request from valid friend...");
-            String response = WebClient.makeGetRequest(
-                    friendX509KeyMaterial,
-                    self.mPublicIdentity.mX509Certificate,
-                    WebClient.UNTUNNELED_REQUEST,
-                    "127.0.0.1",
-                    webServer.getListeningPort(),
-                    Protocol.PULL_STATUS_REQUEST_PATH);
-            Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            String expectedResponse = Json.toJson(mockRequestHandler.getMockStatus());
-            if (!response.equals(expectedResponse)) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+            Log.addEntry(LOG_TAG, "Start friend web server...");
+            ArrayList<String> friendPeerCertificates = new ArrayList<String>();
+            friendPeerCertificates.add(self.mPublicIdentity.mX509Certificate);
+            friendPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
+            friendRequestHandler = new MockRequestHandler();
+            friendWebServer = new WebServer(friendRequestHandler, friendX509KeyMaterial, friendPeerCertificates);
+            try {
+                friendWebServer.start();
+            } catch (IOException e) {
+                throw new Utils.ApplicationError(LOG_TAG, e);
+            }
+            String response;
+            String expectedResponse = Json.toJson(selfRequestHandler.getMockStatus());
+            // Repeat multiple times to exercise keep-alive connection
+            for (int i = 0; i < 4; i++) {
+                Log.addEntry(LOG_TAG, "Direct GET request from valid friend...");
+                response = WebClient.makeGetRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        WebClient.UNTUNNELED_REQUEST,
+                        "127.0.0.1",
+                        selfWebServer.getListeningPort(),
+                        Protocol.PULL_STATUS_REQUEST_PATH);
+                Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
+                if (!response.equals(expectedResponse)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+                }
+                Log.addEntry(LOG_TAG, "Direct POST request from valid friend...");
+                WebClient.makePostRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        WebClient.UNTUNNELED_REQUEST,
+                        "127.0.0.1",
+                        selfWebServer.getListeningPort(),
+                        Protocol.PUSH_STATUS_REQUEST_PATH,
+                        expectedResponse);
             }
             Log.addEntry(LOG_TAG, "Run self Tor...");
             selfTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-self",
                     selfHiddenServiceKeyMaterial,
-                    webServer.getListeningPort());
+                    selfWebServer.getListeningPort());
             selfTor.start();
             Log.addEntry(LOG_TAG, "Run friend Tor...");
-            // TODO: distinct web server
             friendTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-friend",
                     friendHiddenServiceKeyMaterial,
-                    webServer.getListeningPort());
+                    friendWebServer.getListeningPort());
             friendTor.start();
             selfTor.start();
             selfTor.awaitStarted();
             friendTor.awaitStarted();
             // TODO: monitor publication state via Tor control interface?
-            int publishWaitMilliseconds = 120000;
+            int publishWaitMilliseconds = 30000;
             Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
             try {
                 Thread.sleep(publishWaitMilliseconds);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            Log.addEntry(LOG_TAG, "Request from valid friend...");
-            response = WebClient.makeGetRequest(
-                    friendX509KeyMaterial,
-                    self.mPublicIdentity.mX509Certificate,
-                    friendTor.getSocksProxyPort(),
-                    // TODO: helper; and/or encode pubic identity differently?
-                    self.mPublicIdentity.getHiddenServiceHostnameUri(),
-                    Protocol.WEB_SERVER_VIRTUAL_PORT,
-                    Protocol.PULL_STATUS_REQUEST_PATH);
-            Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
-            if (!response.equals(expectedResponse)) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+            for (int i = 0; i < 4; i++) {
+                Log.addEntry(LOG_TAG, "request from valid friend...");
+                response = WebClient.makeGetRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        friendTor.getSocksProxyPort(),
+                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
+                        Protocol.WEB_SERVER_VIRTUAL_PORT,
+                        Protocol.PULL_STATUS_REQUEST_PATH);
+                Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
+                if (!response.equals(expectedResponse)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
+                }
             }
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
             boolean failed = false;
@@ -208,7 +240,7 @@ public class Tests {
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         friendTor.getSocksProxyPort(),
-                        new String(Utils.decodeBase64(self.mPublicIdentity.mHiddenServiceHostname)).trim(),
+                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.PULL_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
@@ -220,9 +252,9 @@ public class Tests {
             if (!failed) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
             }
-            Log.addEntry(LOG_TAG, "Request to invalid friend...");
+            // Log.addEntry(LOG_TAG, "Request to invalid friend...");
             // TODO: implement (create a distinct hidden service)
-            Log.addEntry(LOG_TAG, "Invalid request from friend...");
+            // Log.addEntry(LOG_TAG, "Invalid request from friend...");
             // TODO: implement
             Log.addEntry(LOG_TAG, "Component test run success");
         } catch (Utils.ApplicationError e) {
@@ -234,11 +266,17 @@ public class Tests {
             if (friendTor != null) {
                 friendTor.stop();
             }
-            if (webServer != null) {
-                webServer.stop();
+            if (selfWebServer != null) {
+                selfWebServer.stop();
             }
-            if (mockRequestHandler != null) {
-                mockRequestHandler.stop();
+            if (selfRequestHandler != null) {
+                selfRequestHandler.stop();
+            }
+            if (friendWebServer != null) {
+                friendWebServer.stop();
+            }
+            if (friendRequestHandler != null) {
+                friendRequestHandler.stop();
             }
         }
     }

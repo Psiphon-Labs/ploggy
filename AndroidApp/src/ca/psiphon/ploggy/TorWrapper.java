@@ -343,6 +343,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mControlSocket = null;
         mProcess = null;
         mPid = -1;
+        mCircuitEstablishedLatch = null;
     }
     
     public HiddenService.KeyMaterial getKeyMaterial() {
@@ -352,7 +353,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     public int getSocksProxyPort() {
         return mSocksProxyPort;
     }
-
+    
+    public boolean isCircuitEstablished() {
+        try {
+            return mCircuitEstablishedLatch != null && mCircuitEstablishedLatch.await(0, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+    
     private void writeExecutableFile() throws IOException {
         if (0 != Build.CPU_ABI.compareTo("armeabi-v7a")) {
             throw new IOException("no Tor binary for this CPU");
@@ -474,7 +484,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     public void unrecognized(String type, String message) {
         if (type.equals("STATUS_CLIENT") && message.equals("NOTICE CIRCUIT_ESTABLISHED")) {
             Log.addEntry(logTag(), "circuit established");
-            mCircuitEstablishedLatch.countDown();
+            if (mCircuitEstablishedLatch != null) {
+                mCircuitEstablishedLatch.countDown();
+            }
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
             Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");

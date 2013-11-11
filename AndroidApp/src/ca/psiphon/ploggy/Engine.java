@@ -87,7 +87,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mFriendPullTasks = new HashMap<String, ScheduledFuture<?>>();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
-        startSharingService();
+        startHiddenService();
         schedulePullFriends();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
         Log.addEntry(LOG_TAG, "started");
@@ -97,7 +97,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.unregister(this);
-        stopSharingService();
+        stopHiddenService();
         if (mLocationMonitor != null) {
             mLocationMonitor.stop();
             mLocationMonitor = null;
@@ -137,14 +137,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mTaskThreadPool.submit(task);
     }
     
-    private void startSharingService() throws Utils.ApplicationError {
+    private void startHiddenService() throws Utils.ApplicationError {
         try {
+            stopHiddenService();
             Data.Self self = Data.getInstance().getSelf();
             ArrayList<String> friendCertificates = new ArrayList<String>();
             for (Data.Friend friend : Data.getInstance().getFriends()) {
                 friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
             }
-            stopSharingService();
             mWebServer = new WebServer(
                     this,
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
@@ -154,14 +154,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
-            // TODO: poll mTorWrapper.awaitStarted() to check for errors and retry... 
+            // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry... 
             mTorWrapper.start();
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
     
-    private void stopSharingService() {
+    private void stopHiddenService() {
         if (mTorWrapper != null) {
             mTorWrapper.stop();
         }
@@ -181,7 +181,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
         // Apply new transport and hidden service credentials
         try {
-            startSharingService();
+            startHiddenService();
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after self updated");
         }                        
@@ -226,21 +226,35 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     @Subscribe
     public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
+        // Apply new set of friends to web server and pull scheduke
+        // TODO: don't need to restart Tor, just web server
         try {
-            schedulePullFriend(addedFriend.mId);
+            startHiddenService();
+            schedulePullFriends();
         } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to schedule pull for added friend");
+            Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
         }
     }
     
     @Subscribe
     public synchronized void RemovedFriend(Events.RemovedFriend removedFriend) {
-        cancelPullFriend(removedFriend.mId);
+        // Apply new set of friends to web server and pull scheduke
+        // TODO: don't need to restart Tor, just web server
+        try {
+            startHiddenService();
+            schedulePullFriends();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
+        }
     }
     
     private void pushToFriends() throws Utils.ApplicationError {
         // TODO: check for existing pushes in worker thread queue
         if (!currentlySharingLocation()) {
+            return;
+        }
+        if (!mTorWrapper.isCircuitEstablished()) {
+            // TODO: schedule another push in the future?
             return;
         }
         for (Data.Friend friend : Data.getInstance().getFriends()) {
@@ -285,6 +299,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Runnable task = new Runnable() {
             public void run() {
                 try {
+                    if (!mTorWrapper.isCircuitEstablished()) {
+                        return;
+                    }
                     Data data = Data.getInstance();
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
