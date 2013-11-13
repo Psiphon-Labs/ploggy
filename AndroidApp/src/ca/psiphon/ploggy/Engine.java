@@ -25,6 +25,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -140,8 +141,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private void startHiddenService() throws Utils.ApplicationError {
         try {
             stopHiddenService();
+
             Data.Self self = Data.getInstance().getSelf();
-            ArrayList<String> friendCertificates = new ArrayList<String>();
+            List<String> friendCertificates = new ArrayList<String>();
             for (Data.Friend friend : Data.getInstance().getFriends()) {
                 friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
             }
@@ -150,10 +152,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                     friendCertificates);
             mWebServer.start();
+
+            List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+            for (Data.Friend friend : Data.getInstance().getFriends()) {
+                hiddenServiceAuths.add(
+                        new TorWrapper.HiddenServiceAuth(
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                friend.mPublicIdentity.mHiddenServiceAuthCookie));
+            }
             mTorWrapper = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
-                    new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
+                    hiddenServiceAuths,
+                    new HiddenService.KeyMaterial(
+                            self.mPublicIdentity.mHiddenServiceHostname,
+                            self.mPublicIdentity.mHiddenServiceAuthCookie,
+                            self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
+            
             // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry... 
             mTorWrapper.start();
         } catch (IOException e) {
@@ -226,8 +241,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     @Subscribe
     public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
-        // Apply new set of friends to web server and pull scheduke
+        // Apply new set of friends to web server and pull schedule
         // TODO: don't need to restart Tor, just web server
+        //       (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
         try {
             startHiddenService();
             schedulePullFriends();
@@ -271,7 +287,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
                                 getTorSocksProxyPort(),
-                                friend.mPublicIdentity.getHiddenServiceHostnameUri(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
                                 Protocol.WEB_SERVER_VIRTUAL_PORT,
                                 Protocol.PUSH_STATUS_REQUEST_PATH,
                                 Json.toJson(selfStatus));
@@ -310,7 +326,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             getTorSocksProxyPort(),
-                            friend.mPublicIdentity.getHiddenServiceHostnameUri(),
+                            friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
                             Protocol.PULL_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
