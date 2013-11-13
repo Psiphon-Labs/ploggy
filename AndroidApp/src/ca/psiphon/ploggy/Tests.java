@@ -22,7 +22,8 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Locale;
+import java.util.List;
+import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
@@ -112,8 +113,9 @@ public class Tests {
         TorWrapper selfTor = null;
         TorWrapper friendTor = null;
         try {
-            String selfNickname = "Me";
+
             Log.addEntry(LOG_TAG, "Make self...");
+            String selfNickname = "Me";
             HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
             Data.Self self = new Data.Self(
@@ -125,6 +127,7 @@ public class Tests {
                             selfX509KeyMaterial,
                             selfHiddenServiceKeyMaterial),
                     new Date());
+
             Log.addEntry(LOG_TAG, "Make friend...");
             String friendNickname = "My Friend";
             HiddenService.KeyMaterial friendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
@@ -139,15 +142,18 @@ public class Tests {
                             friendHiddenServiceKeyMaterial),
                     new Date());
             Data.Friend friend = new Data.Friend(friendSelf.mPublicIdentity, new Date());
+
             // Not running hidden service for other friend: this is to test multiple client certs in the web server
             Log.addEntry(LOG_TAG, "Make other friend...");
             HiddenService.KeyMaterial otherFriendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial otherFriendX509KeyMaterial = X509.generateKeyMaterial(otherFriendHiddenServiceKeyMaterial.mHostname);
+            
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             HiddenService.KeyMaterial unfriendlyHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial(unfriendlyHiddenServiceKeyMaterial.mHostname);
+
             Log.addEntry(LOG_TAG, "Start self web server...");
-            ArrayList<String> selfPeerCertificates = new ArrayList<String>();
+            List<String> selfPeerCertificates = new ArrayList<String>();
             selfPeerCertificates.add(friend.mPublicIdentity.mX509Certificate);
             selfPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
             selfRequestHandler = new MockRequestHandler();
@@ -157,8 +163,9 @@ public class Tests {
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
+
             Log.addEntry(LOG_TAG, "Start friend web server...");
-            ArrayList<String> friendPeerCertificates = new ArrayList<String>();
+            List<String> friendPeerCertificates = new ArrayList<String>();
             friendPeerCertificates.add(self.mPublicIdentity.mX509Certificate);
             friendPeerCertificates.add(otherFriendX509KeyMaterial.mCertificate);
             friendRequestHandler = new MockRequestHandler();
@@ -168,9 +175,11 @@ public class Tests {
             } catch (IOException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
+
+            // Test direct web request (not through Tor)
+            // Repeat multiple times to exercise keep-alive connection
             String response;
             String expectedResponse = Json.toJson(selfRequestHandler.getMockStatus());
-            // Repeat multiple times to exercise keep-alive connection
             for (int i = 0; i < 4; i++) {
                 Log.addEntry(LOG_TAG, "Direct GET request from valid friend...");
                 response = WebClient.makeGetRequest(
@@ -194,23 +203,38 @@ public class Tests {
                         Protocol.PUSH_STATUS_REQUEST_PATH,
                         expectedResponse);
             }
+
             Log.addEntry(LOG_TAG, "Run self Tor...");
+            List<TorWrapper.HiddenServiceAuth> selfHiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+            selfHiddenServiceAuths.add(
+                    new TorWrapper.HiddenServiceAuth(
+                            friendSelf.mPublicIdentity.mHiddenServiceHostname,
+                            friendSelf.mPublicIdentity.mHiddenServiceAuthCookie));
             selfTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-self",
+                    selfHiddenServiceAuths,
                     selfHiddenServiceKeyMaterial,
                     selfWebServer.getListeningPort());
             selfTor.start();
+
             Log.addEntry(LOG_TAG, "Run friend Tor...");
+            List<TorWrapper.HiddenServiceAuth> friendHiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+            friendHiddenServiceAuths.add(
+                    new TorWrapper.HiddenServiceAuth(
+                            self.mPublicIdentity.mHiddenServiceHostname,
+                            self.mPublicIdentity.mHiddenServiceAuthCookie));
             friendTor = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
                     "runComponentTests-friend",
+                    friendHiddenServiceAuths,
                     friendHiddenServiceKeyMaterial,
                     friendWebServer.getListeningPort());
             friendTor.start();
             selfTor.start();
             selfTor.awaitStarted();
             friendTor.awaitStarted();
+
             // TODO: monitor publication state via Tor control interface?
             int publishWaitMilliseconds = 30000;
             Log.addEntry(LOG_TAG, String.format("Wait %d ms. while hidden service is published...", publishWaitMilliseconds));
@@ -225,7 +249,7 @@ public class Tests {
                         friendX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         friendTor.getSocksProxyPort(),
-                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
+                        self.mPublicIdentity.mHiddenServiceHostname,
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.PULL_STATUS_REQUEST_PATH);
                 Protocol.validateStatus(Json.fromJson(response, Data.Status.class));
@@ -233,6 +257,7 @@ public class Tests {
                     throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
                 }
             }
+
             Log.addEntry(LOG_TAG, "Request from invalid friend...");
             boolean failed = false;
             try {
@@ -240,7 +265,7 @@ public class Tests {
                         unfriendlyX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         friendTor.getSocksProxyPort(),
-                        self.mPublicIdentity.getHiddenServiceHostnameUri(),
+                        self.mPublicIdentity.mHiddenServiceHostname,
                         Protocol.WEB_SERVER_VIRTUAL_PORT,
                         Protocol.PULL_STATUS_REQUEST_PATH);
             } catch (Utils.ApplicationError e) {
@@ -252,10 +277,44 @@ public class Tests {
             if (!failed) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
             }
-            // Log.addEntry(LOG_TAG, "Request to invalid friend...");
-            // TODO: implement (create a distinct hidden service)
-            // Log.addEntry(LOG_TAG, "Invalid request from friend...");
-            // TODO: implement
+
+            // Re-run friend's Tor with an invalid hidden service auth cookie
+            Log.addEntry(LOG_TAG, "Request from friend with invalid hidden service auth cookie...");
+            friendTor.stop();
+            friendHiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+            byte[] badAuthCookie = new byte[16]; // 128-bit value, as per spec
+            new Random().nextBytes(badAuthCookie);
+            friendHiddenServiceAuths.add(
+                    new TorWrapper.HiddenServiceAuth(
+                            self.mPublicIdentity.mHiddenServiceHostname,
+                            Utils.encodeBase64(badAuthCookie).substring(0, 22)));
+            friendTor = new TorWrapper(
+                    TorWrapper.Mode.MODE_RUN_SERVICES,
+                    "runComponentTests-friend",
+                    friendHiddenServiceAuths,
+                    friendHiddenServiceKeyMaterial,
+                    friendWebServer.getListeningPort());
+            friendTor.start();
+            friendTor.awaitStarted();
+            failed = false;
+            try {
+                response = WebClient.makeGetRequest(
+                        friendX509KeyMaterial,
+                        self.mPublicIdentity.mX509Certificate,
+                        friendTor.getSocksProxyPort(),
+                        self.mPublicIdentity.mHiddenServiceHostname,
+                        Protocol.WEB_SERVER_VIRTUAL_PORT,
+                        Protocol.PULL_STATUS_REQUEST_PATH);
+            } catch (Utils.ApplicationError e) {
+                if (!e.getMessage().contains("SOCKS4a connect failed")) {
+                    throw e;
+                }
+                failed = true;
+            }
+            if (!failed) {
+                throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
+            }
+            
             Log.addEntry(LOG_TAG, "Component test run success");
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "Test failed");

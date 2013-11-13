@@ -228,6 +228,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                 mNicknameEdit.getText().toString(),
                                 mGenerateResult.mX509KeyMaterial.mCertificate,
                                 mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                 null));
                 mNicknameEdit.setEnabled(true);
             }
@@ -268,6 +269,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                                     nickname,
                                                     mGenerateResult.mX509KeyMaterial.mCertificate,
                                                     mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                                    mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                                     null));
                                 }
                             }
