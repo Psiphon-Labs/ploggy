@@ -56,7 +56,7 @@ import android.widget.TextView;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class ActivityMain extends Activity {
+public class ActivityMain extends ActivitySendIdentityByNfc {
 
     private static final String LOG_TAG = "Main Activity";
 
@@ -110,14 +110,11 @@ public class ActivityMain extends Activity {
         case R.id.action_self_location_details:
             startActivity(new Intent(this, ActivityLocationDetails.class));
             return true;
-        case R.id.action_add_friend:
-            startActivity(new Intent(this, ActivityAddFriendByNfc.class));
-            return true;
         case R.id.action_generate_self:
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
         case R.id.action_email_self:
-            ActivityAddFriendByEmail.composeEmail(this);
+            SendIdentityByEmail.composeEmail(this);
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));

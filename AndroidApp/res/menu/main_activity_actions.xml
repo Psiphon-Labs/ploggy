@@ -3,10 +3,6 @@
           android:icon="@drawable/ic_action_self_location_details"
           android:title="@string/action_self_location_details"
           android:showAsAction="ifRoom|withText" />
-    <item android:id="@+id/action_add_friend"
-          android:icon="@drawable/ic_action_add_friend"
-          android:title="@string/action_add_friend"
-          android:showAsAction="ifRoom|withText" />
     <item android:id="@+id/action_generate_self"
           android:icon="@drawable/ic_action_generate_self"
           android:title="@string/action_generate_self"

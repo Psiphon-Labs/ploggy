@@ -28,7 +28,6 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.app.Activity;
 
 /**
  * User interface for displaying self and friend location details.
@@ -40,7 +39,7 @@ import android.app.Activity;
  * This class subscribes to status events to update displayed data
  * while in the foreground.
  */
-public class ActivityLocationDetails extends Activity {
+public class ActivityLocationDetails extends ActivitySendIdentityByNfc {
     
     private static final String LOG_TAG = "Location Details";
 
