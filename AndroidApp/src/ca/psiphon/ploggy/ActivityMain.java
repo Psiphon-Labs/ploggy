@@ -19,33 +19,15 @@
 
 package ca.psiphon.ploggy;
 
-import java.text.DateFormat;
-import java.util.ArrayList;
-
-import com.squareup.otto.Subscribe;
-
 import android.os.Bundle;
 import android.app.ActionBar;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.Fragment;
 import android.app.FragmentTransaction;
-import android.app.ListFragment;
-import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.view.ContextMenu;
-import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.BaseAdapter;
-import android.widget.ImageView;
-import android.widget.ListView;
-import android.widget.TextView;
 
 /**
  * The main UI screen.
@@ -66,19 +48,33 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         setContentView(R.layout.activity_main);
 
         ActionBar actionBar = getActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 
         // TODO: http://developer.android.com/reference/android/support/v4/view/ViewPager.html instead?
         actionBar.addTab(
                 actionBar.newTab()
-                    .setText(R.string.title_friend_list_fragment)
-                    .setTabListener(new TabListener<FriendListFragment>(this, "friend_list_fragment", FriendListFragment.class)));
-        
+                    .setText(R.string.title_your_status_fragment)
+                    .setTabListener(
+                            new TabListener<FragmentStatusDetails>(
+                                    this,
+                                    "fragment_self_status_details",
+                                    FragmentStatusDetails.class)));        
         actionBar.addTab(
                 actionBar.newTab()
-                    .setText(R.string.title_log_fragment)
-                    .setTabListener(new TabListener<LogFragment>(this, "log_fragment", LogFragment.class)));
+                    .setText(R.string.title_friend_list_fragment)
+                    .setTabListener(
+                            new TabListener<FragmentFriendList>(
+                                    this,
+                                    "fragment_friend_list",
+                                    FragmentFriendList.class)));        
+        actionBar.addTab(
+                actionBar.newTab()
+                    .setText(R.string.title_recent_activity_fragment)
+                    .setTabListener(
+                            new TabListener<FragmentRecentActivity>(
+                                    this,
+                                    "fragment_recent_activity",
+                                    FragmentRecentActivity.class)));
                 
         if (savedInstanceState != null) {
             actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
@@ -107,9 +103,6 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-        case R.id.action_self_location_details:
-            startActivity(new Intent(this, ActivityLocationDetails.class));
-            return true;
         case R.id.action_generate_self:
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
@@ -166,265 +159,6 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         }
 
         public void onTabReselected(ActionBar.Tab tab, FragmentTransaction ft) {
-        }
-    }
-
-    public static class FriendListFragment extends ListFragment {
-        private FriendAdapter mFriendAdapter;
-        
-        @Override
-        public void onActivityCreated(Bundle savedInstanceState) {
-            super.onActivityCreated(savedInstanceState);
-            try {
-                mFriendAdapter = new FriendAdapter(getActivity());
-                setListAdapter(mFriendAdapter);
-            } catch (Utils.ApplicationError e) {
-                Log.addEntry(LOG_TAG, "failed to initialize friend list");
-            }
-            registerForContextMenu(this.getListView());            
-            Events.register(this);
-        }
-
-        @Override
-        public void onDestroy() {
-            super.onDestroy();
-            Events.unregister(this);
-        }
-        
-        @Override
-        public void onListItemClick(ListView listView, View view, int position, long id) {
-            Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
-            Intent intent = new Intent(getActivity(), ActivityLocationDetails.class);
-            Bundle bundle = new Bundle();
-            bundle.putString(ActivityLocationDetails.FRIEND_ID_BUNDLE_KEY, friend.mId);
-            intent.putExtras(bundle);
-            startActivity(intent);
-        }
-
-        @Override
-        public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
-            super.onCreateContextMenu(menu, view, menuInfo);
-            MenuInflater inflater = this.getActivity().getMenuInflater();
-            inflater.inflate(R.menu.friend_list_context, menu);
-        }
-
-        @Override
-        public boolean onContextItemSelected(MenuItem item) {
-            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-            final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
-            switch (item.getItemId()) {
-                case R.id.action_delete_friend:
-                    new AlertDialog.Builder(getActivity())
-                        .setTitle(getString(R.string.label_delete_friend_title))
-                        .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
-                        .setPositiveButton(getString(R.string.label_delete_friend_positive),
-                                new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        try {
-                                            Data.getInstance().removeFriend(finalFriend.mId);
-                                        } catch (Data.DataNotFoundError e) {
-                                            // Ignore
-                                        } catch (Utils.ApplicationError e) {
-                                            Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
-                                        }
-                                    }
-                                })
-                        .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
-                        .show();
-                    return true;
-                default:
-                    return super.onContextItemSelected(item);
-            }
-        }
-
-        @Subscribe
-        public void onAddedFriend(Events.AddedFriend addedFriend) {
-            updateFriends();
-        }        
-
-        @Subscribe
-        public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
-            updateFriends();
-        }        
-
-        @Subscribe
-        public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
-            updateFriends();
-        }       
-
-        @Subscribe
-        public void onDeletedFriend(Events.RemovedFriend removedFriend) {
-            updateFriends();
-        }
-        
-        private void updateFriends() {
-            try {
-                mFriendAdapter.updateFriends();
-            } catch (Utils.ApplicationError e) {
-                Log.addEntry(LOG_TAG, "failed to update friend list");
-            }            
-        }
-    }
-
-    private static class FriendAdapter extends BaseAdapter {
-        private Context mContext;
-        private ArrayList<Data.Friend> mFriends;
-
-        public FriendAdapter(Context context) throws Utils.ApplicationError {
-            mContext = context;
-            mFriends = Data.getInstance().getFriends();
-        }
-        
-        public void updateFriends() throws Utils.ApplicationError {
-            mFriends = Data.getInstance().getFriends();
-            notifyDataSetChanged();
-        }
-
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.friend_list_row, null);
-            }
-            Data.Friend friend = mFriends.get(position);
-            if (friend != null) {
-                ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
-                TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
-                TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
-                TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
-                TextView distanceText = (TextView)view.findViewById(R.id.friend_list_distance_text);
-                
-                Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
-                nicknameText.setText(friend.mPublicIdentity.mNickname);
-                try {
-                    Data data = Data.getInstance();
-                    Data.Status selfStatus = null;
-                    try {
-                        selfStatus = data.getSelfStatus();
-                    } catch (Data.DataNotFoundError e) {
-                        // Won't be able to compute distance
-                    }
-                    Data.Status friendStatus = data.getFriendStatus(friend.mId);
-                    timestampText.setText(Utils.formatSameDayTime(friendStatus.mTimestamp));
-                    if (friendStatus.mStreetAddress.length() > 0) {
-                        streetAddressText.setText(friendStatus.mStreetAddress);                        
-                    } else {
-                        streetAddressText.setText(R.string.prompt_no_street_address_reported);
-                    }
-                    if (selfStatus != null) {
-                        int distance = Utils.calculateLocationDistanceInMeters(
-                                selfStatus.mLatitude,
-                                selfStatus.mLongitude,
-                                friendStatus.mLatitude,
-                                friendStatus.mLongitude);
-                        distanceText.setText(
-                                mContext.getString(R.string.format_friend_list_distance, distance));
-                    } else {
-                        distanceText.setText(R.string.prompt_unknown_distance);
-                    }
-                } catch (Data.DataNotFoundError e) {
-                    timestampText.setText(R.string.prompt_no_location_updates_received);
-                    streetAddressText.setText("");
-                    distanceText.setText("");
-                } catch (Utils.ApplicationError e) {
-                    Log.addEntry(LOG_TAG, "failed to display friend");
-                    timestampText.setText("");
-                    streetAddressText.setText("");
-                    distanceText.setText("");
-                }
-            }            
-            return view;
-        }
-
-        @Override
-        public int getCount() {
-            return mFriends.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mFriends.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
-    }
-
-    public static class LogFragment extends ListFragment implements Log.Observer {
-        private LogAdapter mLogAdapter;
-        
-        @Override
-        public void onActivityCreated(Bundle savedInstanceState) {
-            super.onActivityCreated(savedInstanceState);
-            mLogAdapter = new LogAdapter(getActivity());
-            setListAdapter(mLogAdapter);
-        }
-
-        @Override
-        public void onStart() {
-            super.onStart();
-            getListView().setSelection(mLogAdapter.getCount() - 1);
-            getListView().setTranscriptMode(ListView.TRANSCRIPT_MODE_ALWAYS_SCROLL);
-            Log.registerObserver(this);
-        }
-
-        @Override
-        public void onStop() {
-            super.onStop();
-            Log.unregisterObserver(this);
-        }
-
-        @Override
-        public void onUpdatedRecentEntries() {
-            mLogAdapter.notifyDataSetChanged();
-            getListView().setSelection(mLogAdapter.getCount() - 1);
-        }        
-    }
-
-    private static class LogAdapter extends BaseAdapter {
-        private Context mContext;
-        private DateFormat mDateFormat;
-
-        public LogAdapter(Context context) {
-            mContext = context;
-            mDateFormat = DateFormat.getDateTimeInstance();
-        }
-        
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.log_row, null);
-            }
-            Log.Entry entry = Log.getRecentEntry(position);
-            if (entry != null) {
-                TextView timestampText = (TextView)view.findViewById(R.id.log_timestamp_text);
-                TextView tagText = (TextView)view.findViewById(R.id.log_tag_text);
-                TextView messageText = (TextView)view.findViewById(R.id.log_message_text);
-
-                timestampText.setText(mDateFormat.format(entry.mTimestamp));
-                tagText.setText(entry.mTag);
-                messageText.setText(entry.mMessage);
-            }            
-            return view;
-        }
-
-        @Override
-        public int getCount() {
-            return Log.getRecentEntryCount();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return Log.getRecentEntry(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
         }
     }
 }
