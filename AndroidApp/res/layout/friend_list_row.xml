@@ -31,7 +31,7 @@
         android:textStyle="bold" />
  
     <TextView
-        android:id="@+id/friend_list_timestamp_text"
+        android:id="@+id/friend_list_message_timestamp_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/friend_list_nickname_text"
@@ -41,30 +41,40 @@
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_message_text"
+        android:id="@+id/friend_list_message_content_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_timestamp_text"
+        android:layout_below="@id/friend_list_message_timestamp_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_street_address_text"
+        android:id="@+id/friend_list_location_timestamp_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_message_text"
+        android:layout_below="@id/friend_list_message_content_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_distance_text"
+        android:id="@+id/friend_list_location_street_address_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_street_address_text"
+        android:layout_below="@id/friend_list_location_timestamp_text"
+        android:layout_marginTop="1dip"
+        android:layout_toRightOf="@+id/friend_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/friend_list_location_distance_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/friend_list_location_street_address_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"

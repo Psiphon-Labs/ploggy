@@ -92,13 +92,13 @@ public class Data {
     
     public static class Message {
         public final Date mTimestamp;
-        public final String mText;
+        public final String mContent;
 
         public Message(
                 Date timestamp,
-                String text) {
+                String content) {
             mTimestamp = timestamp;
-            mText = text;
+            mContent = content;
         }
     }
     
@@ -223,23 +223,29 @@ public class Data {
         return mSelfStatus;
     }
 
-    public synchronized void updateSelfMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
-        // Keep previous location -- must have an existing Status
-        Status status = new Status(message, getSelfStatus().mLocation);
+    public synchronized void updateSelfStatusMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
+        // Keep previous location -- fill in blank location if necessary
+        Location location = null;
+        try {
+            location = getSelfStatus().mLocation;
+        } catch (DataNotFoundError e) {
+            location = new Location(null, 0, 0, 0, null);
+        }
+
+        Status status = new Status(message, location);
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
         Log.addEntry(LOG_TAG, "updated your message");
         Events.post(new Events.UpdatedSelfStatus());
     }
 
-    public synchronized void updateSelfLocation(Data.Location location) throws Utils.ApplicationError {
+    public synchronized void updateSelfStatusLocation(Data.Location location) throws Utils.ApplicationError {
         // Keep previous message -- fill in blank message if necessary
         Message message = null;
         try {
             message = getSelfStatus().mMessage;
         } catch (DataNotFoundError e) {
-            // TODO: support null Message fields
-            message = new Message(location.mTimestamp, "");
+            message = new Message(null, null);
         }
         Status status = new Status(message, location);
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));

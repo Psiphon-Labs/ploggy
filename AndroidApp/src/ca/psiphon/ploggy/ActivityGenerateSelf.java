@@ -52,7 +52,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
     private ImageView mAvatarImage;
     private EditText mNicknameEdit;
     private TextView mFingerprintText;
-    private Button mEditButton;
+    private Button mRegenerateButton;
     private Button mSaveButton;
     private ProgressDialog mProgressDialog;
     private GenerateTask mGenerateTask;
@@ -71,10 +71,10 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         mNicknameEdit.addTextChangedListener(getNicknameTextChangedListener());
         mNicknameEdit.setEnabled(false);
         mFingerprintText = (TextView)findViewById(R.id.generate_self_fingerprint_text);
-        mEditButton = (Button)findViewById(R.id.generate_self_edit_button);
-        mEditButton.setEnabled(false);
-        mEditButton.setVisibility(View.GONE);
-        mEditButton.setOnClickListener(this);
+        mRegenerateButton = (Button)findViewById(R.id.generate_self_regenerate_button);
+        mRegenerateButton.setEnabled(false);
+        mRegenerateButton.setVisibility(View.GONE);
+        mRegenerateButton.setOnClickListener(this);
         mSaveButton = (Button)findViewById(R.id.generate_self_save_button);
         mSaveButton.setEnabled(false);
         mSaveButton.setVisibility(View.GONE);
@@ -108,8 +108,8 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         } else {
             showAvatarAndFingerprint(self.mPublicIdentity);
             mNicknameEdit.setText(self.mPublicIdentity.mNickname);
-            mEditButton.setEnabled(true);
-            mEditButton.setVisibility(View.VISIBLE);
+            mRegenerateButton.setEnabled(true);
+            mRegenerateButton.setVisibility(View.VISIBLE);
             mSaveButton.setEnabled(false);
             mSaveButton.setVisibility(View.GONE);
 
@@ -122,8 +122,8 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mNicknameEdit.setText("");
         mFingerprintText.setText("");
-        mEditButton.setEnabled(false);
-        mEditButton.setVisibility(View.GONE);
+        mRegenerateButton.setEnabled(false);
+        mRegenerateButton.setVisibility(View.GONE);
         mSaveButton.setEnabled(false);
         mSaveButton.setVisibility(View.VISIBLE);        
         mGenerateTask = new GenerateTask();
@@ -149,7 +149,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
     
     @Override
     public void onClick(View view) {
-        if (view.equals(mEditButton)) {
+        if (view.equals(mRegenerateButton)) {
             startGenerating();            
         } else if (view.equals(mSaveButton)) {
             String nickname = mNicknameEdit.getText().toString();

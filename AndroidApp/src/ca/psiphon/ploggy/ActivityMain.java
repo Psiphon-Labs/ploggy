@@ -28,6 +28,7 @@ import android.content.Intent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.WindowManager;
 
 /**
  * The main UI screen.
@@ -91,6 +92,9 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
     protected void onResume() {
         super.onResume();
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
+
+        // Don't show the keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
     
     @Override

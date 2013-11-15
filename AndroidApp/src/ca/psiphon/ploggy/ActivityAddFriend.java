@@ -194,7 +194,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
                 finish();
             } catch (Data.DataAlreadyExistsError e) {
-                String prompt = getString(R.string.prompt_add_friend_friend_added, mReceivedFriend.mPublicIdentity.mNickname);
+                String prompt = getString(R.string.prompt_add_friend_friend_already_exists, mReceivedFriend.mPublicIdentity.mNickname);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to add friend");

@@ -216,7 +216,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     address.append(newSelfLocation.mAddress.getAddressLine(i));
                 }
             }
-            Data.getInstance().updateSelfLocation(
+            Data.getInstance().updateSelfStatusLocation(
                     new Data.Location(
                             new Date(),
                             newSelfLocation.mLocation.getLatitude(),

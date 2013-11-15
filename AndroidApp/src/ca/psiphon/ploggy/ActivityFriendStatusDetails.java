@@ -25,7 +25,6 @@ import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
 import android.view.View;
-import android.widget.AutoCompleteTextView;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -47,12 +46,21 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     private ImageView mAvatarImage;
     private TextView mNicknameText;
     private TextView mFingerprintText;
-    private TextView mMessageText;
-    private TextView mStreetAddressText;
-    private TextView mDistanceText;
-    private TextView mCoordinatesText;
-    private TextView mPrecisionText;
+    private TextView mMessageLabel;
+    private TextView mMessageContentLabel;
+    private TextView mMessageContentText;
+    private TextView mMessageTimestampLabel;
     private TextView mMessageTimestampText;
+    private TextView mLocationLabel;
+    private TextView mLocationStreetAddressLabel;
+    private TextView mLocationStreetAddressText;
+    private TextView mLocationDistanceLabel;
+    private TextView mLocationDistanceText;
+    private TextView mLocationCoordinatesLabel;
+    private TextView mLocationCoordinatesText;
+    private TextView mLocationPrecisionLabel;
+    private TextView mLocationPrecisionText;
+    private TextView mLocationTimestampLabel;
     private TextView mLocationTimestampText;
     private TextView mLastReceivedStatusTimestampText;
     private TextView mLastSentStatusTimestampText;
@@ -66,12 +74,21 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mAvatarImage = (ImageView)findViewById(R.id.friend_status_details_avatar_image);
         mNicknameText = (TextView)findViewById(R.id.friend_status_details_nickname_text);
         mFingerprintText = (TextView)findViewById(R.id.friend_status_details_fingerprint_text);
-        mMessageText = (TextView)findViewById(R.id.friend_status_details_message_text);
-        mStreetAddressText = (TextView)findViewById(R.id.friend_status_details_street_address_text);
-        mDistanceText = (TextView)findViewById(R.id.friend_status_details_distance_text);
-        mCoordinatesText = (TextView)findViewById(R.id.friend_status_details_coordinates_text);
-        mPrecisionText = (TextView)findViewById(R.id.friend_status_details_precision_text);
+        mMessageLabel = (TextView)findViewById(R.id.friend_status_details_message_label);
+        mMessageContentLabel = (TextView)findViewById(R.id.friend_status_details_message_content_label);
+        mMessageContentText = (TextView)findViewById(R.id.friend_status_details_message_content_text);
+        mMessageTimestampLabel = (TextView)findViewById(R.id.friend_status_details_message_timestamp_label);
         mMessageTimestampText = (TextView)findViewById(R.id.friend_status_details_message_timestamp_text);
+        mLocationLabel = (TextView)findViewById(R.id.friend_status_details_location_label);
+        mLocationStreetAddressLabel = (TextView)findViewById(R.id.friend_status_details_location_street_address_label);
+        mLocationStreetAddressText = (TextView)findViewById(R.id.friend_status_details_location_street_address_text);
+        mLocationDistanceLabel = (TextView)findViewById(R.id.friend_status_details_location_distance_label);
+        mLocationDistanceText = (TextView)findViewById(R.id.friend_status_details_location_distance_text);
+        mLocationCoordinatesLabel = (TextView)findViewById(R.id.friend_status_details_location_coordinates_label);
+        mLocationCoordinatesText = (TextView)findViewById(R.id.friend_status_details_location_coordinates_text);
+        mLocationPrecisionLabel = (TextView)findViewById(R.id.friend_status_details_location_precision_label);
+        mLocationPrecisionText = (TextView)findViewById(R.id.friend_status_details_location_precision_text);
+        mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_text);
         mLastReceivedStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_received_status_timestamp_text);
         mLastSentStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_status_timestamp_text);
@@ -124,35 +141,58 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
-            mMessageText.setText(friendStatus.mMessage.mText);
-            mMessageText.setEnabled(false);
-            if (friendStatus.mLocation.mStreetAddress.length() > 0) {
-                mStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
-            } else {
-                mStreetAddressText.setText(R.string.prompt_no_street_address_reported);
+
+            int messageVisibility = (friendStatus.mMessage.mTimestamp != null) ? View.VISIBLE : View.GONE;
+            mMessageLabel.setVisibility(messageVisibility);
+            mMessageContentLabel.setVisibility(messageVisibility);
+            mMessageContentText.setVisibility(messageVisibility);
+            mMessageTimestampLabel.setVisibility(messageVisibility);
+            mMessageTimestampText.setVisibility(messageVisibility);
+            if (friendStatus.mMessage.mTimestamp != null) {
+                mMessageContentText.setText(friendStatus.mMessage.mContent);
+                mMessageTimestampText.setText(Utils.formatSameDayTime(friendStatus.mMessage.mTimestamp));
             }
-            if (selfStatus != null) {
-                int distance = Utils.calculateLocationDistanceInMeters(
-                        selfStatus.mLocation.mLatitude,
-                        selfStatus.mLocation.mLongitude,
-                        friendStatus.mLocation.mLatitude,
-                        friendStatus.mLocation.mLongitude);
-                mDistanceText.setText(
-                        getString(R.string.format_status_details_distance, distance));
-            } else {
-                mDistanceText.setText(R.string.prompt_unknown_distance);
-            }
-            mCoordinatesText.setText(
-                    getString(
-                            R.string.format_status_details_coordinates,
+
+            int locationVisibility = (friendStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
+            mLocationLabel.setVisibility(messageVisibility);
+            mLocationStreetAddressLabel.setVisibility(locationVisibility);
+            mLocationStreetAddressText.setVisibility(locationVisibility);
+            mLocationDistanceLabel.setVisibility(locationVisibility);
+            mLocationDistanceText.setVisibility(locationVisibility);
+            mLocationCoordinatesLabel.setVisibility(locationVisibility);
+            mLocationCoordinatesText.setVisibility(locationVisibility);
+            mLocationPrecisionLabel.setVisibility(locationVisibility);
+            mLocationPrecisionText.setVisibility(locationVisibility);
+            mLocationTimestampLabel.setVisibility(locationVisibility);
+            mLocationTimestampText.setVisibility(locationVisibility);
+            if (friendStatus.mLocation.mTimestamp != null) {
+                if (friendStatus.mLocation.mStreetAddress.length() > 0) {
+                    mLocationStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
+                } else {
+                    mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
+                }
+                if (selfStatus != null) {
+                    int distance = Utils.calculateLocationDistanceInMeters(
+                            selfStatus.mLocation.mLatitude,
+                            selfStatus.mLocation.mLongitude,
                             friendStatus.mLocation.mLatitude,
-                            friendStatus.mLocation.mLongitude));
-            mPrecisionText.setText(
-                    getString(
-                            R.string.format_status_details_precision,
-                            friendStatus.mLocation.mPrecision));
-            mMessageTimestampText.setText(Utils.formatSameDayTime(friendStatus.mMessage.mTimestamp));
-            mLocationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+                            friendStatus.mLocation.mLongitude);
+                    mLocationDistanceText.setText(
+                            getString(R.string.format_status_details_distance, distance));
+                } else {
+                    mLocationDistanceText.setText(R.string.prompt_unknown_distance);
+                }
+                mLocationCoordinatesText.setText(
+                        getString(
+                                R.string.format_status_details_coordinates,
+                                friendStatus.mLocation.mLatitude,
+                                friendStatus.mLocation.mLongitude));
+                mLocationPrecisionText.setText(
+                        getString(
+                                R.string.format_status_details_precision,
+                                friendStatus.mLocation.mPrecision));
+                mLocationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+            }
             if (lastReceivedStatusTimestamp != null) {
                 mLastReceivedStatusTimestampText.setText(Utils.formatSameDayTime(lastReceivedStatusTimestamp));
             } else {

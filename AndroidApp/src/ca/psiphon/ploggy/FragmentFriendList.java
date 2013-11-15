@@ -171,9 +171,18 @@ public class FragmentFriendList extends ListFragment {
             if (friend != null) {
                 ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
-                TextView timestampText = (TextView)view.findViewById(R.id.friend_list_timestamp_text);
-                TextView streetAddressText = (TextView)view.findViewById(R.id.friend_list_street_address_text);
-                TextView distanceText = (TextView)view.findViewById(R.id.friend_list_distance_text);
+                TextView messageTimestampText = (TextView)view.findViewById(R.id.friend_list_message_timestamp_text);
+                TextView messageContentText = (TextView)view.findViewById(R.id.friend_list_message_content_text);
+                TextView locationTimestampText = (TextView)view.findViewById(R.id.friend_list_location_timestamp_text);
+                TextView locationStreetAddressText = (TextView)view.findViewById(R.id.friend_list_location_street_address_text);
+                TextView locationDistanceText = (TextView)view.findViewById(R.id.friend_list_location_distance_text);
+                
+                // Not hiding missing fields
+                messageTimestampText.setText("");
+                messageContentText.setText("");
+                locationTimestampText.setText("");
+                locationStreetAddressText.setText("");
+                locationDistanceText.setText("");
                 
                 Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
@@ -185,33 +194,36 @@ public class FragmentFriendList extends ListFragment {
                     } catch (Data.DataNotFoundError e) {
                         // Won't be able to compute distance
                     }
+
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
-                    timestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
-                    if (friendStatus.mLocation.mStreetAddress.length() > 0) {
-                        streetAddressText.setText(friendStatus.mLocation.mStreetAddress);
-                    } else {
-                        streetAddressText.setText(R.string.prompt_no_street_address_reported);
+
+                    if (friendStatus.mMessage.mTimestamp != null) {
+                        messageContentText.setText(friendStatus.mMessage.mContent);
+                        messageTimestampText.setText(Utils.formatSameDayTime(friendStatus.mMessage.mTimestamp));
                     }
-                    if (selfStatus != null) {
-                        int distance = Utils.calculateLocationDistanceInMeters(
-                                selfStatus.mLocation.mLatitude,
-                                selfStatus.mLocation.mLongitude,
-                                friendStatus.mLocation.mLatitude,
-                                friendStatus.mLocation.mLongitude);
-                        distanceText.setText(
-                                mContext.getString(R.string.format_friend_list_distance, distance));
-                    } else {
-                        distanceText.setText(R.string.prompt_unknown_distance);
+                    if (friendStatus.mLocation.mTimestamp != null) {
+                        locationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+                        if (friendStatus.mLocation.mStreetAddress.length() > 0) {
+                            locationStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
+                        } else {
+                            locationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
+                        }
+                        if (selfStatus != null) {
+                            int distance = Utils.calculateLocationDistanceInMeters(
+                                    selfStatus.mLocation.mLatitude,
+                                    selfStatus.mLocation.mLongitude,
+                                    friendStatus.mLocation.mLatitude,
+                                    friendStatus.mLocation.mLongitude);
+                            locationDistanceText.setText(
+                                    mContext.getString(R.string.format_friend_list_distance, distance));
+                        } else {
+                            locationDistanceText.setText(R.string.prompt_unknown_distance);
+                        }
                     }
                 } catch (Data.DataNotFoundError e) {
-                    timestampText.setText(R.string.prompt_no_status_updates_received);
-                    streetAddressText.setText("");
-                    distanceText.setText("");
+                    messageTimestampText.setText(R.string.prompt_no_status_updates_received);
                 } catch (Utils.ApplicationError e) {
                     Log.addEntry(LOG_TAG, "failed to display friend");
-                    timestampText.setText("");
-                    streetAddressText.setText("");
-                    distanceText.setText("");
                 }
             }            
             return view;
