@@ -35,11 +35,14 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import android.app.Activity;
 import android.content.Context;
 import android.location.Location;
 import android.os.FileObserver;
 import android.text.format.DateUtils;
 import android.util.Base64;
+import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -242,5 +245,15 @@ public class Utils {
     
     public static Context getApplicationContext() {
         return mApplicationContext;
+    }
+    
+    public static void hideKeyboard(Activity activity) {
+        View currentFocusView = activity.getCurrentFocus();
+        if (currentFocusView != null) {
+            InputMethodManager inputManager =
+                    (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+            inputManager.hideSoftInputFromWindow(
+                    currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+        }
     }
 }
