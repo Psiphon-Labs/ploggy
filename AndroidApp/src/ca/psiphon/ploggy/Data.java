@@ -210,15 +210,22 @@ public class Data {
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
+        // When creating a new identity, remove status from previous identity
+        deleteFile(String.format(SELF_STATUS_FILENAME));
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
         Log.addEntry(LOG_TAG, "updated your identity");
         Events.post(new Events.UpdatedSelf());
     }
 
-    public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundError {
+    public synchronized Status getSelfStatus() throws Utils.ApplicationError {
         if (mSelfStatus == null) {
-            mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            try {
+                mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            } catch (DataNotFoundError e) {
+                // If there's no previous status, return a blank one
+                return new Status(new Message(null, null), new Location(null, 0, 0, 0, null));
+            }
         }
         return mSelfStatus;
     }

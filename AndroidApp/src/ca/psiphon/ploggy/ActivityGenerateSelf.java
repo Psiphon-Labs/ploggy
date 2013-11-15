@@ -29,6 +29,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -114,6 +115,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             mSaveButton.setVisibility(View.GONE);
 
         }
+
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
@@ -167,6 +169,9 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                                         mGenerateResult.mX509KeyMaterial,
                                         mGenerateResult.mHiddenServiceKeyMaterial),
                                 new Date()));
+
+                Utils.hideKeyboard(this);
+
                 finish();
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to update self");
