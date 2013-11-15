@@ -162,7 +162,7 @@ public class LocationMonitor implements android.location.LocationListener {
                                 mLastReportedLocation.getLongitude(),
                                 1);
                     } catch (IOException e) {
-                        Log.addEntry(LOG_TAG, "reverse geocode failed");
+                        Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
                     }
                     
                     // TODO: get map                    

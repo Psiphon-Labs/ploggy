@@ -33,7 +33,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -46,7 +45,7 @@ import android.content.Intent;
  * nickname. The resulting identity fingerprint and Robohash avatar is updated
  * after brief pauses in typing.
  */
-public class ActivityGenerateSelf extends Activity implements View.OnClickListener {
+public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements View.OnClickListener {
     
     private static final String LOG_TAG = "Generate Self";
 
@@ -228,6 +227,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                 mNicknameEdit.getText().toString(),
                                 mGenerateResult.mX509KeyMaterial.mCertificate,
                                 mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                 null));
                 mNicknameEdit.setEnabled(true);
             }
@@ -268,6 +268,7 @@ public class ActivityGenerateSelf extends Activity implements View.OnClickListen
                                                     nickname,
                                                     mGenerateResult.mX509KeyMaterial.mCertificate,
                                                     mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                                    mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                                     null));
                                 }
                             }

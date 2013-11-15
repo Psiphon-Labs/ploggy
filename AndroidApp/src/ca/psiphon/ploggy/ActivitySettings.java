@@ -25,7 +25,6 @@ import ca.psiphon.ploggy.widgets.TimePickerPreference;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.preference.PreferenceFragment;
-import android.app.Activity;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 
@@ -36,7 +35,7 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
  * TimePicker- and SeekBar-based preferences are implemented with custom widgets, and this
  * Activity provides support for updating the summaries for TimePicker preferences.
  */
-public class ActivitySettings extends Activity {
+public class ActivitySettings extends ActivitySendIdentityByNfc {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
