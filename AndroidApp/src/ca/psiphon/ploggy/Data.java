@@ -216,9 +216,14 @@ public class Data {
         Events.post(new Events.UpdatedSelf());
     }
 
-    public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundError {
+    public synchronized Status getSelfStatus() throws Utils.ApplicationError {
         if (mSelfStatus == null) {
-            mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            try {
+                mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            } catch (DataNotFoundError e) {
+                // If there's no previous status, return a blank one
+                return new Status(new Message(null, null), new Location(null, 0, 0, 0, null));
+            }
         }
         return mSelfStatus;
     }
