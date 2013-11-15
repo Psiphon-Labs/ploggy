@@ -210,6 +210,8 @@ public class Data {
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
+        // When creating a new identity, remove status from previous identity
+        deleteFile(String.format(SELF_STATUS_FILENAME));
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
         Log.addEntry(LOG_TAG, "updated your identity");
