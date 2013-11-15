@@ -88,7 +88,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mLocationCoordinatesText = (TextView)findViewById(R.id.friend_status_details_location_coordinates_text);
         mLocationPrecisionLabel = (TextView)findViewById(R.id.friend_status_details_location_precision_label);
         mLocationPrecisionText = (TextView)findViewById(R.id.friend_status_details_location_precision_text);
-        mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_label);
+        mLocationTimestampLabel = (TextView)findViewById(R.id.friend_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_text);
         mLastReceivedStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_received_status_timestamp_text);
         mLastSentStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_status_timestamp_text);
@@ -100,7 +100,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             return;
         }
 
-        String mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
+        mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
         if (mFriendId == null) {
             finish();
             return;
@@ -154,7 +154,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             }
 
             int locationVisibility = (friendStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
-            mLocationLabel.setVisibility(messageVisibility);
+            mLocationLabel.setVisibility(locationVisibility);
             mLocationStreetAddressLabel.setVisibility(locationVisibility);
             mLocationStreetAddressText.setVisibility(locationVisibility);
             mLocationDistanceLabel.setVisibility(locationVisibility);

@@ -15,8 +15,8 @@
  
         <ImageView
             android:id="@+id/friend_list_avatar_image"
-            android:layout_width="75dip"
-            android:layout_height="75dip" />
+            android:layout_width="100dip"
+            android:layout_height="100dip" />
  
     </LinearLayout>
  

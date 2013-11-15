@@ -36,7 +36,7 @@
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityLocationDetails"
+            android:name="ca.psiphon.ploggy.ActivityFriendStatusDetails"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity

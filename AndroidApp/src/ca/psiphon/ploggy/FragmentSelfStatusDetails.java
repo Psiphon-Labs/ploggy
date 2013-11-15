@@ -24,12 +24,14 @@ import java.util.Date;
 import com.squareup.otto.Subscribe;
 
 import android.app.Fragment;
+import android.content.Context;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -169,6 +171,15 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
             try {
                 Data.getInstance().updateSelfStatusMessage(
                         new Data.Message(new Date(), mMessageContentEdit.getText().toString()));
+
+                // Hide the keyboard
+                View currentFocusView = getActivity().getCurrentFocus();
+                if (currentFocusView != null) {
+                    InputMethodManager inputManager =
+                            (InputMethodManager)getActivity().getSystemService(Context.INPUT_METHOD_SERVICE); 
+                    inputManager.hideSoftInputFromWindow(
+                            currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+                }
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to update self message");
             }

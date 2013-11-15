@@ -1,3 +1,10 @@
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true" >
+
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -37,8 +44,8 @@
  
             <ImageView
                 android:id="@+id/friend_status_details_avatar_image"
-                android:layout_width="150dip"
-                android:layout_height="150dip" />
+                android:layout_width="100dip"
+                android:layout_height="100dip" />
  
         </LinearLayout>
  
@@ -275,3 +282,5 @@
         android:textSize="12dip" />
 
 </LinearLayout>
+
+</ScrollView>
