@@ -186,25 +186,25 @@ public class FragmentFriendList extends ListFragment {
                         // Won't be able to compute distance
                     }
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
-                    timestampText.setText(Utils.formatSameDayTime(friendStatus.mTimestamp));
-                    if (friendStatus.mStreetAddress.length() > 0) {
-                        streetAddressText.setText(friendStatus.mStreetAddress);                        
+                    timestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+                    if (friendStatus.mLocation.mStreetAddress.length() > 0) {
+                        streetAddressText.setText(friendStatus.mLocation.mStreetAddress);                        
                     } else {
                         streetAddressText.setText(R.string.prompt_no_street_address_reported);
                     }
                     if (selfStatus != null) {
                         int distance = Utils.calculateLocationDistanceInMeters(
-                                selfStatus.mLatitude,
-                                selfStatus.mLongitude,
-                                friendStatus.mLatitude,
-                                friendStatus.mLongitude);
+                                selfStatus.mLocation.mLatitude,
+                                selfStatus.mLocation.mLongitude,
+                                friendStatus.mLocation.mLatitude,
+                                friendStatus.mLocation.mLongitude);
                         distanceText.setText(
                                 mContext.getString(R.string.format_friend_list_distance, distance));
                     } else {
                         distanceText.setText(R.string.prompt_unknown_distance);
                     }
                 } catch (Data.DataNotFoundError e) {
-                    timestampText.setText(R.string.prompt_no_location_updates_received);
+                    timestampText.setText(R.string.prompt_no_status_updates_received);
                     streetAddressText.setText("");
                     distanceText.setText("");
                 } catch (Utils.ApplicationError e) {

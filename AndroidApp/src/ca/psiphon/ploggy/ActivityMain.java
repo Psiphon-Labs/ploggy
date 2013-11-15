@@ -55,10 +55,10 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
                 actionBar.newTab()
                     .setText(R.string.title_your_status_fragment)
                     .setTabListener(
-                            new TabListener<FragmentStatusDetails>(
+                            new TabListener<FragmentSelfStatusDetails>(
                                     this,
                                     "fragment_self_status_details",
-                                    FragmentStatusDetails.class)));        
+                                    FragmentSelfStatusDetails.class)));        
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_friend_list_fragment)

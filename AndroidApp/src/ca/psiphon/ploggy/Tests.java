@@ -29,7 +29,6 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import ca.psiphon.ploggy.Data.Status;
 import ca.psiphon.ploggy.Utils.ApplicationError;
 
 /**
@@ -84,23 +83,27 @@ public class Tests {
             mThreadPool.execute(task);
         }
 
-        public Status getMockStatus() {
-            return new Status(
-                    mMockTimestamp,
-                    mMockLatitude,
-                    mMockLongitude,
-                    10,
-                    mMockAddress);
+        public Data.Status getMockStatus() {
+            return new Data.Status(
+                    new Data.Message(
+                        mMockTimestamp,
+                        ""),
+                    new Data.Location(
+                        mMockTimestamp,
+                        mMockLatitude,
+                        mMockLongitude,
+                        10,
+                        mMockAddress));
         }
 
         @Override
-        public Status handlePullStatusRequest(String friendId) throws ApplicationError {
+        public Data.Status handlePullStatusRequest(String friendId) throws ApplicationError {
             Log.addEntry(LOG_TAG, "handle pull status request...");
             return getMockStatus();
         }
 
         @Override
-        public void handlePushStatusRequest(String friendId, Status status) throws ApplicationError {
+        public void handlePushStatusRequest(String friendId, Data.Status status) throws ApplicationError {
             Log.addEntry(LOG_TAG, "handle push status request...");
         }
     }

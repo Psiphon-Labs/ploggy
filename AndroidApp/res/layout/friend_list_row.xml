@@ -41,10 +41,20 @@
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_street_address_text"
+        android:id="@+id/friend_list_message_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/friend_list_timestamp_text"
+        android:layout_marginTop="1dip"
+        android:layout_toRightOf="@+id/friend_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/friend_list_street_address_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/friend_list_message_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
