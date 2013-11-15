@@ -104,7 +104,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     @Subscribe
     public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         show();
-    }       
+    }
 
     private void show() {
         try {
@@ -117,7 +117,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 selfStatus = data.getSelfStatus();
             } catch (Data.DataNotFoundError e) {
                 // Won't be able to compute distance
-            }                
+            }
             Date lastSentStatusTimestamp = data.getFriendLastSentStatusTimestamp(friend.mId);
             Date lastReceivedStatusTimestamp = data.getFriendLastReceivedStatusTimestamp(friend.mId);
     

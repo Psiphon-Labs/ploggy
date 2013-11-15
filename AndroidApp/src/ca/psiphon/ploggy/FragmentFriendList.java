@@ -188,7 +188,7 @@ public class FragmentFriendList extends ListFragment {
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
                     timestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
                     if (friendStatus.mLocation.mStreetAddress.length() > 0) {
-                        streetAddressText.setText(friendStatus.mLocation.mStreetAddress);                        
+                        streetAddressText.setText(friendStatus.mLocation.mStreetAddress);
                     } else {
                         streetAddressText.setText(R.string.prompt_no_street_address_reported);
                     }

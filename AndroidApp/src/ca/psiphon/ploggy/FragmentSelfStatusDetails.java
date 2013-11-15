@@ -122,7 +122,7 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to display self status details");
             getView().setVisibility(View.GONE);
-        }   
+        }
     }
 
     @Override
