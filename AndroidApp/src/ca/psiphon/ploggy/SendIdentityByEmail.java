@@ -20,28 +20,22 @@
 package ca.psiphon.ploggy;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Date;
 
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.Environment;
 
 /**
- * User interface for adding friends by exchanging email attachments.
+ * Helper for adding friends by exchanging email attachments.
  * 
  * On the sending side, this launches an email draft containing self's
- * public identity as a ".ploggy" attachment. On the receiving side, this
- * handles ".ploggy" attachment invocations and displays a varient of the
- * add friend UI.
+ * public identity as a ".ploggy" attachment. On the receiving side,
+ * ActivityAddFriend handles ".ploggy" attachment invocations.
  *
  * This work flow can compromise unlinkability:
  * - The sent email will expose the Ploggy link between the sender
@@ -54,55 +48,9 @@ import android.os.Environment;
  * There's a warning prompt before the action is taken.
  * TODO: consider disabling the option entirely if the user selects an "unlinkable" posture.
  */
-public class ActivityAddFriendByEmail extends ActivityAddFriend {
+public class SendIdentityByEmail {
 
-    private static final String LOG_TAG = "Add Friend By Email";
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        
-        // Asymmetric identity exchange: allow add friend regardless of self push state.
-        mSelfPushComplete = true;
-
-        // Extract friend public identity from email attachment (or file)
-        Intent intent = getIntent();
-        InputStream inputStream = null;
-        try {
-            Uri uri = intent.getData();
-            String scheme = uri.getScheme();
-            if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-                ContentResolver contentResolver = getContentResolver();
-                inputStream = contentResolver.openInputStream(uri);
-            } else {
-                String filePath = uri.getEncodedPath();
-                if (filePath != null) {
-                    inputStream = new FileInputStream(new File(filePath));
-                }
-            }
-            if (inputStream != null) {
-                String payload = Utils.readInputStreamToString(inputStream);
-                Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
-                Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
-                // TODO: display validation error?
-                mReceivedFriend = friend;
-                showFriend();                
-            }
-        } catch (IOException e) {
-            Log.addEntry(LOG_TAG, e.getMessage());
-            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to open .ploggy file");
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                }
-            }
-        }
-    }
+    private static final String LOG_TAG = "Send Identity By Email";
 
     private static final String PUBLIC_STORAGE_DIRECTORY = "Ploggy";
     // TODO: per-persona filenames?

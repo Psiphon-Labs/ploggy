@@ -38,8 +38,10 @@ public class Json {
 
     private static final Gson mSerializer =
             new GsonBuilder().
+                    serializeNulls().
                     setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").
-                    setFieldNamingStrategy(new CustomFieldNamingStrategy()).create(); 
+                    setFieldNamingStrategy(new CustomFieldNamingStrategy()).
+                    create(); 
     
     public static String toJson(Object object) {
         return mSerializer.toJson(object);

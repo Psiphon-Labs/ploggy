@@ -90,17 +90,26 @@ public class Data {
         }
     }
     
-    public static class Status {
+    public static class Message {
+        public final Date mTimestamp;
+        public final String mContent;
+
+        public Message(
+                Date timestamp,
+                String content) {
+            mTimestamp = timestamp;
+            mContent = content;
+        }
+    }
+    
+    public static class Location {
         public final Date mTimestamp;
         public final double mLatitude;
         public final double mLongitude;
         public final int mPrecision;
         public final String mStreetAddress;
-        // TODO: public final ArrayList<String> mMapTileIds;
-        // TODO: public final String mMessage;
-        // TODO: public final String mPhotoId;
 
-        public Status(
+        public Location(
                 Date timestamp,
                 double latitude,
                 double longitude,
@@ -111,6 +120,18 @@ public class Data {
             mLongitude = longitude;
             mPrecision = precision;
             mStreetAddress = streetAddress;            
+        }
+    }
+    
+    public static class Status {
+        public final Message mMessage;
+        public final Location mLocation;
+
+        public Status(
+                Message message,
+                Location location) {
+            mMessage = message;
+            mLocation = location;
         }
     }
     
@@ -191,7 +212,7 @@ public class Data {
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
-        Log.addEntry(LOG_TAG, "updated self");
+        Log.addEntry(LOG_TAG, "updated your identity");
         Events.post(new Events.UpdatedSelf());
     }
 
@@ -202,10 +223,34 @@ public class Data {
         return mSelfStatus;
     }
 
-    public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
+    public synchronized void updateSelfStatusMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
+        // Keep previous location -- fill in blank location if necessary
+        Location location = null;
+        try {
+            location = getSelfStatus().mLocation;
+        } catch (DataNotFoundError e) {
+            location = new Location(null, 0, 0, 0, null);
+        }
+
+        Status status = new Status(message, location);
         writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
         mSelfStatus = status;
-        Log.addEntry(LOG_TAG, "updated self status");
+        Log.addEntry(LOG_TAG, "updated your message");
+        Events.post(new Events.UpdatedSelfStatus());
+    }
+
+    public synchronized void updateSelfStatusLocation(Data.Location location) throws Utils.ApplicationError {
+        // Keep previous message -- fill in blank message if necessary
+        Message message = null;
+        try {
+            message = getSelfStatus().mMessage;
+        } catch (DataNotFoundError e) {
+            message = new Message(null, null);
+        }
+        Status status = new Status(message, location);
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
+        mSelfStatus = status;
+        Log.addEntry(LOG_TAG, "updated your location");
         Events.post(new Events.UpdatedSelfStatus());
     }
 

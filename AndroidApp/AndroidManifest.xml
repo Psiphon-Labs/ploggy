@@ -36,21 +36,17 @@
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityLocationDetails"
+            android:name="ca.psiphon.ploggy.ActivityFriendStatusDetails"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityAddFriendByNfc"
+            android:name="ca.psiphon.ploggy.ActivityAddFriend"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/ca.psiphon.ploggy.android.beam"/>
             </intent-filter>
-        </activity>
-        <activity
-            android:name="ca.psiphon.ploggy.ActivityAddFriendByEmail"
-            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
