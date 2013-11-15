@@ -48,7 +48,8 @@
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/self_status_details_avatar"
             android:typeface="sans"
-            android:textSize="24dip" />
+            android:textSize="24dip"
+            android:textStyle="bold" />
  
         <TextView
             android:id="@+id/self_status_details_fingerprint_label"
