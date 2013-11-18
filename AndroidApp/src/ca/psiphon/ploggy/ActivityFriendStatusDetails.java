@@ -24,8 +24,11 @@ import java.util.Date;
 import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -43,14 +46,12 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
     
     private String mFriendId;
+    private ScrollView mScrollView;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
     private TextView mFingerprintText;
     private TextView mMessageLabel;
-    private TextView mMessageContentLabel;
-    private TextView mMessageContentText;
-    private TextView mMessageTimestampLabel;
-    private TextView mMessageTimestampText;
+    private ListView mMessagesList;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
     private TextView mLocationStreetAddressText;
@@ -71,14 +72,12 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_friend_status_details);
 
+        mScrollView = (ScrollView)findViewById(R.id.friend_status_details_scroll_view);
         mAvatarImage = (ImageView)findViewById(R.id.friend_status_details_avatar_image);
         mNicknameText = (TextView)findViewById(R.id.friend_status_details_nickname_text);
         mFingerprintText = (TextView)findViewById(R.id.friend_status_details_fingerprint_text);
         mMessageLabel = (TextView)findViewById(R.id.friend_status_details_message_label);
-        mMessageContentLabel = (TextView)findViewById(R.id.friend_status_details_message_content_label);
-        mMessageContentText = (TextView)findViewById(R.id.friend_status_details_message_content_text);
-        mMessageTimestampLabel = (TextView)findViewById(R.id.friend_status_details_message_timestamp_label);
-        mMessageTimestampText = (TextView)findViewById(R.id.friend_status_details_message_timestamp_text);
+        mMessagesList = (ListView)findViewById(R.id.friend_status_details_messages_list);
         mLocationLabel = (TextView)findViewById(R.id.friend_status_details_location_label);
         mLocationStreetAddressLabel = (TextView)findViewById(R.id.friend_status_details_location_street_address_label);
         mLocationStreetAddressText = (TextView)findViewById(R.id.friend_status_details_location_street_address_text);
@@ -94,6 +93,24 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mLastSentStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_status_timestamp_text);
         mAddedTimestampText = (TextView)findViewById(R.id.friend_status_details_added_timestamp_text);
 
+        // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
+        mScrollView.setOnTouchListener(
+            new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    mMessagesList.requestDisallowInterceptTouchEvent(false);
+                    return false;
+                }
+            });
+        mMessagesList.setOnTouchListener(
+            new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                    return false;
+                }
+            });
+        
         Bundle bundle = getIntent().getExtras();
         if (bundle == null) {
             finish();
@@ -142,15 +159,11 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
 
-            int messageVisibility = (friendStatus.mMessage.mTimestamp != null) ? View.VISIBLE : View.GONE;
+            int messageVisibility = (friendStatus.mMessages.size() > 0) ? View.VISIBLE : View.GONE;
             mMessageLabel.setVisibility(messageVisibility);
-            mMessageContentLabel.setVisibility(messageVisibility);
-            mMessageContentText.setVisibility(messageVisibility);
-            mMessageTimestampLabel.setVisibility(messageVisibility);
-            mMessageTimestampText.setVisibility(messageVisibility);
-            if (friendStatus.mMessage.mTimestamp != null) {
-                mMessageContentText.setText(friendStatus.mMessage.mContent);
-                mMessageTimestampText.setText(Utils.formatSameDayTime(friendStatus.mMessage.mTimestamp));
+            mMessagesList.setVisibility(messageVisibility);
+            if (friendStatus.mMessages.size() > 0) {
+                mMessagesList.setAdapter(new Utils.MessageAdapter(this, friendStatus.mMessages));
             }
 
             int locationVisibility = (friendStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
@@ -193,6 +206,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                                 friendStatus.mLocation.mPrecision));
                 mLocationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
             }
+
             if (lastReceivedStatusTimestamp != null) {
                 mLastReceivedStatusTimestampText.setText(Utils.formatSameDayTime(lastReceivedStatusTimestamp));
             } else {

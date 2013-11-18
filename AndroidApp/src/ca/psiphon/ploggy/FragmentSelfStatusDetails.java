@@ -24,17 +24,21 @@ import java.util.Date;
 import com.squareup.otto.Subscribe;
 
 import android.app.Fragment;
-import android.content.Context;
 import android.os.Bundle;
+import android.text.InputFilter;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /**
  * User interface which displays self status details and
@@ -44,16 +48,17 @@ import android.widget.TextView;
  * while in the foreground (e.g., location data updated
  * the the engine).
  */
-public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEditorActionListener {
+public class FragmentSelfStatusDetails extends Fragment implements View.OnClickListener {
     
     private static final String LOG_TAG = "Self Status Details";
 
+    private ScrollView mScrollView;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
     private TextView mFingerprintText;
-    private EditText mMessageContentEdit;
-    private TextView mMessageTimestampLabel;
-    private TextView mMessageTimestampText;
+    private EditText mNewMessageContentEdit;
+    private ImageButton mNewMessageAddButton;
+    private ListView mMessagesList;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
     private TextView mLocationStreetAddressText;
@@ -68,12 +73,13 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.self_status_details, container, false);
 
+        mScrollView = (ScrollView)view.findViewById(R.id.self_status_details_scroll_view);
         mAvatarImage = (ImageView)view.findViewById(R.id.self_status_details_avatar_image);
         mNicknameText = (TextView)view.findViewById(R.id.self_status_details_nickname_text);
         mFingerprintText = (TextView)view.findViewById(R.id.self_status_details_fingerprint_text);
-        mMessageContentEdit = (EditText)view.findViewById(R.id.self_status_details_message_content_edit);
-        mMessageTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_message_timestamp_label);
-        mMessageTimestampText = (TextView)view.findViewById(R.id.self_status_details_message_timestamp_text);
+        mNewMessageContentEdit = (EditText)view.findViewById(R.id.self_status_details_new_message_content_edit);
+        mNewMessageAddButton = (ImageButton)view.findViewById(R.id.self_status_details_new_message_add_button);
+        mMessagesList = (ListView)view.findViewById(R.id.self_status_details_messages_list);
         mLocationLabel = (TextView)view.findViewById(R.id.self_status_details_location_label);
         mLocationStreetAddressLabel = (TextView)view.findViewById(R.id.self_status_details_location_street_address_label);
         mLocationStreetAddressText = (TextView)view.findViewById(R.id.self_status_details_location_street_address_text);
@@ -83,6 +89,40 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
         mLocationPrecisionText = (TextView)view.findViewById(R.id.self_status_details_location_precision_text);
         mLocationTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
+
+        // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
+        mScrollView.setOnTouchListener(
+            new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    mMessagesList.requestDisallowInterceptTouchEvent(false);
+                    return false;
+                }
+            });
+        mMessagesList.setOnTouchListener(
+            new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View view, MotionEvent event) {
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                    return false;
+                }
+            });
+        
+        // Hide the keyboard when the keyboard action (Done) is hit
+        mNewMessageContentEdit.setOnEditorActionListener(
+            new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView textView, int actionId, KeyEvent event) {
+                    Utils.hideKeyboard(getActivity());
+                    return true;
+                }
+            });
+        
+        InputFilter[] filters = new InputFilter[1];
+        filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
+        mNewMessageContentEdit.setFilters(filters);
+
+        mNewMessageAddButton.setOnClickListener(this);
 
         show(view);
 
@@ -119,14 +159,12 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
             mNicknameText.setText(self.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
 
-            int messageVisibility = (selfStatus.mMessage.mTimestamp != null) ? View.VISIBLE : View.GONE;
-            // Nowt: always show message section label and content edit
-            mMessageTimestampLabel.setVisibility(messageVisibility);
-            mMessageTimestampText.setVisibility(messageVisibility);
-            mMessageContentEdit.setOnEditorActionListener(this);
-            if (selfStatus.mMessage.mTimestamp != null) {
-                mMessageContentEdit.setText(selfStatus.mMessage.mContent);
-                mMessageTimestampText.setText(Utils.formatSameDayTime(selfStatus.mMessage.mTimestamp));                
+            // Note: always show message section label and content edit
+            int messageVisibility = (selfStatus.mMessages.size() > 0) ? View.VISIBLE : View.GONE;
+            mMessagesList.setVisibility(messageVisibility);
+            if (selfStatus.mMessages.size() > 0) {
+                Utils.MessageAdapter adapter = new Utils.MessageAdapter(getActivity(), selfStatus.mMessages);
+                mMessagesList.setAdapter(adapter);
             }
 
             int locationVisibility = (selfStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
@@ -166,18 +204,20 @@ public class FragmentSelfStatusDetails extends Fragment implements TextView.OnEd
     }
 
     @Override
-    public boolean onEditorAction(TextView textView, int actionId, KeyEvent event) {
-        if (actionId == EditorInfo.IME_ACTION_DONE) {
+    public void onClick(View view) {
+        if (view.equals(mNewMessageAddButton)) {
             try {
-                Data.getInstance().updateSelfStatusMessage(
-                        new Data.Message(new Date(), mMessageContentEdit.getText().toString()));
-
-                Utils.hideKeyboard(getActivity());
+                String messageContent = mNewMessageContentEdit.getText().toString();
+                if (messageContent.length() > 0) {
+                    Data.getInstance().addSelfStatusMessage(
+                            new Data.Message(new Date(), messageContent));
+    
+                    mNewMessageContentEdit.getEditableText().clear();
+                    Utils.hideKeyboard(getActivity());
+                }
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to update self message");
             }
-            return true;
         }
-        return false;
     }
 }

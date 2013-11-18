@@ -197,9 +197,10 @@ public class FragmentFriendList extends ListFragment {
 
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
 
-                    if (friendStatus.mMessage.mTimestamp != null) {
-                        messageContentText.setText(friendStatus.mMessage.mContent);
-                        messageTimestampText.setText(Utils.formatSameDayTime(friendStatus.mMessage.mTimestamp));
+                    if (friendStatus.mMessages.size() > 0) {
+                        Data.Message message = friendStatus.mMessages.get(0);
+                        messageContentText.setText(message.mContent);
+                        messageTimestampText.setText(Utils.formatSameDayTime(message.mTimestamp));
                     }
                     if (friendStatus.mLocation.mTimestamp != null) {
                         locationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));

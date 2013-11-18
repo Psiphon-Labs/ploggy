@@ -34,6 +34,10 @@ public class Protocol {
 
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
 
+    public static int MAX_MESSAGE_LENGTH = 100;
+    
+    public static int MAX_MESSAGE_COUNT = 50;
+
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?
         return nickname.length() > 0;
