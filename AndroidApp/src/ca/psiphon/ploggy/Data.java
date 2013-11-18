@@ -124,13 +124,13 @@ public class Data {
     }
     
     public static class Status {
-        public final Message mMessage;
+        final List<Message> mMessages;
         public final Location mLocation;
 
         public Status(
-                Message message,
+                List<Message> messages,
                 Location location) {
-            mMessage = message;
+            mMessages = messages;
             mLocation = location;
         }
     }
@@ -224,39 +224,31 @@ public class Data {
                 mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
             } catch (DataNotFoundError e) {
                 // If there's no previous status, return a blank one
-                return new Status(new Message(null, null), new Location(null, 0, 0, 0, null));
+                return new Status(new ArrayList<Message>(), new Location(null, 0, 0, 0, null));
             }
         }
         return mSelfStatus;
     }
 
-    public synchronized void updateSelfStatusMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
-        // Keep previous location -- fill in blank location if necessary
-        Location location = null;
-        try {
-            location = getSelfStatus().mLocation;
-        } catch (DataNotFoundError e) {
-            location = new Location(null, 0, 0, 0, null);
+    public synchronized void addSelfStatusMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
+        Status currentStatus = getSelfStatus();
+        ArrayList<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
+        messages.add(0, message);
+        while (messages.size() > Protocol.MAX_MESSAGE_COUNT) {
+            messages.remove(messages.size() - 1);
         }
-
-        Status status = new Status(message, location);
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
-        mSelfStatus = status;
-        Log.addEntry(LOG_TAG, "updated your message");
+        Status newStatus = new Status(messages, currentStatus.mLocation);
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+        mSelfStatus = newStatus;
+        Log.addEntry(LOG_TAG, "added your message");
         Events.post(new Events.UpdatedSelfStatus());
     }
 
     public synchronized void updateSelfStatusLocation(Data.Location location) throws Utils.ApplicationError {
-        // Keep previous message -- fill in blank message if necessary
-        Message message = null;
-        try {
-            message = getSelfStatus().mMessage;
-        } catch (DataNotFoundError e) {
-            message = new Message(null, null);
-        }
-        Status status = new Status(message, location);
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
-        mSelfStatus = status;
+        Status currentStatus = getSelfStatus();
+        Status newStatus = new Status(currentStatus.mMessages, location);
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+        mSelfStatus = newStatus;
         Log.addEntry(LOG_TAG, "updated your location");
         Events.post(new Events.UpdatedSelfStatus());
     }

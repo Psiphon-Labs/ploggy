@@ -31,6 +31,7 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,8 +42,12 @@ import android.location.Location;
 import android.os.FileObserver;
 import android.text.format.DateUtils;
 import android.util.Base64;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
+import android.widget.TextView;
 
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -254,6 +259,33 @@ public class Utils {
                     (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
             inputManager.hideSoftInputFromWindow(
                     currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+        }
+    }
+
+    public static class MessageAdapter extends ArrayAdapter<Data.Message> {
+        
+        private Context mContext;
+
+        public MessageAdapter(Context context, List<Data.Message> messages) {
+            super(context, R.layout.message_list_row, messages);
+            mContext = context;
+        }
+        
+        @Override
+        public View getView(int position, View view, ViewGroup parent) {
+            if (view == null) {
+                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                view = inflater.inflate(R.layout.message_list_row, null);
+            }
+            Data.Message message = getItem(position);
+            if (message != null) {
+                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
+
+                timestampText.setText(Utils.formatSameDayTime(message.mTimestamp));
+                contentText.setText(message.mContent);
+            }
+            return view;
         }
     }
 }

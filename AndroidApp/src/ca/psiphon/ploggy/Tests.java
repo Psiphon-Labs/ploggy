@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
@@ -85,9 +86,7 @@ public class Tests {
 
         public Data.Status getMockStatus() {
             return new Data.Status(
-                    new Data.Message(
-                        mMockTimestamp,
-                        ""),
+                    Arrays.asList(new Data.Message(mMockTimestamp, "")),
                     new Data.Location(
                         mMockTimestamp,
                         mMockLatitude,
