@@ -31,14 +31,12 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 /**
  * User interface which displays self status details and
@@ -91,6 +89,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
 
         // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
+        // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
         mScrollView.setOnTouchListener(
             new View.OnTouchListener() {
                 @Override

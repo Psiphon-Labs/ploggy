@@ -94,6 +94,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mAddedTimestampText = (TextView)findViewById(R.id.friend_status_details_added_timestamp_text);
 
         // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
+        // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
         mScrollView.setOnTouchListener(
             new View.OnTouchListener() {
                 @Override
