@@ -34,8 +34,8 @@ public class Protocol {
 
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
 
+    // Limits in place for prototype, which is currently sending all messages in one blob
     public static int MAX_MESSAGE_LENGTH = 100;
-    
     public static int MAX_MESSAGE_COUNT = 50;
 
     public static boolean isValidNickname(String nickname) {
