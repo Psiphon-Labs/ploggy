@@ -19,11 +19,16 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.List;
+
+import com.squareup.otto.Subscribe;
+
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.text.Html;
 
 /**
  * Android Service for hosting long-running Engine instance.
@@ -45,6 +50,7 @@ public class PloggyService extends Service {
     @Override
     public void onCreate() {
         try {
+            Events.register(this);
             mEngine = new Engine(this);
             mEngine.start();
         } catch (Utils.ApplicationError e) {
@@ -57,6 +63,7 @@ public class PloggyService extends Service {
    
     @Override
     public void onDestroy() {
+        Events.unregister(this);
         if (mEngine != null) {
             mEngine.stop();
             mEngine = null;
@@ -64,28 +71,69 @@ public class PloggyService extends Service {
     }
     
     private void doForeground() {
-        startForeground(R.string.foregroundServiceNotificationId, createNotification());
+        startForeground(R.string.foregroundServiceNotificationId, createNotification(null));
     }
     
-    private Notification createNotification() {
-        int titleID = R.string.app_name;
-        int contentTextID = R.string.default_foreground_service_notification_message;
-        int iconID = R.drawable.ic_launcher;
-
+    private Notification createNotification(List<Engine.NewMessage> newMessages) {
+        // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
+        final int MAX_LINES = 5; 
+        
         // Invoke main Activity when notification is clicked
         Intent intent = new Intent("ACTION_VIEW", null, this, ca.psiphon.ploggy.ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);        
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-    
-        // Newer API (Notification.Builder) requires API level 11
-        Notification notification
-            = new Notification.Builder(this)
+        
+        int iconResourceId;
+        String contentTitle;
+        if (newMessages != null && newMessages.size() >= 0) {
+            iconResourceId = R.drawable.ic_notification_with_new_messages;
+            contentTitle =
+                    getString(
+                        R.string.foreground_service_notification_content_title_with_new_messages,
+                        newMessages.size());
+        } else {
+            iconResourceId = R.drawable.ic_notification_without_new_messages;
+            contentTitle = getString(R.string.foreground_service_notification_content_title_without_new_messages);
+        }
+        
+        Notification.Builder notificationBuilder =
+            new Notification.Builder(this)
                 .setContentIntent(pendingIntent)
-                .setContentTitle(getText(titleID))
-                .setContentText(getText(contentTextID))
-                .setSmallIcon(iconID)
-                .build();
+                .setContentTitle(contentTitle)
+                .setSmallIcon(iconResourceId);
 
+        Notification notification;
+        if (newMessages != null && newMessages.size() > 0) {
+            Notification.InboxStyle inboxStyleBuilder =
+                new Notification.InboxStyle(notificationBuilder);
+            for (int i = 0; i < MAX_LINES && i < newMessages.size(); i++) {
+                inboxStyleBuilder.addLine(
+                    Html.fromHtml(
+                        getString(
+                            R.string.foreground_service_notification_inbox_line,
+                            newMessages.get(i).mNickname,
+                            newMessages.get(i).mMessage.mContent)));
+            }
+            if (newMessages.size() > MAX_LINES) {
+                inboxStyleBuilder.setSummaryText(
+                    getString(
+                        R.string.foreground_service_notification_inbox_summary,
+                        newMessages.size() - MAX_LINES));
+            }
+            notification = inboxStyleBuilder.build();
+        } else {
+            notification = notificationBuilder.build();
+        }
+        
         return notification;
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
+        // Update the service notification with new messages
+        if (mEngine != null) {
+            // TODO: simply updating a foreground service notification via NotificationManager doesn't work?
+            startForeground(R.string.foregroundServiceNotificationId, createNotification(mEngine.getNewMessages()));
+        }
     }
 }

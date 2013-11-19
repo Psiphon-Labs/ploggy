@@ -424,11 +424,16 @@ public class Data {
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+        Status previousStatus = null;
+        try {
+            previousStatus = getFriendStatus(id);
+        } catch (DataNotFoundError e) {
+        }
         Friend friend = getFriendById(id);
         String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         writeFile(filename, Json.toJson(status));
         Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.UpdatedFriendStatus(id));
+        Events.post(new Events.UpdatedFriendStatus(friend, status, previousStatus));
     }
 
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundError {

@@ -59,6 +59,18 @@ import com.squareup.otto.Subscribe;
 public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
     
     private static final String LOG_TAG = "Engine";
+    
+    public static class NewMessage {
+        public final String mNickname;
+        public final Data.Message mMessage;
+
+        public NewMessage(
+                String nickname,
+                Data.Message message) {
+            mNickname = nickname;
+            mMessage = message;
+        }
+    }
 
     private Context mContext;
     private Handler mHandler;
@@ -69,6 +81,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
+    private List<NewMessage> mNewMessages;
     
     private static final int THREAD_POOL_SIZE = 30;
 
@@ -79,6 +92,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        // TODO: persistent (on disk) new-message state?
+        // Note: new-messages is not cleared in start() or stop(), so its state is retained when the Engine restarts
+        mNewMessages = new ArrayList<NewMessage>();
     }
 
     public synchronized void start() throws Utils.ApplicationError {
@@ -240,7 +256,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
+    public synchronized void onAddedFriend(Events.AddedFriend addedFriend) {
         // Apply new set of friends to web server and pull schedule
         // TODO: don't need to restart Tor, just web server
         //       (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
@@ -253,7 +269,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void RemovedFriend(Events.RemovedFriend removedFriend) {
+    public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
         // Apply new set of friends to web server and pull scheduke
         // TODO: don't need to restart Tor, just web server
         try {
@@ -262,6 +278,39 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
         }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+        // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
+        Data.Message lastMessage = null;
+        if (updatedFriendStatus.mPreviousStatus != null &&
+                updatedFriendStatus.mPreviousStatus.mMessages.size() > 0) {
+            lastMessage = updatedFriendStatus.mPreviousStatus.mMessages.get(0);
+        }
+        for (Data.Message message : updatedFriendStatus.mStatus.mMessages) {
+            if (lastMessage == null ||
+                    !message.mTimestamp.equals(lastMessage.mTimestamp) ||
+                    !message.mContent.equals(lastMessage.mContent)) {
+                mNewMessages.add(
+                        0,
+                        new NewMessage(
+                                updatedFriendStatus.mFriend.mPublicIdentity.mNickname,
+                                message));
+            } else {
+                break;
+            }
+        }
+
+        Events.post(new Events.UpdatedNewMessages());
+    }
+    
+    public synchronized List<NewMessage> getNewMessages() {
+        return new ArrayList<NewMessage>(mNewMessages);
+    }
+    
+    public synchronized void clearNewMessages() {
+        mNewMessages.clear();
     }
     
     private void pushToFriends() throws Utils.ApplicationError {
