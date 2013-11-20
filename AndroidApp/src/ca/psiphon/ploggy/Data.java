@@ -431,6 +431,7 @@ public class Data {
         }
         Friend friend = getFriendById(id);
         String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
+
         writeFile(filename, Json.toJson(status));
         Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.UpdatedFriendStatus(friend, status, previousStatus));

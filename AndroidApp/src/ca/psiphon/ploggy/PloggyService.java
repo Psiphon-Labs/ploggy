@@ -79,23 +79,28 @@ public class PloggyService extends Service {
         final int MAX_LINES = 5; 
         
         // Invoke main Activity when notification is clicked
-        Intent intent = new Intent("ACTION_VIEW", null, this, ca.psiphon.ploggy.ActivityMain.class);
+        Intent intent = new Intent(this, ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);        
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         
         int iconResourceId;
         String contentTitle;
-        if (newMessages != null && newMessages.size() >= 0) {
+        if (newMessages != null && newMessages.size() > 0) {
+            intent.setAction(ActivityMain.ACTION_DISPLAY_FRIENDS);
             iconResourceId = R.drawable.ic_notification_with_new_messages;
             contentTitle =
-                    getString(
-                        R.string.foreground_service_notification_content_title_with_new_messages,
+                    getResources().getQuantityString(
+                        R.plurals.foreground_service_notification_content_title_with_new_messages,
+                        newMessages.size(),
                         newMessages.size());
         } else {
+            intent.setAction("android.intent.action.MAIN");
             iconResourceId = R.drawable.ic_notification_without_new_messages;
             contentTitle = getString(R.string.foreground_service_notification_content_title_without_new_messages);
         }
         
+        PendingIntent pendingIntent =
+            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
         Notification.Builder notificationBuilder =
             new Notification.Builder(this)
                 .setContentIntent(pendingIntent)

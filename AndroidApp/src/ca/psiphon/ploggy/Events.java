@@ -145,4 +145,8 @@ public class Events {
 
     public static class UpdatedNewMessages {
     }
+
+
+    public static class DisplayedFriends {
+    }
 }

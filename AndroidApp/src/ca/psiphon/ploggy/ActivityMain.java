@@ -43,6 +43,10 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
 
     private static final String LOG_TAG = "Main Activity";
 
+    public static final String ACTION_DISPLAY_FRIENDS = "ca.psiphon.ploggy.action.DISPLAY_FRIENDS";
+    
+    private int mFriendTabIndex;
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -68,6 +72,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
                                     this,
                                     "fragment_friend_list",
                                     FragmentFriendList.class)));
+        mFriendTabIndex = 1;
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_recent_activity_fragment)
@@ -95,6 +100,16 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
 
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+
+        if (getIntent().getAction() != null &&
+                getIntent().getAction().equals(ACTION_DISPLAY_FRIENDS)) {
+            getActionBar().setSelectedNavigationItem(mFriendTabIndex);
+        }
+    }
+    
+    @Override
+    protected void onNewIntent(Intent intent) {
+        setIntent(intent);
     }
 
     @Override

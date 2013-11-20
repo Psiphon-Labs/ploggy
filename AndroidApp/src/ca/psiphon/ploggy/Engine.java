@@ -304,13 +304,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
         Events.post(new Events.UpdatedNewMessages());
     }
-    
+
+    @Subscribe
+    public synchronized void onDisplayedFriends(Events.DisplayedFriends displayedFriends) {
+        mNewMessages.clear();
+        Events.post(new Events.UpdatedNewMessages());
+    }
+
     public synchronized List<NewMessage> getNewMessages() {
         return new ArrayList<NewMessage>(mNewMessages);
-    }
-    
-    public synchronized void clearNewMessages() {
-        mNewMessages.clear();
     }
     
     private void pushToFriends() throws Utils.ApplicationError {

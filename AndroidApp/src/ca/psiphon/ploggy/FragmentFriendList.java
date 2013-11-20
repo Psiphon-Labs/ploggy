@@ -51,6 +51,7 @@ public class FragmentFriendList extends ListFragment {
 
     private static final String LOG_TAG = "Friend List";
 
+    private boolean mIsResumed = false;
     private FriendAdapter mFriendAdapter;
     
     @Override
@@ -64,6 +65,19 @@ public class FragmentFriendList extends ListFragment {
         }
         registerForContextMenu(this.getListView());            
         Events.register(this);
+    }
+    
+    @Override
+    public void onResume() {
+        super.onResume();
+        mIsResumed = true;
+        Events.post(new Events.DisplayedFriends());
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mIsResumed = false;
     }
 
     @Override
@@ -137,6 +151,13 @@ public class FragmentFriendList extends ListFragment {
     @Subscribe
     public void onDeletedFriend(Events.RemovedFriend removedFriend) {
         updateFriends();
+    }
+    
+    @Subscribe
+    public void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
+        if (mIsResumed) {
+            Events.post(new Events.DisplayedFriends());
+        }
     }
     
     private void updateFriends() {
