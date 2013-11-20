@@ -361,7 +361,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
     
-    private void schedulePullFriend(String friendId) throws Utils.ApplicationError {
+    private void schedulePullFriend(String friendId, boolean immediateInitialPull) throws Utils.ApplicationError {
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
@@ -393,14 +393,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         };
         cancelPullFriend(friendId);
         // TODO: scheduleAtFixedRate has backlog issue
+        
+        int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
-                task, 0, getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000, TimeUnit.MILLISECONDS);
+                task, immediateInitialPull ? 0 : delay, delay, TimeUnit.MILLISECONDS);
         mFriendPullTasks.put(friendId, future);
     }
 
     private void schedulePullFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            schedulePullFriend(friend.mId);
+            schedulePullFriend(friend.mId, true);
         }
     }
     
@@ -425,9 +427,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Friend friend = data.getFriendByCertificate(friendCertificate);
         data.updateFriendStatus(friend.mId, status);
         // TODO: we don't yet know the friend really received the response bytes
-        data.updateFriendLastReceivedStatusTimestamp(friend.mId);        
+        data.updateFriendLastReceivedStatusTimestamp(friend.mId);
         // Reschedule (delay) any outstanding pull from this friend
-        schedulePullFriend(friend.mId);
+        schedulePullFriend(friend.mId, false);
         Log.addEntry(LOG_TAG, "served push status request for: " + friend.mPublicIdentity.mNickname);
     }
     
