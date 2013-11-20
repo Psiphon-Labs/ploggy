@@ -12,7 +12,7 @@
           android:title="@string/action_settings"
           android:showAsAction="withText" />
     <item android:id="@+id/action_save_identity_to_file"
-          android:icon="@drawable/ic_action_email_self"
+          android:icon="@drawable/ic_action_content_save"
           android:title="@string/action_save_identity_to_file"
           android:showAsAction="withText" />
     <item android:id="@+id/action_run_tests"
