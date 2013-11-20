@@ -4,6 +4,7 @@
     <string name="default_foreground_service_notification_message">Ploggy is running</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
+    <string name="action_save_identity_to_file">Save Your Identity to a File</string>
     <string name="action_self_location_details">Your Location</string>
     <string name="action_add_friend">Add Friend</string>
     <string name="action_settings">Settings</string>
@@ -29,12 +30,18 @@
     <string name="label_email_self_message">Warning: sending your identity via email will allow a 3rd party to link you and your friend.</string>
     <string name="label_email_self_positive">I understand the risk</string>
     <string name="label_email_self_negative">Cancel</string>
+    <string name="identity_email_body"><![CDATA[<a href=\"\">Add me as a Ploggy friend</a>]]></string>
+    <string name="label_save_identity_to_file_title">Save Your Identity to a File</string>
+    <string name="label_save_identity_to_file_message">Warning: sending your identity outside of Ploggy will allow a 3rd party to link you and your friend.</string>
+    <string name="label_save_identity_to_file_positive">I understand the risk</string>
+    <string name="label_save_identity_to_file_negative">Cancel</string>
+    <string name="toast_identity_saved_to_file">File \"%1$s\" has been saved to folder \"%2$s\"</string>
     <string name="label_generate_self_title">Generate Your Identity</string>
     <string name="label_generate_self_nickname">Nickname:</string>
     <string name="label_generate_self_fingerprint">Fingerprint:</string>
     <string name="button_generate_self_regenerate">Re-generate</string>
     <string name="button_generate_self_save">Save</string>
-    <string name="prompt_generate_self_progress">Generating key material...</string>
+    <string name="prompt_generate_self_progress">Generating key material…</string>
     <string name="label_add_friend_title">Add Friend</string>
     <string name="label_add_friend_friend_fingerprint">Fingerprint:</string>
     <string name="button_add_friend_add">Add</string>

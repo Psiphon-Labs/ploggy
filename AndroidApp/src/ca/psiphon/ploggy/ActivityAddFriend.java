@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -42,11 +43,13 @@ import android.widget.Toast;
 
 /**
  * User interface for adding friends.
- * 
+ *
  * This activity is invoked by various sources of serialized Identity blobs,
  * including .ploggy files (e.g., Email attachments), NFC messages, etc.
  */
 public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View.OnClickListener {
+
+    public static final String IDENTITY_LINK_PREFIX = "ftp://identity.ploggy/#";
 
     private static final String LOG_TAG = "Add Friend";
 
@@ -54,14 +57,14 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
     private TextView mFriendNicknameText;
     private TextView mFriendFingerprintText;
     private Button mFriendAddButton;
-        
+
     protected Data.Friend mReceivedFriend;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_friend);
-        
+
         mFriendAvatarImage = (ImageView)findViewById(R.id.add_friend_friend_avatar_image);
         mFriendNicknameText = (TextView)findViewById(R.id.add_friend_friend_nickname_text);
         mFriendFingerprintText = (TextView)findViewById(R.id.add_friend_friend_fingerprint_text);
@@ -74,7 +77,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
         if (mReceivedFriend != null) {
             try {
                 Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
-                mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);        
+                mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);
                 mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));
                 return;
             } catch (Utils.ApplicationError e) {
@@ -108,7 +111,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                    null);
         }
     }
-    
+
     @Override
     public void onResume() {
         super.onResume();
@@ -136,16 +139,24 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
             InputStream inputStream = null;
             try {
                 Uri uri = intent.getData();
-                String scheme = uri.getScheme();
-                if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-                    ContentResolver contentResolver = getContentResolver();
-                    inputStream = contentResolver.openInputStream(uri);
-                } else {
-                    String filePath = uri.getEncodedPath();
-                    if (filePath != null) {
-                        inputStream = new FileInputStream(new File(filePath));
+
+                if (uri.toString().startsWith(IDENTITY_LINK_PREFIX)) {
+                    String fragment = uri.getFragment();
+                    inputStream = new ByteArrayInputStream(fragment.getBytes("UTF-8"));
+                }
+                else {
+                    String scheme = uri.getScheme();
+                    if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
+                        ContentResolver contentResolver = getContentResolver();
+                        inputStream = contentResolver.openInputStream(uri);
+                    } else {
+                        String filePath = uri.getEncodedPath();
+                        if (filePath != null) {
+                            inputStream = new FileInputStream(new File(filePath));
+                        }
                     }
                 }
+
                 if (inputStream != null) {
                     String payload = Utils.readInputStreamToString(inputStream);
                     Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
@@ -184,7 +195,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
 
     @Override
     public void onClick(View view) {
-        if (view.equals(mFriendAddButton)) {            
+        if (view.equals(mFriendAddButton)) {
             if (mReceivedFriend == null) {
                 return;
             }
@@ -198,7 +209,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to add friend");
-            }            
+            }
         }
     }
 }
