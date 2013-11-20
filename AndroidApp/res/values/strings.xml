@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Ploggy</string>
-    <string name="default_foreground_service_notification_message">Ploggy is running</string>
+    <string name="foreground_service_notification_content_title_without_new_messages">Ploggy is running</string>
+    <plurals name="foreground_service_notification_content_title_with_new_messages">
+        <item quantity="one">Ploggy has %1$d new message</item>
+        <item quantity="other">Ploggy has %1$d new messages</item>
+    </plurals>
+    <string name="foreground_service_notification_inbox_line"><![CDATA[<b>%1$s</b> %2$s]]></string>
+    <string name="foreground_service_notification_inbox_summary">+%1$d more</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
     <string name="action_save_identity_to_file">Save Your Identity to a File</string>
