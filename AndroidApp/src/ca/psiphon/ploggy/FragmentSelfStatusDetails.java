@@ -138,12 +138,20 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
     }
 
     @Subscribe
-    public void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
+    public void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
         View view = getView();
-        if (view != null) { 
+        if (view != null) {
             show(view);
         }
-    }       
+    }
+
+    @Subscribe
+    public void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
+        View view = getView();
+        if (view != null) {
+            show(view);
+        }
+    }
 
     private void show(View view) {
         try {
