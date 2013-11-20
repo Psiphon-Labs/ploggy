@@ -424,14 +424,25 @@ public class Data {
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+        Friend friend = getFriendById(id);
         Status previousStatus = null;
         try {
             previousStatus = getFriendStatus(id);
+            
+            // Mitigate push/pull race condition where older status overwrites newer status
+            // TODO: more robust protocol... don't rely on clocks
+            if ((previousStatus.mMessages.size() > 0 &&
+                    (status.mMessages.size() < previousStatus.mMessages.size()
+                     || status.mMessages.get(0).mTimestamp.before(previousStatus.mMessages.get(0).mTimestamp))) ||
+               ((previousStatus.mLocation != null &&
+                    (status.mLocation == null
+                     || status.mLocation.mTimestamp.before(previousStatus.mLocation.mTimestamp))))) {
+                Log.addEntry(LOG_TAG, "discarded stale friend status: " + friend.mPublicIdentity.mNickname);
+                return;
+            }
         } catch (DataNotFoundError e) {
         }
-        Friend friend = getFriendById(id);
         String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-
         writeFile(filename, Json.toJson(status));
         Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.UpdatedFriendStatus(friend, status, previousStatus));
