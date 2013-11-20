@@ -54,7 +54,7 @@ import android.widget.Toast;
  */
 public class ExportIdentity {
 
-    private static final String LOG_TAG = "Send Identity By Email";
+    private static final String LOG_TAG = "Export Identity";
 
     private static final String PUBLIC_STORAGE_DIRECTORY = "Ploggy";
     // TODO: per-persona filenames?
