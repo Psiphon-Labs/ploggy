@@ -14,19 +14,14 @@
         android:id="@+id/generate_self_title_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="8dip"
+        android:gravity="center"
         android:text="@string/label_generate_self_title"
         android:typeface="sans"
-        android:textSize="32dip"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/generate_self_description_label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="12dip"
-        android:text="@string/label_generate_self_description"
-        android:typeface="sans"
-        android:textSize="12dip" />
+        android:textSize="24dip"
+        android:textStyle="bold"
+        android:textColor="#F0F0F0"
+        android:background="#687C97" />
 
     <RelativeLayout
     	android:id="@+id/generate_self_main_section"
@@ -90,13 +85,13 @@
             android:textSize="12dip" />
 
         <Button
-            android:id="@+id/generate_self_edit_button"
+            android:id="@+id/generate_self_regenerate_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_toRightOf="@+id/generate_self_avatar"
             android:layout_below="@+id/generate_self_fingerprint_text"
             android:layout_alignParentRight="true"
-            android:text="@string/button_generate_self_edit"
+            android:text="@string/button_generate_self_regenerate"
             android:typeface="sans"
             android:textSize="16dip" />
 

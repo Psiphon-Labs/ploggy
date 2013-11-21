@@ -90,17 +90,26 @@ public class Data {
         }
     }
     
-    public static class Status {
+    public static class Message {
+        public final Date mTimestamp;
+        public final String mContent;
+
+        public Message(
+                Date timestamp,
+                String content) {
+            mTimestamp = timestamp;
+            mContent = content;
+        }
+    }
+    
+    public static class Location {
         public final Date mTimestamp;
         public final double mLatitude;
         public final double mLongitude;
         public final int mPrecision;
         public final String mStreetAddress;
-        // TODO: public final ArrayList<String> mMapTileIds;
-        // TODO: public final String mMessage;
-        // TODO: public final String mPhotoId;
 
-        public Status(
+        public Location(
                 Date timestamp,
                 double latitude,
                 double longitude,
@@ -111,6 +120,18 @@ public class Data {
             mLongitude = longitude;
             mPrecision = precision;
             mStreetAddress = streetAddress;            
+        }
+    }
+    
+    public static class Status {
+        final List<Message> mMessages;
+        public final Location mLocation;
+
+        public Status(
+                List<Message> messages,
+                Location location) {
+            mMessages = messages;
+            mLocation = location;
         }
     }
     
@@ -189,23 +210,46 @@ public class Data {
     }
 
     public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
+        // When creating a new identity, remove status from previous identity
+        deleteFile(String.format(SELF_STATUS_FILENAME));
         writeFile(SELF_FILENAME, Json.toJson(self));
         mSelf = self;
-        Log.addEntry(LOG_TAG, "updated self");
+        Log.addEntry(LOG_TAG, "updated your identity");
         Events.post(new Events.UpdatedSelf());
     }
 
-    public synchronized Status getSelfStatus() throws Utils.ApplicationError, DataNotFoundError {
+    public synchronized Status getSelfStatus() throws Utils.ApplicationError {
         if (mSelfStatus == null) {
-            mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            try {
+                mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
+            } catch (DataNotFoundError e) {
+                // If there's no previous status, return a blank one
+                return new Status(new ArrayList<Message>(), new Location(null, 0, 0, 0, null));
+            }
         }
         return mSelfStatus;
     }
 
-    public synchronized void updateSelfStatus(Data.Status status) throws Utils.ApplicationError {
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(status));
-        mSelfStatus = status;
-        Log.addEntry(LOG_TAG, "updated self status");
+    public synchronized void addSelfStatusMessage(Data.Message message) throws Utils.ApplicationError, DataNotFoundError {
+        Status currentStatus = getSelfStatus();
+        ArrayList<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
+        messages.add(0, message);
+        while (messages.size() > Protocol.MAX_MESSAGE_COUNT) {
+            messages.remove(messages.size() - 1);
+        }
+        Status newStatus = new Status(messages, currentStatus.mLocation);
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+        mSelfStatus = newStatus;
+        Log.addEntry(LOG_TAG, "added your message");
+        Events.post(new Events.UpdatedSelfStatus());
+    }
+
+    public synchronized void updateSelfStatusLocation(Data.Location location) throws Utils.ApplicationError {
+        Status currentStatus = getSelfStatus();
+        Status newStatus = new Status(currentStatus.mMessages, location);
+        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+        mSelfStatus = newStatus;
+        Log.addEntry(LOG_TAG, "updated your location");
         Events.post(new Events.UpdatedSelfStatus());
     }
 
@@ -381,10 +425,27 @@ public class Data {
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
         Friend friend = getFriendById(id);
+        Status previousStatus = null;
+        try {
+            previousStatus = getFriendStatus(id);
+            
+            // Mitigate push/pull race condition where older status overwrites newer status
+            // TODO: more robust protocol... don't rely on clocks
+            if ((previousStatus.mMessages.size() > 0 &&
+                    (status.mMessages.size() < previousStatus.mMessages.size()
+                     || status.mMessages.get(0).mTimestamp.before(previousStatus.mMessages.get(0).mTimestamp))) ||
+               ((previousStatus.mLocation != null &&
+                    (status.mLocation == null
+                     || status.mLocation.mTimestamp.before(previousStatus.mLocation.mTimestamp))))) {
+                Log.addEntry(LOG_TAG, "discarded stale friend status: " + friend.mPublicIdentity.mNickname);
+                return;
+            }
+        } catch (DataNotFoundError e) {
+        }
         String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
         writeFile(filename, Json.toJson(status));
         Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.UpdatedFriendStatus(id));
+        Events.post(new Events.UpdatedFriendStatus(friend, status, previousStatus));
     }
 
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundError {

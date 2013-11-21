@@ -25,6 +25,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -58,6 +59,18 @@ import com.squareup.otto.Subscribe;
 public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
     
     private static final String LOG_TAG = "Engine";
+    
+    public static class NewMessage {
+        public final String mNickname;
+        public final Data.Message mMessage;
+
+        public NewMessage(
+                String nickname,
+                Data.Message message) {
+            mNickname = nickname;
+            mMessage = message;
+        }
+    }
 
     private Context mContext;
     private Handler mHandler;
@@ -68,6 +81,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
+    private List<NewMessage> mNewMessages;
     
     private static final int THREAD_POOL_SIZE = 30;
 
@@ -78,6 +92,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        // TODO: persistent (on disk) new-message state?
+        // Note: new-messages is not cleared in start() or stop(), so its state is retained when the Engine restarts
+        mNewMessages = new ArrayList<NewMessage>();
     }
 
     public synchronized void start() throws Utils.ApplicationError {
@@ -140,8 +157,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private void startHiddenService() throws Utils.ApplicationError {
         try {
             stopHiddenService();
+
             Data.Self self = Data.getInstance().getSelf();
-            ArrayList<String> friendCertificates = new ArrayList<String>();
+            List<String> friendCertificates = new ArrayList<String>();
             for (Data.Friend friend : Data.getInstance().getFriends()) {
                 friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
             }
@@ -150,10 +168,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                     friendCertificates);
             mWebServer.start();
+
+            List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+            for (Data.Friend friend : Data.getInstance().getFriends()) {
+                hiddenServiceAuths.add(
+                        new TorWrapper.HiddenServiceAuth(
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                friend.mPublicIdentity.mHiddenServiceAuthCookie));
+            }
             mTorWrapper = new TorWrapper(
                     TorWrapper.Mode.MODE_RUN_SERVICES,
-                    new HiddenService.KeyMaterial(self.mPublicIdentity.mHiddenServiceHostname, self.mPrivateIdentity.mHiddenServicePrivateKey),
+                    hiddenServiceAuths,
+                    new HiddenService.KeyMaterial(
+                            self.mPublicIdentity.mHiddenServiceHostname,
+                            self.mPublicIdentity.mHiddenServiceAuthCookie,
+                            self.mPrivateIdentity.mHiddenServicePrivateKey),
                     mWebServer.getListeningPort());
+            
             // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry... 
             mTorWrapper.start();
         } catch (IOException e) {
@@ -201,8 +232,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     address.append(newSelfLocation.mAddress.getAddressLine(i));
                 }
             }
-            Data.getInstance().updateSelfStatus(
-                    new Data.Status(
+            Data.getInstance().updateSelfStatusLocation(
+                    new Data.Location(
                             new Date(),
                             newSelfLocation.mLocation.getLatitude(),
                             newSelfLocation.mLocation.getLongitude(),
@@ -225,9 +256,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void AddedFriend(Events.AddedFriend addedFriend) {
-        // Apply new set of friends to web server and pull scheduke
+    public synchronized void onAddedFriend(Events.AddedFriend addedFriend) {
+        // Apply new set of friends to web server and pull schedule
         // TODO: don't need to restart Tor, just web server
+        //       (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
         try {
             startHiddenService();
             schedulePullFriends();
@@ -237,7 +269,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
     
     @Subscribe
-    public synchronized void RemovedFriend(Events.RemovedFriend removedFriend) {
+    public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
         // Apply new set of friends to web server and pull scheduke
         // TODO: don't need to restart Tor, just web server
         try {
@@ -246,6 +278,41 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
         }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+        // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
+        Data.Message lastMessage = null;
+        if (updatedFriendStatus.mPreviousStatus != null &&
+                updatedFriendStatus.mPreviousStatus.mMessages.size() > 0) {
+            lastMessage = updatedFriendStatus.mPreviousStatus.mMessages.get(0);
+        }
+        for (Data.Message message : updatedFriendStatus.mStatus.mMessages) {
+            if (lastMessage == null ||
+                    !message.mTimestamp.equals(lastMessage.mTimestamp) ||
+                    !message.mContent.equals(lastMessage.mContent)) {
+                mNewMessages.add(
+                        0,
+                        new NewMessage(
+                                updatedFriendStatus.mFriend.mPublicIdentity.mNickname,
+                                message));
+            } else {
+                break;
+            }
+        }
+
+        Events.post(new Events.UpdatedNewMessages());
+    }
+
+    @Subscribe
+    public synchronized void onDisplayedFriends(Events.DisplayedFriends displayedFriends) {
+        mNewMessages.clear();
+        Events.post(new Events.UpdatedNewMessages());
+    }
+
+    public synchronized List<NewMessage> getNewMessages() {
+        return new ArrayList<NewMessage>(mNewMessages);
     }
     
     private void pushToFriends() throws Utils.ApplicationError {
@@ -271,7 +338,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
                                 getTorSocksProxyPort(),
-                                friend.mPublicIdentity.getHiddenServiceHostnameUri(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
                                 Protocol.WEB_SERVER_VIRTUAL_PORT,
                                 Protocol.PUSH_STATUS_REQUEST_PATH,
                                 Json.toJson(selfStatus));
@@ -294,7 +361,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
     
-    private void schedulePullFriend(String friendId) throws Utils.ApplicationError {
+    private void schedulePullFriend(String friendId, boolean immediateInitialPull) throws Utils.ApplicationError {
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
@@ -310,7 +377,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             getTorSocksProxyPort(),
-                            friend.mPublicIdentity.getHiddenServiceHostnameUri(),
+                            friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
                             Protocol.PULL_STATUS_REQUEST_PATH);
                     Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
@@ -326,14 +393,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         };
         cancelPullFriend(friendId);
         // TODO: scheduleAtFixedRate has backlog issue
+        
+        int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
-                task, 0, getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000, TimeUnit.MILLISECONDS);
+                task, immediateInitialPull ? 0 : delay, delay, TimeUnit.MILLISECONDS);
         mFriendPullTasks.put(friendId, future);
     }
 
     private void schedulePullFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            schedulePullFriend(friend.mId);
+            schedulePullFriend(friend.mId, true);
         }
     }
     
@@ -358,9 +427,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Friend friend = data.getFriendByCertificate(friendCertificate);
         data.updateFriendStatus(friend.mId, status);
         // TODO: we don't yet know the friend really received the response bytes
-        data.updateFriendLastReceivedStatusTimestamp(friend.mId);        
+        data.updateFriendLastReceivedStatusTimestamp(friend.mId);
         // Reschedule (delay) any outstanding pull from this friend
-        schedulePullFriend(friend.mId);
+        schedulePullFriend(friend.mId, false);
         Log.addEntry(LOG_TAG, "served push status request for: " + friend.mPublicIdentity.mNickname);
     }
     

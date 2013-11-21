@@ -40,21 +40,30 @@ public class Identity {
         public final String mNickname;
         public final String mX509Certificate;
         public final String mHiddenServiceHostname;
+        // Note: we're using certs in TLS for client authentication. The Tor HS auth cookie
+        // is used for its anti-DoS properties: only clients that have your identity can
+        // initiate a connection to your hidden service. This value doesn't need to remain
+        // secret, but DoS protection is enhanced when identity exchange is confidential. 
+        public final String mHiddenServiceAuthCookie;
         public final String mSignature;
         
-        public PublicIdentity(String nickname, String x509Certificate, String hiddenServiceHostname, String signature) {        
+        public PublicIdentity(
+                String nickname,
+                String x509Certificate,
+                String hiddenServiceHostname,
+                String hiddenServicAuthCookie,
+                String signature) {
             mNickname = nickname;
             mX509Certificate = x509Certificate;
             mHiddenServiceHostname = hiddenServiceHostname;
+            mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
         }
         
         public byte[] getFingerprint() throws Utils.ApplicationError {
+            // Note: Fingerprint excludes hidden service auth cookies, since those may change.
+            // (Those values *are* included in signatures to ensure a false value isn't swapped in, denying service.)
             return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
-        }
-        
-        public String getHiddenServiceHostnameUri() throws Utils.ApplicationError {
-            return new String(Utils.decodeBase64(mHiddenServiceHostname)).trim();
         }
     }
 
@@ -71,12 +80,14 @@ public class Identity {
     private static byte[] getPublicSigningData(
             String nickname,
             String rootCertificate,
-            String hiddenServiceHostname) throws Utils.ApplicationError {
+            String hiddenServiceHostname,
+            String hiddenServiceAuthCookie) throws Utils.ApplicationError {
         try {
             ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
             byteArray.write(nickname.getBytes("UTF-8"));
             byteArray.write(rootCertificate.getBytes("UTF-8"));
             byteArray.write(hiddenServiceHostname.getBytes("UTF-8"));
+            byteArray.write(hiddenServiceAuthCookie.getBytes("UTF-8"));
             return byteArray.toByteArray();
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -92,11 +103,13 @@ public class Identity {
                 getPublicSigningData(
                         nickname,
                         x509KeyMaterial.mCertificate,
-                        hiddenServiceKeyMaterial.mHostname));
+                        hiddenServiceKeyMaterial.mHostname,
+                        hiddenServiceKeyMaterial.mAuthCookie));
         return new PublicIdentity(
                 nickname,
                 x509KeyMaterial.mCertificate,
                 hiddenServiceKeyMaterial.mHostname,
+                hiddenServiceKeyMaterial.mAuthCookie,
                 signature);
     }
 

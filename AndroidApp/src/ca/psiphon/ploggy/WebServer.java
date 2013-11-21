@@ -24,7 +24,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
-import java.util.ArrayList;
+import java.util.List;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
@@ -54,12 +54,12 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     
     private RequestHandler mRequestHandler;
     private X509.KeyMaterial mX509KeyMaterial;
-    private ArrayList<String> mFriendCertificates;
+    private List<String> mFriendCertificates;
     
     public WebServer(
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,
-            ArrayList<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws Utils.ApplicationError {
         // Bind to loopback only -- not a public web server. Also, specify port 0 to let
         // the system pick any available port for listening.
         super("127.0.0.1", 0);

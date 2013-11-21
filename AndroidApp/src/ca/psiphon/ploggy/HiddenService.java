@@ -28,16 +28,19 @@ public class HiddenService {
     
     public static class KeyMaterial {
         public final String mHostname;
+        public final String mAuthCookie;
         public final String mPrivateKey;
 
-        public KeyMaterial(String hostname, String privateKey) {
+        public KeyMaterial(String hostname, String authCookie, String privateKey) {
             mHostname = hostname;
+            mAuthCookie = authCookie;
             mPrivateKey = privateKey;
         }
     }
 
     public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
         TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
+        // Note: MODE_GENERATE_KEY_MATERIAL stops its Tor process
         tor.start();
         tor.awaitStarted();
         return tor.getKeyMaterial();

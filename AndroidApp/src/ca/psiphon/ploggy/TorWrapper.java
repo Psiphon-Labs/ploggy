@@ -80,8 +80,20 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         MODE_RUN_SERVICES
     }
 
+    // Hidden Service authentication cookies for the Tor client 
+    public static class HiddenServiceAuth {
+        public final String mHostname;
+        public final String mAuthCookie;
+        
+        public HiddenServiceAuth(String hostname, String authCookie) {
+            mHostname = hostname;
+            mAuthCookie = authCookie;
+        }
+    }
+    
     private Mode mMode;
     private String mInstanceName;
+    private List<HiddenServiceAuth> mHiddenServiceAuth;
     private HiddenService.KeyMaterial mKeyMaterial;
     private int mWebServerPort = -1;
     private File mRootDirectory;
@@ -94,6 +106,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private File mPidFile;
     private File mHiddenServiceHostnameFile;
     private File mHiddenServicePrivateKeyFile;
+    private File mHiddenServiceClientKeysFile;
 
     private Thread mStartupThread = null;
     private Utils.ApplicationError mStartupError = null;
@@ -109,19 +122,29 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 90000;
     
     public TorWrapper(Mode mode) {
-        this(mode, null, -1);
+        this(mode, null, null, -1);
     }
 
-    public TorWrapper(Mode mode, HiddenService.KeyMaterial keyMaterial, int webServerPort) {
-        this(mode, null, keyMaterial, webServerPort);
+    public TorWrapper(
+            Mode mode,
+            List<HiddenServiceAuth> hiddenServiceAuth,
+            HiddenService.KeyMaterial keyMaterial,
+            int webServerPort) {
+        this(mode, null, hiddenServiceAuth, keyMaterial, webServerPort);
     }
 
-    public TorWrapper(Mode mode, String instanceName, HiddenService.KeyMaterial keyMaterial, int webServerPort) {
+    public TorWrapper(
+            Mode mode,
+            String instanceName,
+            List<HiddenServiceAuth> hiddenServiceAuth,
+            HiddenService.KeyMaterial keyMaterial,
+            int webServerPort) {
         mMode = mode;
         mInstanceName = instanceName;
         if (mInstanceName == null) {
             mInstanceName = mMode.toString();
         }
+        mHiddenServiceAuth = hiddenServiceAuth;
         mKeyMaterial = keyMaterial;
         mWebServerPort = webServerPort;
         Context context = Utils.getApplicationContext();
@@ -136,6 +159,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mPidFile = new File(mDataDirectory, "pid");
         mHiddenServiceHostnameFile = new File(mHiddenServiceDirectory, "hostname");
         mHiddenServicePrivateKeyFile = new File(mHiddenServiceDirectory, "private_key");
+        mHiddenServiceClientKeysFile = new File(mHiddenServiceDirectory, "client_keys");
     }
 
     private String logTag() {
@@ -189,28 +213,28 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             if (mHiddenServicePrivateKeyFile.exists() && !mHiddenServicePrivateKeyFile.delete()) {
                 throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service private key file");
             }
+            if (mHiddenServiceClientKeysFile.exists() && !mHiddenServiceClientKeysFile.delete()) {
+                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service client keys file");
+            }
             Utils.FileInitializedObserver hiddenServiceInitializedObserver =
                     new Utils.FileInitializedObserver(
                             mHiddenServiceDirectory,
                             mHiddenServiceHostnameFile.getName(),
-                            mHiddenServicePrivateKeyFile.getName());
+                            mHiddenServicePrivateKeyFile.getName(),
+                            mHiddenServiceClientKeysFile.getName());
             hiddenServiceInitializedObserver.startWatching();
             startDaemon(false);
             if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
                 throw new Utils.ApplicationError(logTag(), "timeout waiting for Tor hidden service initialization");
             }
-            String hostname = Utils.readFileToString(mHiddenServiceHostnameFile);
-            String privateKey = Utils.readFileToString(mHiddenServicePrivateKeyFile);
-            // Encoding these strings to retain formatting (newlines) across serialization/protocol
-            mKeyMaterial = new HiddenService.KeyMaterial(
-                    Utils.encodeBase64(hostname.getBytes()),
-                    Utils.encodeBase64(privateKey.getBytes()));
+            mKeyMaterial = parseHiddenServiceFiles();
         } catch (IOException e) {
             Log.addEntry(logTag(), "failed to start Tor");
             throw new Utils.ApplicationError(logTag(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
+            // This mode stops its Tor process
             stop();
             mHiddenServiceHostnameFile.delete();
             mHiddenServicePrivateKeyFile.delete();
@@ -381,7 +405,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     private void writeGenerateKeyMaterialConfigFile() throws IOException {
-        final String configuration =
+        String configuration =
                 String.format(
                     (Locale)null,
                         "DataDirectory %s\n" +
@@ -394,7 +418,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "SocksPort 0\n" +
                         "HiddenServiceDir %s\n" +
                         // TODO: FIX! won't generate without HiddenServicePort set... ensure not published? run non-responding server?
-                        "HiddenServicePort 443 localhost:7\n",
+                        "HiddenServicePort 443 localhost:7\n" +
+                        "HiddenServiceAuthorizeClient basic friend\n",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
                     mControlPortFile.getAbsolutePath(),
@@ -407,7 +432,17 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
     
     private void writeRunServicesConfigFile() throws IOException {
-        final String configuration =
+        StringBuilder hiddenServiceAuthLines = new StringBuilder();
+        for (HiddenServiceAuth hiddenServiceAuth : mHiddenServiceAuth) {
+            hiddenServiceAuthLines.append(
+                String.format(
+                    (Locale)null,
+                    "HidServAuth %s %s\n",
+                    hiddenServiceAuth.mHostname,
+                    hiddenServiceAuth.mAuthCookie));
+        }
+
+        String configuration =
                 String.format(
                     (Locale)null,
                         "DataDirectory %s\n" +
@@ -419,27 +454,54 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "CookieAuthFile %s\n" +
                         "SocksPort auto\n" +
                         "HiddenServiceDir %s\n" +
-                        "HiddenServicePort 443 localhost:%d\n",
+                        "HiddenServicePort 443 localhost:%d\n" +
+                        "HiddenServiceAuthorizeClient basic friend\n" +
+                        "%s",
                     mDataDirectory.getAbsolutePath(),
                     mPidFile.getAbsolutePath(),
                     mControlPortFile.getAbsolutePath(),
                     mControlAuthCookieFile.getAbsolutePath(),
                     mHiddenServiceDirectory.getAbsolutePath(),
-                    mWebServerPort);
-                
+                    mWebServerPort,
+                    hiddenServiceAuthLines.toString());
+        
         Utils.copyStream(
                 new ByteArrayInputStream(configuration.getBytes("UTF-8")),
                 new FileOutputStream(mConfigFile));
     }
     
+    private HiddenService.KeyMaterial parseHiddenServiceFiles() throws Utils.ApplicationError, IOException {
+        String hostnameFileContent = Utils.readFileToString(mHiddenServiceHostnameFile);
+        // Expected format: "gv69mnyyrwinum7l.onion WSdmfwVn8ewrCLKAwVyhCT # client: friend\n"
+        String[] hostnameFileFields = hostnameFileContent.split(" ");
+        if (hostnameFileFields.length < 2) {
+            throw new Utils.ApplicationError(logTag(), "unexpected fields in hidden service hostname file");
+        }
+        String hostname = hostnameFileFields[0];
+        String authCookie = hostnameFileFields[1];
+        String privateKey = Utils.readFileToString(mHiddenServicePrivateKeyFile);
+        return new HiddenService.KeyMaterial(
+                hostname,
+                authCookie,
+                Utils.encodeBase64(privateKey.getBytes()));
+    }
+    
     private void writeHiddenServiceFiles() throws Utils.ApplicationError, IOException {
         mHiddenServiceDirectory.mkdirs();
+        String hostnameFileContent = mKeyMaterial.mHostname + " " + mKeyMaterial.mAuthCookie + "\n"; 
         Utils.writeStringToFile(
-                new String(Utils.decodeBase64(mKeyMaterial.mHostname)),
+                hostnameFileContent,
                 mHiddenServiceHostnameFile);
         Utils.writeStringToFile(
                 new String(Utils.decodeBase64(mKeyMaterial.mPrivateKey)),
                 mHiddenServicePrivateKeyFile);
+        // Format (as per rend_service_load_auth_keys in Tor's rendservice.c): 
+        // client-name friend
+        // descriptor-cookie WSdmfwVn8ewrCLKAwVyhCT==
+        String clientKeysFileContent = "client-name friend\ndescriptor-cookie " + mKeyMaterial.mAuthCookie + "==\n"; 
+        Utils.writeStringToFile(
+                clientKeysFileContent,
+                mHiddenServiceClientKeysFile);
     }
 
     private int getPortValue(String data) throws Utils.ApplicationError {

@@ -19,18 +19,12 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
 
 /**
@@ -85,6 +79,9 @@ public class Log {
         // Update the in-memory entry list on the UI thread (also
         // notifies any ListView adapters subscribed to that list)
         postAddEntry(entry);
+        
+        // Temporary
+        android.util.Log.e("Ploggy", tag + " " + message);
     }
    
     public synchronized static int getRecentEntryCount() {
