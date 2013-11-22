@@ -133,14 +133,23 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
                     throw new Utils.ApplicationError(LOG_TAG, "failed to get POST request content length");
                 }
                 int contentLength = Integer.parseInt(session.getHeaders().get("content-length"));
+                if (contentLength > Protocol.MAX_POST_REQUEST_BODY_SIZE) {
+                    throw new Utils.ApplicationError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));                    
+                }
                 byte[] buffer = new byte[contentLength];
-                int readLength = session.getInputStream().read(buffer, 0, contentLength);
-                if (readLength != contentLength) {
-                    throw new Utils.ApplicationError(LOG_TAG,
-                                String.format(
-                                    "failed to read POST content: read %d of %d expected bytes",
-                                    readLength,
-                                    contentLength));
+                int offset = 0;
+                int remainingLength = contentLength;
+                while (remainingLength > 0) {
+                    int readLength = session.getInputStream().read(buffer, offset, remainingLength);
+                    if (readLength == -1 || readLength > remainingLength) {
+                        throw new Utils.ApplicationError(LOG_TAG,
+                                    String.format(
+                                        "failed to read POST content: read %d of %d expected bytes",
+                                        contentLength - remainingLength,
+                                        contentLength));
+                    }
+                    offset += readLength;
+                    remainingLength -= readLength;
                 }
                 Data.Status status = Json.fromJson(new String(buffer), Data.Status.class);
                 mRequestHandler.handlePushStatusRequest(certificate, status);
