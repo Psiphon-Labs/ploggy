@@ -897,10 +897,20 @@ public abstract class NanoHTTPD {
                 Response r = new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
                 r.send(outputStream);
                 safeClose(outputStream);
+            
+                // ==== ploggy ====
+                throw new SocketException("NanoHttpd Shutdown");
+                // ================
+
             } catch (ResponseException re) {
                 Response r = new Response(re.getStatus(), MIME_PLAINTEXT, re.getMessage());
                 r.send(outputStream);
                 safeClose(outputStream);
+                
+                // ==== ploggy ====
+                throw new SocketException("NanoHttpd Shutdown");
+                // ================
+
             } finally {
                 tempFileManager.clear();
             }
