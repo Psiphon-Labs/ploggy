@@ -31,6 +31,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -46,7 +47,7 @@ import android.widget.TextView;
  * while in the foreground (e.g., location data updated
  * the the engine).
  */
-public class FragmentSelfStatusDetails extends Fragment implements View.OnClickListener {
+public class FragmentSelfStatusDetails extends Fragment implements View.OnClickListener, TextView.OnEditorActionListener {
     
     private static final String LOG_TAG = "Self Status Details";
 
@@ -107,19 +108,10 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
                 }
             });
         
-        // Hide the keyboard when the keyboard action (Done) is hit
-        mNewMessageContentEdit.setOnEditorActionListener(
-            new TextView.OnEditorActionListener() {
-                @Override
-                public boolean onEditorAction(TextView textView, int actionId, KeyEvent event) {
-                    Utils.hideKeyboard(getActivity());
-                    return true;
-                }
-            });
-        
         InputFilter[] filters = new InputFilter[1];
         filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
         mNewMessageContentEdit.setFilters(filters);
+        mNewMessageContentEdit.setOnEditorActionListener(this);
 
         mNewMessageAddButton.setOnClickListener(this);
 
@@ -213,18 +205,31 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
     @Override
     public void onClick(View view) {
         if (view.equals(mNewMessageAddButton)) {
-            try {
-                String messageContent = mNewMessageContentEdit.getText().toString();
-                if (messageContent.length() > 0) {
-                    Data.getInstance().addSelfStatusMessage(
-                            new Data.Message(new Date(), messageContent));
+            addNewMessage();
+        }
+    }
+
+    @Override
+    public boolean onEditorAction(TextView textView, int actionId, KeyEvent event) {
+        if (textView.equals(mNewMessageContentEdit) &&
+                actionId == EditorInfo.IME_ACTION_SEND) {
+            addNewMessage();
+            return true;
+        }
+        return false;
+    }
     
-                    mNewMessageContentEdit.getEditableText().clear();
-                    Utils.hideKeyboard(getActivity());
-                }
-            } catch (Utils.ApplicationError e) {
-                Log.addEntry(LOG_TAG, "failed to update self message");
+    private void addNewMessage() {
+        try {
+            String messageContent = mNewMessageContentEdit.getText().toString();
+            if (messageContent.length() > 0) {
+                Data.getInstance().addSelfStatusMessage(
+                        new Data.Message(new Date(), messageContent));
+                mNewMessageContentEdit.getEditableText().clear();
+                Utils.hideKeyboard(getActivity());
             }
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to update self message");
         }
     }
 }
