@@ -288,6 +288,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 updatedFriendStatus.mPreviousStatus.mMessages.size() > 0) {
             lastMessage = updatedFriendStatus.mPreviousStatus.mMessages.get(0);
         }
+        boolean updatedNewMessages = false;
         for (Data.Message message : updatedFriendStatus.mStatus.mMessages) {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
@@ -297,18 +298,24 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         new NewMessage(
                                 updatedFriendStatus.mFriend.mPublicIdentity.mNickname,
                                 message));
+                updatedNewMessages = true;
             } else {
                 break;
             }
         }
 
-        Events.post(new Events.UpdatedNewMessages());
+        if (updatedNewMessages) {
+            Events.post(new Events.UpdatedNewMessages());
+        }
     }
 
     @Subscribe
     public synchronized void onDisplayedFriends(Events.DisplayedFriends displayedFriends) {
+        boolean updatedNewMessages = (mNewMessages.size() > 0);
         mNewMessages.clear();
-        Events.post(new Events.UpdatedNewMessages());
+        if (updatedNewMessages) {
+            Events.post(new Events.UpdatedNewMessages());
+        }
     }
 
     public synchronized List<NewMessage> getNewMessages() {
