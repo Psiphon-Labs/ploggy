@@ -109,7 +109,8 @@ public class PloggyService extends Service {
             new Notification.Builder(this)
                 .setContentIntent(pendingIntent)
                 .setContentTitle(contentTitle)
-                .setSmallIcon(iconResourceId);
+                .setSmallIcon(iconResourceId)
+                .setDefaults(Notification.DEFAULT_ALL); // use default (system) sound, lights, and vibrate
 
         Notification notification;
         if (newMessages != null && newMessages.size() > 0) {
@@ -144,6 +145,7 @@ public class PloggyService extends Service {
             mNotification.contentView = notification.contentView;
             mNotification.icon = notification.icon;
             mNotification.largeIcon = notification.largeIcon;
+            mNotification.defaults = notification.defaults;
         }
     }
 
