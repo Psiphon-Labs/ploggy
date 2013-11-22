@@ -27,7 +27,6 @@
     <string name="prompt_unknown_distance">Unknown distance</string>
     <string name="title_your_status_fragment">Your Status</string>
     <string name="title_friend_list_fragment">Friends</string>
-    <string name="format_friend_list_distance">%1$d meters</string>
     <string name="title_recent_activity_fragment">Recent Activity</string>
     <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
     <string name="prompt_nfc_push_complete">Your identity was beamed to a friend</string>
@@ -53,6 +52,8 @@
     <string name="label_status_details_fingerprint">Fingerprint:</string>
     <string name="label_self_status_details_new_message_hint">Compose your message</string>
     <string name="label_friend_status_details_message_content">Message:</string>
+    <string name="format_distance_meters">%1$s meters</string>
+    <string name="format_distance_kilometers">%1$s kilometers</string>
     <string name="label_status_details_message_timestamp">Message updated at:</string>
     <string name="label_status_details_location_street_address">Street address:</string>
     <string name="label_status_details_location_distance">Approximate distance from your location:</string>
@@ -62,7 +63,6 @@
     <string name="label_status_details_last_received_status_timestamp">Last update received from friend:</string>
     <string name="label_status_details_last_sent_status_timestamp">Last update sent to friend:</string>
     <string name="label_status_details_added_timestamp">Friend added at:</string>
-    <string name="format_status_details_distance">%1$d meters</string>
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>
     <string name="format_status_details_precision">%1$d meters</string>
     <string name="prompt_status_details_data_not_found">Status details not found</string>

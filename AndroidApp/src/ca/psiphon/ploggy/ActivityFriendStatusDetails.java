@@ -185,14 +185,13 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 } else {
                     mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
-                if (selfStatus != null) {
+                if (selfStatus != null && selfStatus.mLocation.mTimestamp != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
                             selfStatus.mLocation.mLatitude,
                             selfStatus.mLocation.mLongitude,
                             friendStatus.mLocation.mLatitude,
                             friendStatus.mLocation.mLongitude);
-                    mLocationDistanceText.setText(
-                            getString(R.string.format_status_details_distance, distance));
+                    mLocationDistanceText.setText(Utils.formatDistance(this, distance));
                 } else {
                     mLocationDistanceText.setText(R.string.prompt_unknown_distance);
                 }

@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.text.DateFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -217,6 +218,19 @@ public class Utils {
         float[] results = new float[1];
         Location.distanceBetween(latitudeA, longitudeA, latitudeB, longitudeB, results);
         return Math.round(results[0]);
+    }
+    
+    public static String formatDistance(Context context, int distanceInMeters) {
+        if (distanceInMeters < 1000) {
+            return context.getString(
+                    R.string.format_distance_meters,
+                    NumberFormat.getInstance().format(distanceInMeters));
+        } else {
+            double distanceInKilometers = (double)distanceInMeters/1000.0;
+            return context.getString(
+                    R.string.format_distance_kilometers,
+                    NumberFormat.getInstance().format(distanceInKilometers));
+        }
     }
     
     public static String formatSameDayTime(Date date) {

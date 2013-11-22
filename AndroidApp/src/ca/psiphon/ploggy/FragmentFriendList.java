@@ -230,14 +230,13 @@ public class FragmentFriendList extends ListFragment {
                         } else {
                             locationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                         }
-                        if (selfStatus != null) {
+                        if (selfStatus != null && selfStatus.mLocation.mTimestamp != null) {
                             int distance = Utils.calculateLocationDistanceInMeters(
                                     selfStatus.mLocation.mLatitude,
                                     selfStatus.mLocation.mLongitude,
                                     friendStatus.mLocation.mLatitude,
                                     friendStatus.mLocation.mLongitude);
-                            locationDistanceText.setText(
-                                    mContext.getString(R.string.format_friend_list_distance, distance));
+                            locationDistanceText.setText(Utils.formatDistance(mContext, distance));
                         } else {
                             locationDistanceText.setText(R.string.prompt_unknown_distance);
                         }
