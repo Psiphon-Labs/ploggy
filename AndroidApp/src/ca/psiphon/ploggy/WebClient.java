@@ -198,68 +198,81 @@ public class WebClient {
                 final InetAddress local,
                 final HttpContext context,
                 final HttpParams params) throws IOException {
-            if (conn == null || target == null || params == null) {
-                throw new IllegalArgumentException("Required argument may not be null");
+            Socket socket = null;
+            Socket sslSocket = null;
+            try {
+                if (conn == null || target == null || params == null) {
+                    throw new IllegalArgumentException("Required argument may not be null");
+                }
+                if (conn.isOpen()) {
+                    throw new IllegalStateException("Connection must not be open");
+                }
+    
+                Scheme scheme = schemeRegistry.getScheme(target.getSchemeName());
+                SSLSocketFactory sslSocketFactory = (SSLSocketFactory)scheme.getSchemeSocketFactory();
+    
+                int port = scheme.resolvePort(target.getPort());
+                String host = target.getHostName();
+    
+                // Perform explicit SOCKS4a connection request. SOCKS4a supports remote host name resolution
+                // (i.e., Tor resolves the hostname, which may be an onion address).
+                // The Android (Apache Harmony) Socket class appears to support only SOCKS4 and throws an
+                // exception on an address created using INetAddress.createUnresolved() -- so the typical
+                // technique for using Java SOCKS4a/5 doesn't appear to work on Android:
+                // https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/java/net/PlainSocketImpl.java            
+                // See also: http://www.mit.edu/~foley/TinFoil/src/tinfoil/TorLib.java, for a similar implementation
+    
+                // From http://en.wikipedia.org/wiki/SOCKS#SOCKS4a:
+                //
+                // field 1: SOCKS version number, 1 byte, must be 0x04 for this version
+                // field 2: command code, 1 byte:
+                //     0x01 = establish a TCP/IP stream connection
+                //     0x02 = establish a TCP/IP port binding
+                // field 3: network byte order port number, 2 bytes
+                // field 4: deliberate invalid IP address, 4 bytes, first three must be 0x00 and the last one must not be 0x00
+                // field 5: the user ID string, variable length, terminated with a null (0x00)
+                // field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
+                
+                int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
+    
+                socket = new Socket();
+                conn.opening(socket, target);
+                socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
+                socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
+                
+                DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
+                outputStream.write((byte)0x04);
+                outputStream.write((byte)0x01);
+                outputStream.writeShort((short)port);
+                outputStream.writeInt(0x01);
+                outputStream.write((byte)0x00);
+                outputStream.write(host.getBytes());
+                outputStream.write((byte)0x00);
+                
+                DataInputStream inputStream = new DataInputStream(socket.getInputStream());
+                if (inputStream.readByte() != (byte)0x00 || inputStream.readByte() != (byte)0x5a) {
+                    throw new IOException("SOCKS4a connect failed");
+                }
+                inputStream.readShort();
+                inputStream.readInt();
+    
+                sslSocket = sslSocketFactory.createLayeredSocket(socket, host, port, params);
+                conn.opening(sslSocket, target);
+                sslSocket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
+                prepareSocket(sslSocket, context, params);
+                conn.openCompleted(sslSocketFactory.isSecure(sslSocket), params);
+                // TODO: clarify which connection throws java.net.SocketTimeoutException?
+            } catch (IOException e) {
+                try {
+                    if (sslSocket != null) {
+                        sslSocket.close();
+                    }
+                    if (socket != null) {
+                        socket.close();
+                    }
+                } catch (IOException ioe) {}
+                throw e;
             }
-            if (conn.isOpen()) {
-                throw new IllegalStateException("Connection must not be open");
-            }
-
-            Scheme scheme = schemeRegistry.getScheme(target.getSchemeName());
-            SSLSocketFactory sslSocketFactory = (SSLSocketFactory)scheme.getSchemeSocketFactory();
-
-            int port = scheme.resolvePort(target.getPort());
-            String host = target.getHostName();
-
-            // Perform explicit SOCKS4a connection request. SOCKS4a supports remote host name resolution
-            // (i.e., Tor resolves the hostname, which may be an onion address).
-            // The Android (Apache Harmony) Socket class appears to support only SOCKS4 and throws an
-            // exception on an address created using INetAddress.createUnresolved() -- so the typical
-            // technique for using Java SOCKS4a/5 doesn't appear to work on Android:
-            // https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/java/net/PlainSocketImpl.java            
-            // See also: http://www.mit.edu/~foley/TinFoil/src/tinfoil/TorLib.java, for a similar implementation
-
-            // From http://en.wikipedia.org/wiki/SOCKS#SOCKS4a:
-            //
-            // field 1: SOCKS version number, 1 byte, must be 0x04 for this version
-            // field 2: command code, 1 byte:
-            //     0x01 = establish a TCP/IP stream connection
-            //     0x02 = establish a TCP/IP port binding
-            // field 3: network byte order port number, 2 bytes
-            // field 4: deliberate invalid IP address, 4 bytes, first three must be 0x00 and the last one must not be 0x00
-            // field 5: the user ID string, variable length, terminated with a null (0x00)
-            // field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
-            
-            int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
-
-            Socket socket = new Socket();
-            conn.opening(socket, target);
-            socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
-            socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
-            
-            DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
-            outputStream.write((byte)0x04);
-            outputStream.write((byte)0x01);
-            outputStream.writeShort((short)port);
-            outputStream.writeInt(0x01);
-            outputStream.write((byte)0x00);
-            outputStream.write(host.getBytes());
-            outputStream.write((byte)0x00);
-            
-            DataInputStream inputStream = new DataInputStream(socket.getInputStream());
-            if (inputStream.readByte() != (byte)0x00 || inputStream.readByte() != (byte)0x5a) {
-                throw new IOException("SOCKS4a connect failed");
-            }
-            inputStream.readShort();
-            inputStream.readInt();
-
-            Socket sslsocket = sslSocketFactory.createLayeredSocket(socket, host, port, params);
-            conn.opening(sslsocket, target);
-            sslsocket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
-            prepareSocket(sslsocket, context, params);
-            conn.openCompleted(sslSocketFactory.isSecure(sslsocket), params);
-            
-            // TODO: clarify which connection throws java.net.SocketTimeoutException?
         }
 
         @Override

@@ -111,8 +111,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     
     @Override
     public Response serve(IHTTPSession session) {
+        String certificate = null;
         try {
-            String certificate = getPeerCertificate(session.getSocket());
+            certificate = getPeerCertificate(session.getSocket());
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to get peer certificate");
+            return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
+        }
+        try {
             String uri = session.getUri();
             Method method = session.getMethod();
             if (Method.GET.equals(method) && uri.equals(Protocol.PULL_STATUS_REQUEST_PATH)) {
@@ -127,9 +133,23 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
                     throw new Utils.ApplicationError(LOG_TAG, "failed to get POST request content length");
                 }
                 int contentLength = Integer.parseInt(session.getHeaders().get("content-length"));
+                if (contentLength > Protocol.MAX_POST_REQUEST_BODY_SIZE) {
+                    throw new Utils.ApplicationError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));                    
+                }
                 byte[] buffer = new byte[contentLength];
-                if (contentLength != session.getInputStream().read(buffer, 0, contentLength)) {
-                    throw new Utils.ApplicationError(LOG_TAG, "failed to read POST content");
+                int offset = 0;
+                int remainingLength = contentLength;
+                while (remainingLength > 0) {
+                    int readLength = session.getInputStream().read(buffer, offset, remainingLength);
+                    if (readLength == -1 || readLength > remainingLength) {
+                        throw new Utils.ApplicationError(LOG_TAG,
+                                    String.format(
+                                        "failed to read POST content: read %d of %d expected bytes",
+                                        contentLength - remainingLength,
+                                        contentLength));
+                    }
+                    offset += readLength;
+                    remainingLength -= readLength;
                 }
                 Data.Status status = Json.fromJson(new String(buffer), Data.Status.class);
                 mRequestHandler.handlePushStatusRequest(certificate, status);
@@ -137,9 +157,13 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             }
         } catch (IOException e) {
             Log.addEntry(LOG_TAG, e.getMessage());
-            Log.addEntry(LOG_TAG, "failed to serve request");
         } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to serve request");
+        }
+        try {
+            Data.Friend friend = Data.getInstance().getFriendByCertificate(certificate);
+            Log.addEntry(LOG_TAG, "failed to serve request: " + friend.mPublicIdentity.mNickname);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to serve request: unrecognized certificate " + certificate.substring(0, 20) + "...");
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }

@@ -97,7 +97,7 @@
         <EditText
             android:id="@+id/self_status_details_new_message_content_edit"
             android:inputType="text"
-            android:imeOptions="actionDone"
+            android:imeOptions="actionSend"
             android:maxLines="1"
             android:hint="@string/label_self_status_details_new_message_hint"
             android:layout_width="match_parent"
