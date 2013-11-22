@@ -11,6 +11,10 @@
           android:icon="@drawable/ic_action_settings"
           android:title="@string/action_settings"
           android:showAsAction="withText" />
+    <item android:id="@+id/action_save_identity_to_file"
+          android:icon="@drawable/ic_action_content_save"
+          android:title="@string/action_save_identity_to_file"
+          android:showAsAction="withText" />
     <item android:id="@+id/action_run_tests"
           android:icon="@drawable/ic_action_run_tests"
           android:title="@string/action_run_tests"

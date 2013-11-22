@@ -126,10 +126,13 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
         case R.id.action_email_self:
-            SendIdentityByEmail.composeEmail(this);
+            ExportIdentity.composeEmail(this);
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));
+            return true;
+        case R.id.action_save_identity_to_file:
+            ExportIdentity.saveIdentityToFile(this);
             return true;
         case R.id.action_run_tests:
             // TODO: temporary feature for prototype
