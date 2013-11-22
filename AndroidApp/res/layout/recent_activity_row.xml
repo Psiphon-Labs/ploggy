@@ -10,7 +10,8 @@
         android:layout_height="wrap_content"
         android:typeface="sans"
         android:textSize="10dip"
-        android:layout_marginRight="4dp" />
+        android:textColor="#808080"
+        android:layout_marginRight="6dp" />
  
     <TextView
         android:id="@+id/log_tag_text"
@@ -19,7 +20,7 @@
         android:layout_toRightOf="@id/log_timestamp_text"
         android:typeface="sans"
         android:textSize="10dip"
-        android:layout_marginRight="5dp" />
+        android:layout_marginRight="6dp" />
  
     <TextView
         android:id="@+id/log_message_text"
