@@ -332,15 +332,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             return;
         }
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            final String taskFriendId = friend.mId;
+            final String finalFriendId = friend.mId;
             Runnable task = new Runnable() {
                 public void run() {
+                    Data data = Data.getInstance();
                     try {
-                        Data data = Data.getInstance();
                         Data.Self self = data.getSelf();
                         Data.Status selfStatus = data.getSelfStatus();
-                        Data.Friend friend = data.getFriendById(taskFriendId);
-                        Log.addEntry(LOG_TAG, "make push status request to: " + friend.mPublicIdentity.mNickname);
+                        Data.Friend friend = data.getFriendById(finalFriendId);
+                        Log.addEntry(LOG_TAG, "make push status request to " + friend.mPublicIdentity.mNickname);
                         WebClient.makePostRequest(
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
@@ -349,11 +349,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 Protocol.WEB_SERVER_VIRTUAL_PORT,
                                 Protocol.PUSH_STATUS_REQUEST_PATH,
                                 Json.toJson(selfStatus));
-                        data.updateFriendLastSentStatusTimestamp(taskFriendId);
+                        data.updateFriendLastSentStatusTimestamp(finalFriendId);
                     } catch (Data.DataNotFoundError e) {
                         // Friend was deleted while push was enqueued. Ignore error.
                     } catch (Utils.ApplicationError e) {
-                        Log.addEntry(LOG_TAG, "failed to push to friend");
+                        try {
+                            Log.addEntry(LOG_TAG, "failed to push to " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        } catch (Utils.ApplicationError e2) {
+                            Log.addEntry(LOG_TAG, "failed to push to friend");
+                        }
                     }
                 }
             };
@@ -372,14 +376,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
+                Data data = Data.getInstance();
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
-                    Data data = Data.getInstance();
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
-                    Log.addEntry(LOG_TAG, "make pull status request to: " + friend.mPublicIdentity.mNickname);
+                    Log.addEntry(LOG_TAG, "make pull status request to " + friend.mPublicIdentity.mNickname);
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
@@ -394,7 +398,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     // Friend was deleted while pull was enqueued. Ignore error.
                     // RemovedFriend should eventually cancel schedule.
                 } catch (Utils.ApplicationError e) {
-                    Log.addEntry(LOG_TAG, "failed to pull from friend");
+                    try {
+                        Log.addEntry(LOG_TAG, "failed to pull from " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (Utils.ApplicationError e2) {
+                        Log.addEntry(LOG_TAG, "failed to push from friend");
+                    }
                 }
             }
         };
@@ -424,7 +432,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Status status = data.getSelfStatus();
         // TODO: we don't yet know the friend really received the response bytes
         data.updateFriendLastSentStatusTimestamp(friend.mId);
-        Log.addEntry(LOG_TAG, "served pull status request for: " + friend.mPublicIdentity.mNickname);
+        Log.addEntry(LOG_TAG, "served pull status request for " + friend.mPublicIdentity.mNickname);
         return status;        
     }
     
@@ -437,7 +445,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         data.updateFriendLastReceivedStatusTimestamp(friend.mId);
         // Reschedule (delay) any outstanding pull from this friend
         schedulePullFriend(friend.mId, false);
-        Log.addEntry(LOG_TAG, "served push status request for: " + friend.mPublicIdentity.mNickname);
+        Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
     }
     
     public synchronized Context getContext() {
