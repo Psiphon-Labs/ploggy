@@ -340,7 +340,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         Data.Self self = data.getSelf();
                         Data.Status selfStatus = data.getSelfStatus();
                         Data.Friend friend = data.getFriendById(finalFriendId);
-                        Log.addEntry(LOG_TAG, "make push status request to " + friend.mPublicIdentity.mNickname);
+                        Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
                         WebClient.makePostRequest(
                                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                                 friend.mPublicIdentity.mX509Certificate,
@@ -354,9 +354,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         // Friend was deleted while push was enqueued. Ignore error.
                     } catch (Utils.ApplicationError e) {
                         try {
-                            Log.addEntry(LOG_TAG, "failed to push to " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                            Log.addEntry(LOG_TAG, "failed to push status to: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
                         } catch (Utils.ApplicationError e2) {
-                            Log.addEntry(LOG_TAG, "failed to push to friend");
+                            Log.addEntry(LOG_TAG, "failed to push status");
                         }
                     }
                 }
@@ -383,7 +383,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     }
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
-                    Log.addEntry(LOG_TAG, "make pull status request to " + friend.mPublicIdentity.mNickname);
+                    Log.addEntry(LOG_TAG, "pull status from: " + friend.mPublicIdentity.mNickname);
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
@@ -399,9 +399,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     // RemovedFriend should eventually cancel schedule.
                 } catch (Utils.ApplicationError e) {
                     try {
-                        Log.addEntry(LOG_TAG, "failed to pull from " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        Log.addEntry(LOG_TAG, "failed to pull status from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
                     } catch (Utils.ApplicationError e2) {
-                        Log.addEntry(LOG_TAG, "failed to push from friend");
+                        Log.addEntry(LOG_TAG, "failed to pull status");
                     }
                 }
             }

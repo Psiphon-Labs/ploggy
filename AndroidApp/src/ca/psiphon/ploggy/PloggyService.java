@@ -39,7 +39,8 @@ public class PloggyService extends Service {
     
     private static final String LOG_TAG = "Service";
 
-    Engine mEngine;
+    private Engine mEngine;
+    private Notification mNotification = null;
 
     public PloggyService() {
     }
@@ -72,8 +73,6 @@ public class PloggyService extends Service {
         }
     }
     
-    private Notification mNotification = null;
-
     private void doForeground() {
         updateNotification(null);
         startForeground(R.string.foregroundServiceNotificationId, mNotification);
@@ -155,8 +154,8 @@ public class PloggyService extends Service {
             // Update the notification views
             updateNotification(mEngine.getNewMessages());
 
-            String ns = Context.NOTIFICATION_SERVICE;
-            NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
+            NotificationManager notificationManager =
+                    (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
             }

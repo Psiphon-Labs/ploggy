@@ -152,9 +152,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         }
         try {
             Data.Friend friend = Data.getInstance().getFriendByCertificate(certificate);
-            Log.addEntry(LOG_TAG, "failed to serve request for " + friend.mPublicIdentity.mNickname);
+            Log.addEntry(LOG_TAG, "failed to serve request: " + friend.mPublicIdentity.mNickname);
         } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to serve request for unrecognized certificate " + certificate.substring(0, 20) + "...");
+            Log.addEntry(LOG_TAG, "failed to serve request: unrecognized certificate " + certificate.substring(0, 20) + "...");
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }
