@@ -34,6 +34,8 @@ public class Protocol {
 
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
 
+    public static int MAX_POST_REQUEST_BODY_SIZE = 1000000;
+
     // TODO: limits in place for prototype, which is currently sending all messages in one blob
     public static int MAX_MESSAGE_LENGTH = 100;
     public static int MAX_MESSAGE_COUNT = 50;

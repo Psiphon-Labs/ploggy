@@ -38,7 +38,8 @@
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
-        android:textSize="12dip" />
+        android:textSize="12dip"
+        android:textColor="#808080" />
 
     <TextView
         android:id="@+id/friend_list_message_content_text"
@@ -58,7 +59,8 @@
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
-        android:textSize="12dip" />
+        android:textSize="12dip"
+        android:textColor="#808080" />
 
     <TextView
         android:id="@+id/friend_list_location_street_address_text"

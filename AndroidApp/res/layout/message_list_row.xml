@@ -10,6 +10,7 @@
         android:layout_height="wrap_content"
         android:typeface="sans"
         android:textSize="12dip"
+        android:textColor="#808080"
         android:layout_marginRight="4dp" />
  
     <TextView
