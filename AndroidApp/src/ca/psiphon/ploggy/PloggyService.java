@@ -24,8 +24,10 @@ import java.util.List;
 import com.squareup.otto.Subscribe;
 
 import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.text.Html;
@@ -70,17 +72,20 @@ public class PloggyService extends Service {
         }
     }
     
+    private Notification mNotification = null;
+
     private void doForeground() {
-        startForeground(R.string.foregroundServiceNotificationId, createNotification(null));
+        updateNotification(null);
+        startForeground(R.string.foregroundServiceNotificationId, mNotification);
     }
     
-    private Notification createNotification(List<Engine.NewMessage> newMessages) {
+    private void updateNotification(List<Engine.NewMessage> newMessages) {
         // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
         final int MAX_LINES = 5; 
         
         // Invoke main Activity when notification is clicked
         Intent intent = new Intent(this, ActivityMain.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);        
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         
         int iconResourceId;
         String contentTitle;
@@ -130,15 +135,31 @@ public class PloggyService extends Service {
             notification = notificationBuilder.build();
         }
         
-        return notification;
+        if (mNotification == null) {
+            mNotification = notification;
+        }
+        else {
+            // TODO: if other notification attributes are added (ie ticker), copy them here
+            mNotification.contentIntent = notification.contentIntent;
+            mNotification.bigContentView = notification.bigContentView;
+            mNotification.contentView = notification.contentView;
+            mNotification.icon = notification.icon;
+            mNotification.largeIcon = notification.largeIcon;
+        }
     }
 
     @Subscribe
     public synchronized void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
         // Update the service notification with new messages
         if (mEngine != null) {
-            // TODO: simply updating a foreground service notification via NotificationManager doesn't work?
-            startForeground(R.string.foregroundServiceNotificationId, createNotification(mEngine.getNewMessages()));
+            // Update the notification views
+            updateNotification(mEngine.getNewMessages());
+
+            String ns = Context.NOTIFICATION_SERVICE;
+            NotificationManager notificationManager = (NotificationManager)getSystemService(ns);
+            if (notificationManager != null) {
+                notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
+            }
         }
     }
 }
