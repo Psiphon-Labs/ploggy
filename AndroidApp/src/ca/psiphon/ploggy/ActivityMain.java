@@ -125,7 +125,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
             return true;
         case R.id.action_run_tests:
             Tests.scheduleComponentTests();
-            getActionBar().setSelectedNavigationItem(1);
+            startActivity(new Intent(this, ActivityLogEntries.class));
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));

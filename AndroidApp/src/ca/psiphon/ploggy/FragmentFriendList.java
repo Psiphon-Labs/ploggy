@@ -230,6 +230,15 @@ public class FragmentFriendList extends ListFragment {
                         lastTimestamp = Utils.formatSameDayTime(friend.mLastSentStatusTimestamp);
                     }
                     lastTimestampText.setText(lastTimestamp);
+                    if (lastTimestamp.length() > 0) {
+                        // On touch, show log entries
+                        lastTimestampText.setOnClickListener(
+                            new View.OnClickListener() {
+                                public void onClick(View v) {
+                                    mContext.startActivity(new Intent(mContext, ActivityLogEntries.class));
+                                }
+                            });
+                    }
 
                     if (friendStatus.mMessages.size() > 0) {
                         Data.Message message = friendStatus.mMessages.get(0);
