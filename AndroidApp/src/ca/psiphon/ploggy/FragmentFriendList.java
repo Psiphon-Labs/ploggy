@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -21,14 +21,12 @@ package ca.psiphon.ploggy;
 
 import java.util.ArrayList;
 
-import com.squareup.otto.Subscribe;
-
-import android.os.Bundle;
 import android.app.AlertDialog;
 import android.app.ListFragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Bundle;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -40,6 +38,8 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+
+import com.squareup.otto.Subscribe;
 
 /**
  * User interface which displays a list of friends.
@@ -53,7 +53,7 @@ public class FragmentFriendList extends ListFragment {
 
     private boolean mIsResumed = false;
     private FriendAdapter mFriendAdapter;
-    
+
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -63,10 +63,10 @@ public class FragmentFriendList extends ListFragment {
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize friend list");
         }
-        registerForContextMenu(this.getListView());            
+        registerForContextMenu(this.getListView());
         Events.register(this);
     }
-    
+
     @Override
     public void onResume() {
         super.onResume();
@@ -85,7 +85,7 @@ public class FragmentFriendList extends ListFragment {
         super.onDestroy();
         Events.unregister(this);
     }
-    
+
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
@@ -136,47 +136,47 @@ public class FragmentFriendList extends ListFragment {
     @Subscribe
     public void onAddedFriend(Events.AddedFriend addedFriend) {
         updateFriends();
-    }        
+    }
 
     @Subscribe
     public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
         updateFriends();
-    }        
+    }
 
     @Subscribe
     public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         updateFriends();
-    }       
+    }
 
     @Subscribe
     public void onDeletedFriend(Events.RemovedFriend removedFriend) {
         updateFriends();
     }
-    
+
     @Subscribe
     public void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
         if (mIsResumed) {
             Events.post(new Events.DisplayedFriends());
         }
     }
-    
+
     private void updateFriends() {
         try {
             mFriendAdapter.updateFriends();
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update friend list");
-        }            
+        }
     }
 
     private static class FriendAdapter extends BaseAdapter {
-        private Context mContext;
+        private final Context mContext;
         private ArrayList<Data.Friend> mFriends;
 
         public FriendAdapter(Context context) throws Utils.ApplicationError {
             mContext = context;
             mFriends = Data.getInstance().getFriends();
         }
-        
+
         public void updateFriends() throws Utils.ApplicationError {
             mFriends = Data.getInstance().getFriends();
             notifyDataSetChanged();
@@ -197,14 +197,14 @@ public class FragmentFriendList extends ListFragment {
                 TextView locationTimestampText = (TextView)view.findViewById(R.id.friend_list_location_timestamp_text);
                 TextView locationStreetAddressText = (TextView)view.findViewById(R.id.friend_list_location_street_address_text);
                 TextView locationDistanceText = (TextView)view.findViewById(R.id.friend_list_location_distance_text);
-                
+
                 // Not hiding missing fields
                 messageTimestampText.setText("");
                 messageContentText.setText("");
                 locationTimestampText.setText("");
                 locationStreetAddressText.setText("");
                 locationDistanceText.setText("");
-                
+
                 Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
                 try {
@@ -221,10 +221,10 @@ public class FragmentFriendList extends ListFragment {
                     if (friendStatus.mMessages.size() > 0) {
                         Data.Message message = friendStatus.mMessages.get(0);
                         messageContentText.setText(message.mContent);
-                        messageTimestampText.setText(Utils.formatSameDayTime(message.mTimestamp));
+                        messageTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
                     }
                     if (friendStatus.mLocation.mTimestamp != null) {
-                        locationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+                        locationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, friendStatus.mLocation.mTimestamp, true));
                         if (friendStatus.mLocation.mStreetAddress.length() > 0) {
                             locationStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
                         } else {
@@ -247,7 +247,7 @@ public class FragmentFriendList extends ListFragment {
                 } catch (Utils.ApplicationError e) {
                     Log.addEntry(LOG_TAG, "failed to display friend");
                 }
-            }            
+            }
             return view;
         }
 

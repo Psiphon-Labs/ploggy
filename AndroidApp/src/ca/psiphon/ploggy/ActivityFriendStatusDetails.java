@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -20,8 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.util.Date;
-
-import com.squareup.otto.Subscribe;
 
 import android.os.Bundle;
 import android.view.MotionEvent;
@@ -32,6 +30,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.squareup.otto.Subscribe;
+
 /**
  * User interface for displaying friend status details.
 
@@ -40,11 +40,11 @@ import android.widget.Toast;
  * while in the foreground.
  */
 public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
-    
+
     private static final String LOG_TAG = "Friend Status Details";
-    
+
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
-    
+
     private String mFriendId;
     private ScrollView mScrollView;
     private ImageView mAvatarImage;
@@ -111,7 +111,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                     return false;
                 }
             });
-        
+
         Bundle bundle = getIntent().getExtras();
         if (bundle == null) {
             finish();
@@ -123,16 +123,16 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             finish();
             return;
         }
-        
+
         show();
-        
+
         Events.register(this);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-    
+
         Events.unregister(this);
     }
 
@@ -147,7 +147,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             Data.Status selfStatus = null;
             Data.Friend friend = data.getFriendById(mFriendId);
             Data.Status friendStatus = data.getFriendStatus(mFriendId);
-            
+
             try {
                 selfStatus = data.getSelfStatus();
             } catch (Data.DataNotFoundError e) {
@@ -155,7 +155,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             }
             Date lastSentStatusTimestamp = data.getFriendLastSentStatusTimestamp(friend.mId);
             Date lastReceivedStatusTimestamp = data.getFriendLastReceivedStatusTimestamp(friend.mId);
-    
+
             Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
@@ -205,20 +205,20 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                         getString(
                                 R.string.format_status_details_precision,
                                 friendStatus.mLocation.mPrecision));
-                mLocationTimestampText.setText(Utils.formatSameDayTime(friendStatus.mLocation.mTimestamp));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friendStatus.mLocation.mTimestamp, true));
             }
 
             if (lastReceivedStatusTimestamp != null) {
-                mLastReceivedStatusTimestampText.setText(Utils.formatSameDayTime(lastReceivedStatusTimestamp));
+                mLastReceivedStatusTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, lastReceivedStatusTimestamp, true));
             } else {
                 mLastReceivedStatusTimestampText.setText(R.string.prompt_no_status_updates_received);
             }
             if (lastSentStatusTimestamp != null) {
-                mLastSentStatusTimestampText.setText(Utils.formatSameDayTime(lastSentStatusTimestamp));
+                mLastSentStatusTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, lastSentStatusTimestamp, true));
             } else {
                 mLastSentStatusTimestampText.setText(R.string.prompt_no_status_updates_sent);
             }
-            mAddedTimestampText.setText(Utils.formatSameDayTime(friend.mAddedTimestamp));
+            mAddedTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mAddedTimestamp, true));
         } catch (Data.DataNotFoundError e) {
             Toast toast = Toast.makeText(this, getString(R.string.prompt_status_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
