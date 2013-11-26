@@ -10,6 +10,7 @@
     <string name="foreground_service_notification_inbox_summary">+%1$d more</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
+    <string name="action_save_identity_to_file">Save Your Identity to a File</string>
     <string name="action_activity_log">Activity Log</string>
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">Run Diagnostic Tests</string>
@@ -31,12 +32,18 @@
     <string name="label_email_self_message">Warning: sending your identity via email will allow a 3rd party to link you and your friend.</string>
     <string name="label_email_self_positive">I understand the risk</string>
     <string name="label_email_self_negative">Cancel</string>
+    <string name="identity_email_body"><![CDATA[<a href=\"\">Add me as a Ploggy friend</a>]]></string>
+    <string name="label_save_identity_to_file_title">Save Your Identity to a File</string>
+    <string name="label_save_identity_to_file_message">Warning: sending your identity outside of Ploggy will allow a 3rd party to link you and your friend.</string>
+    <string name="label_save_identity_to_file_positive">I understand the risk</string>
+    <string name="label_save_identity_to_file_negative">Cancel</string>
+    <string name="toast_identity_saved_to_file">File \"%1$s\" has been saved to folder \"%2$s\"</string>
     <string name="label_generate_self_title">Generate Your Identity</string>
     <string name="label_generate_self_nickname">Nickname:</string>
     <string name="label_generate_self_fingerprint">Fingerprint:</string>
     <string name="button_generate_self_regenerate">Re-generate</string>
     <string name="button_generate_self_save">Save</string>
-    <string name="prompt_generate_self_progress">Generating key material...</string>
+    <string name="prompt_generate_self_progress">Generating key material…</string>
     <string name="label_add_friend_title">Add Friend</string>
     <string name="label_add_friend_friend_fingerprint">Fingerprint:</string>
     <string name="button_add_friend_add">Add</string>
@@ -107,4 +114,34 @@
         <item>"Friday"</item>
         <item>"Saturday"</item>
     </string-array>
+    <plurals name="period_minutes_abbrev">
+        <item quantity="one">1 min</item>
+        <item quantity="two">%1$d mins</item>
+        <item quantity="few">%1$d mins</item>
+        <item quantity="other">%1$d mins</item>
+    </plurals>
+    <plurals name="period_seconds_abbrev">
+        <item quantity="one">1 sec</item>
+        <item quantity="two">%1$d secs</item>
+        <item quantity="few">%1$d secs</item>
+        <item quantity="other">%1$d secs</item>
+    </plurals>
+    <plurals name="period_minutes_ago_abbrev">
+        <item quantity="one">1 min ago</item>
+        <item quantity="two">%1$d mins ago</item>
+        <item quantity="few">%1$d mins ago</item>
+        <item quantity="other">%1$d mins ago</item>
+    </plurals>
+    <plurals name="period_seconds_ago_abbrev">
+        <item quantity="one">1 sec ago</item>
+        <item quantity="two">%1$d secs ago</item>
+        <item quantity="few">%1$d secs ago</item>
+        <item quantity="other">%1$d secs ago</item>
+    </plurals>
+    <!-- English looks like: "Thu, 4:38 PM". So %1$s will get a short form of the week day name, and %2$s will get a short time. -->
+    <string name="diff_day_same_week_datetime">%1$s, %2$s</string>
+    <!-- English looks like: "Nov 16, 4:38 PM". So %1$s will get a short form of the month name, %2$s will get the date number, and %3$s will get a short time. -->
+    <string name="same_year_datetime">%1$s %2$s, %3$s</string>
+    <!-- English looks like: "Nov 16 2013, 4:38 PM". So %1$s will get a short form of the month name, %2$s will get the date number, %3$s will get the year, and %4$s will get a short time. -->
+    <string name="older_datetime">%1$s %2$s %3$s, %4$s</string>
 </resources>

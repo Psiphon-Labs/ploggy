@@ -51,23 +51,50 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/ca.psiphon.ploggy.android.beam"/>
             </intent-filter>
+            
             <intent-filter>
+                <!--  This is used for emailing friend-add links. They look like:
+                      ftp://ploggy/#abcdef 
+                      It's super hacky, but it gets around email attachment problems.
+                      See https://github.com/Psiphon-Labs/ploggy/issues/11 -->
+                      
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
+                
+                <category android:name="android.intent.category.BROWSABLE" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data
-                    android:mimeType="application/octet-stream"
-                    android:host="*" 
-                    android:pathPattern=".*\\.ploggy" />
+                
+                <data android:scheme="ftp" android:host="identity.ploggy" />
             </intent-filter>
+                
             <intent-filter>
+                <!--  File association  intent filters -->
+                
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
+                
+                <category android:name="android.intent.category.BROWSABLE" />
                 <category android:name="android.intent.category.DEFAULT" />
+                
                 <data
-                    android:mimeType="application/ploggy"
-                    android:host="*" 
-                    android:pathPattern=".*\\.ploggy" />
+                  android:scheme="file"
+                  android:mimeType="*/*"
+                  android:host="*" />
+                
+                <!--  We'll keep this for completeness, but it doesn't work.
+                      content:// URIs don't use a filename. -->
+                <data
+                  android:scheme="content"
+                  android:mimeType="*/*"
+                  android:host="*" />
+                
+                <!--  For a description of this horrible hack, see: http://stackoverflow.com/a/4621284/729729 -->
+                <data android:pathPattern=".*\\.ploggy" />
+                <data android:pathPattern=".*\\..*\\.ploggy" />
+                <data android:pathPattern=".*\\..*\\..*\\.ploggy" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.ploggy" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\.ploggy" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.ploggy" />
             </intent-filter>
         </activity>
         <activity
