@@ -192,6 +192,7 @@ public class FragmentFriendList extends ListFragment {
             if (friend != null) {
                 ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
+                TextView lastTimestampText = (TextView)view.findViewById(R.id.friend_list_last_timestamp_text);
                 TextView messageTimestampText = (TextView)view.findViewById(R.id.friend_list_message_timestamp_text);
                 TextView messageContentText = (TextView)view.findViewById(R.id.friend_list_message_content_text);
                 TextView locationTimestampText = (TextView)view.findViewById(R.id.friend_list_location_timestamp_text);
@@ -199,6 +200,7 @@ public class FragmentFriendList extends ListFragment {
                 TextView locationDistanceText = (TextView)view.findViewById(R.id.friend_list_location_distance_text);
                 
                 // Not hiding missing fields
+                lastTimestampText.setText("");
                 messageTimestampText.setText("");
                 messageContentText.setText("");
                 locationTimestampText.setText("");
@@ -217,6 +219,17 @@ public class FragmentFriendList extends ListFragment {
                     }
 
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
+                    
+                    // Display most recent successful communication timestamp
+                    String lastTimestamp = "";
+                    if (friend.mLastReceivedStatusTimestamp != null &&
+                            (friend.mLastSentStatusTimestamp == null ||
+                             friend.mLastReceivedStatusTimestamp.after(friend.mLastSentStatusTimestamp))) {
+                        lastTimestamp = Utils.formatSameDayTime(friend.mLastReceivedStatusTimestamp);
+                    } else if (friend.mLastSentStatusTimestamp != null) {
+                        lastTimestamp = Utils.formatSameDayTime(friend.mLastSentStatusTimestamp);                        
+                    }
+                    lastTimestampText.setText(lastTimestamp);
 
                     if (friendStatus.mMessages.size() > 0) {
                         Data.Message message = friendStatus.mMessages.get(0);
