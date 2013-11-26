@@ -117,4 +117,34 @@
         <item>"Friday"</item>
         <item>"Saturday"</item>
     </string-array>
+    <plurals name="period_minutes_abbrev">
+        <item quantity="one">1 min</item>
+        <item quantity="two">%1$d mins</item>
+        <item quantity="few">%1$d mins</item>
+        <item quantity="other">%1$d mins</item>
+    </plurals>
+    <plurals name="period_seconds_abbrev">
+        <item quantity="one">1 sec</item>
+        <item quantity="two">%1$d secs</item>
+        <item quantity="few">%1$d secs</item>
+        <item quantity="other">%1$d secs</item>
+    </plurals>
+    <plurals name="period_minutes_ago_abbrev">
+        <item quantity="one">1 min ago</item>
+        <item quantity="two">%1$d mins ago</item>
+        <item quantity="few">%1$d mins ago</item>
+        <item quantity="other">%1$d mins ago</item>
+    </plurals>
+    <plurals name="period_seconds_ago_abbrev">
+        <item quantity="one">1 sec ago</item>
+        <item quantity="two">%1$d secs ago</item>
+        <item quantity="few">%1$d secs ago</item>
+        <item quantity="other">%1$d secs ago</item>
+    </plurals>
+    <!-- English looks like: "Thu, 4:38 PM". So %1$s will get a short form of the week day name, and %2$s will get a short time. -->
+    <string name="diff_day_same_week_datetime">%1$s, %2$s</string>
+    <!-- English looks like: "Nov 16, 4:38 PM". So %1$s will get a short form of the month name, %2$s will get the date number, and %3$s will get a short time. -->
+    <string name="same_year_datetime">%1$s %2$s, %3$s</string>
+    <!-- English looks like: "Nov 16 2013, 4:38 PM". So %1$s will get a short form of the month name, %2$s will get the date number, %3$s will get the year, and %4$s will get a short time. -->
+    <string name="older_datetime">%1$s %2$s %3$s, %4$s</string>
 </resources>

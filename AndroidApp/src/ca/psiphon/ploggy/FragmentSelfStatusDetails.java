@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -20,8 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.util.Date;
-
-import com.squareup.otto.Subscribe;
 
 import android.app.Fragment;
 import android.os.Bundle;
@@ -39,16 +37,18 @@ import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.squareup.otto.Subscribe;
+
 /**
  * User interface which displays self status details and
  * allows user to set message.
- * 
+ *
  * This class subscribes to status events to update data
  * while in the foreground (e.g., location data updated
  * the the engine).
  */
 public class FragmentSelfStatusDetails extends Fragment implements View.OnClickListener, TextView.OnEditorActionListener {
-    
+
     private static final String LOG_TAG = "Self Status Details";
 
     private ScrollView mScrollView;
@@ -107,7 +107,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
                     return false;
                 }
             });
-        
+
         InputFilter[] filters = new InputFilter[1];
         filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
         mNewMessageContentEdit.setFilters(filters);
@@ -118,7 +118,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
         show(view);
 
         Events.register(this);
-        
+
         return view;
     }
 
@@ -150,7 +150,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
             Data data = Data.getInstance();
             Data.Self self = data.getSelf();
             Data.Status selfStatus = data.getSelfStatus();
-            
+
             // Entire view may be hidden due to DataNotFoundError below
             view.setVisibility(View.VISIBLE);
 
@@ -191,7 +191,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
                         getString(
                                 R.string.format_status_details_precision,
                                 selfStatus.mLocation.mPrecision));
-                mLocationTimestampText.setText(Utils.formatSameDayTime(selfStatus.mLocation.mTimestamp));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfStatus.mLocation.mTimestamp, true));
             }
         } catch (Data.DataNotFoundError e) {
             // TODO: display "no data" prompt?
@@ -218,7 +218,7 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
         }
         return false;
     }
-    
+
     private void addNewMessage() {
         try {
             String messageContent = mNewMessageContentEdit.getText().toString();
