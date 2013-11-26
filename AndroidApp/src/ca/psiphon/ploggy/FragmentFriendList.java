@@ -227,7 +227,7 @@ public class FragmentFriendList extends ListFragment {
                              friend.mLastReceivedStatusTimestamp.after(friend.mLastSentStatusTimestamp))) {
                         lastTimestamp = Utils.formatSameDayTime(friend.mLastReceivedStatusTimestamp);
                     } else if (friend.mLastSentStatusTimestamp != null) {
-                        lastTimestamp = Utils.formatSameDayTime(friend.mLastSentStatusTimestamp);                        
+                        lastTimestamp = Utils.formatSameDayTime(friend.mLastSentStatusTimestamp);
                     }
                     lastTimestampText.setText(lastTimestamp);
 

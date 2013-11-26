@@ -10,11 +10,9 @@
     <string name="foreground_service_notification_inbox_summary">+%1$d more</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
-    <string name="action_self_location_details">Your Location</string>
-    <string name="action_add_friend">Add Friend</string>
+    <string name="action_activity_log">Activity Log</string>
     <string name="action_settings">Settings</string>
-    <string name="action_run_tests">[TEMP] Run Tests</string>
-    <string name="action_email_log">[TEMP] Email Log</string>
+    <string name="action_run_tests">Run Diagnostic Tests</string>
     <string name="action_quit">Quit</string>
     <string name="action_delete_friend">Delete Friend</string>
     <string name="label_delete_friend_title">Delete Friend</string>
@@ -27,7 +25,6 @@
     <string name="prompt_unknown_distance">Unknown distance</string>
     <string name="title_your_status_fragment">Your Status</string>
     <string name="title_friend_list_fragment">Friends</string>
-    <string name="title_recent_activity_fragment">Recent Activity</string>
     <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
     <string name="prompt_nfc_push_complete">Your identity was beamed to a friend</string>
     <string name="label_email_self_title">Email Your Identity to a Friend</string>

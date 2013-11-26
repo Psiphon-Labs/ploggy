@@ -71,6 +71,11 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="ca.psiphon.ploggy.ActivityLogEntries"
+            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
+        </activity>
+
+        <activity
             android:name="ca.psiphon.ploggy.ActivitySettings"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>

@@ -37,9 +37,9 @@ import android.widget.TextView;
  * This class registers as a Log Observer to update displayed data
  * while in the foreground.
  */
-public class FragmentRecentActivity extends ListFragment implements Log.Observer {
+public class FragmentLogEntries extends ListFragment implements Log.Observer {
 
-    private static final String LOG_TAG = "Recent Activity";
+    private static final String LOG_TAG = "Log Entries";
 
     private LogAdapter mLogAdapter;
     

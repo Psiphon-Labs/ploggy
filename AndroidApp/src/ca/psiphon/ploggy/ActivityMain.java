@@ -73,14 +73,6 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
                                     "fragment_friend_list",
                                     FragmentFriendList.class)));
         mFriendTabIndex = 1;
-        actionBar.addTab(
-                actionBar.newTab()
-                    .setText(R.string.title_recent_activity_fragment)
-                    .setTabListener(
-                            new TabListener<FragmentRecentActivity>(
-                                    this,
-                                    "fragment_recent_activity",
-                                    FragmentRecentActivity.class)));
 
         if (savedInstanceState != null) {
             actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
@@ -128,17 +120,15 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         case R.id.action_email_self:
             SendIdentityByEmail.composeEmail(this);
             return true;
-        case R.id.action_settings:
-            startActivity(new Intent(this, ActivitySettings.class));
+        case R.id.action_activity_log:
+            startActivity(new Intent(this, ActivityLogEntries.class));
             return true;
         case R.id.action_run_tests:
-            // TODO: temporary feature for prototype
             Tests.scheduleComponentTests();
             getActionBar().setSelectedNavigationItem(1);
             return true;
-        case R.id.action_email_log:
-            // TODO: temporary feature for prototype
-            Log.composeEmail(this);
+        case R.id.action_settings:
+            startActivity(new Intent(this, ActivitySettings.class));
             return true;
         case R.id.action_quit:
             stopService(new Intent(this, PloggyService.class));
