@@ -39,7 +39,7 @@
         android:layout_marginRight="4dip"
         android:gravity="right"
         android:typeface="sans"
-        android:textSize="12dip"
+        android:textSize="8dip"
         android:textColor="#808080" />
 
     <TextView
