@@ -490,14 +490,22 @@ public class Data {
         if (mAllMessages == null) {
             mAllMessages = new ArrayList<AnnotatedMessage>();
             Self self = getSelf();
-            for (Message message : getSelfStatus().mMessages) {
-                mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+            try {
+                for (Message message : getSelfStatus().mMessages) {
+                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+                }
+            } catch (DataNotFoundError e) {
+                // Skip
             }
             for (Friend friend : getFriends()) {
                 // Hack to continue supporting self-as-friend, for now
                 if (!self.mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
-                    for (Message message : getFriendStatus(friend.mId).mMessages) {
-                        mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                    try {
+                        for (Message message : getFriendStatus(friend.mId).mMessages) {
+                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                        }
+                    } catch (DataNotFoundError e) {
+                        // Skip
                     }
                 }
             }
