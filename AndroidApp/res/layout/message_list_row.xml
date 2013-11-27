@@ -5,20 +5,32 @@
     android:padding="4dip" >
  
     <TextView
-        android:id="@+id/message_timestamp_text"
+        android:id="@+id/message_nickname_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:typeface="sans"
-        android:textSize="12dip"
-        android:textColor="#808080"
-        android:layout_marginRight="4dp" />
+        android:textSize="8dip"
+        android:textStyle="bold" />
  
     <TextView
         android:id="@+id/message_content_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_toRightOf="@id/message_timestamp_text"
+        android:layout_below="@id/message_nickname_text"
+        android:layout_toLeftOf="@+id/message_timestamp_text"
         android:typeface="sans"
-        android:textSize="12dip"/>
+        android:textSize="12dip"
+        android:layout_marginTop="4dp"
+        android:layout_marginRight="4dp" />
 
+    <TextView
+        android:id="@+id/message_timestamp_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight = "true"
+        android:minEms="8"
+        android:typeface="sans"
+        android:textSize="8dip"
+        android:textColor="#808080" />
+ 
 </RelativeLayout>

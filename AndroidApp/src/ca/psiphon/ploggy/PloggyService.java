@@ -78,7 +78,7 @@ public class PloggyService extends Service {
         startForeground(R.string.foregroundServiceNotificationId, mNotification);
     }
     
-    private void updateNotification(List<Engine.NewMessage> newMessages) {
+    private void updateNotification(List<Data.AnnotatedMessage> newMessages) {
         // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
         final int MAX_LINES = 5; 
         
@@ -89,7 +89,7 @@ public class PloggyService extends Service {
         int iconResourceId;
         String contentTitle;
         if (newMessages != null && newMessages.size() > 0) {
-            intent.setAction(ActivityMain.ACTION_DISPLAY_FRIENDS);
+            intent.setAction(ActivityMain.ACTION_DISPLAY_MESSAGES);
             iconResourceId = R.drawable.ic_notification_with_new_messages;
             contentTitle =
                     getResources().getQuantityString(
@@ -109,7 +109,8 @@ public class PloggyService extends Service {
             new Notification.Builder(this)
                 .setContentIntent(pendingIntent)
                 .setContentTitle(contentTitle)
-                .setSmallIcon(iconResourceId);
+                .setSmallIcon(iconResourceId)
+                .setDefaults(Notification.DEFAULT_ALL); // use default (system) sound, lights, and vibrate
 
         Notification notification;
         if (newMessages != null && newMessages.size() > 0) {
@@ -144,21 +145,23 @@ public class PloggyService extends Service {
             mNotification.contentView = notification.contentView;
             mNotification.icon = notification.icon;
             mNotification.largeIcon = notification.largeIcon;
+            mNotification.defaults = notification.defaults;
         }
     }
 
     @Subscribe
     public synchronized void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
-        // Update the service notification with new messages
-        if (mEngine != null) {
-            // Update the notification views
-            updateNotification(mEngine.getNewMessages());
-
+        try {
+            // Update the service notification with new messages
+            updateNotification(Data.getInstance().getNewMessages());
+    
             NotificationManager notificationManager =
                     (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
             }
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to create new messages notification");
         }
     }
 }

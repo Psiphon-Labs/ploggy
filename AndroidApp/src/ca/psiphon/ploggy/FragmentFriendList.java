@@ -19,7 +19,7 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import android.app.AlertDialog;
 import android.content.Context;
@@ -55,13 +55,21 @@ public class FragmentFriendList extends ListFragment {
     private FriendAdapter mFriendAdapter;
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = super.onCreateView(inflater, container, savedInstanceState);
         try {
             mFriendAdapter = new FriendAdapter(getActivity());
-            setListAdapter(mFriendAdapter);
         } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to initialize friend list");
+            Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
+        }
+        return view;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        if (mFriendAdapter != null) {
+            setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(this.getListView());
         Events.register(this);
@@ -170,7 +178,7 @@ public class FragmentFriendList extends ListFragment {
 
     private static class FriendAdapter extends BaseAdapter {
         private final Context mContext;
-        private ArrayList<Data.Friend> mFriends;
+        private List<Data.Friend> mFriends;
 
         public FriendAdapter(Context context) throws Utils.ApplicationError {
             mContext = context;
@@ -192,6 +200,7 @@ public class FragmentFriendList extends ListFragment {
             if (friend != null) {
                 ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
+                TextView lastTimestampText = (TextView)view.findViewById(R.id.friend_list_last_timestamp_text);
                 TextView messageTimestampText = (TextView)view.findViewById(R.id.friend_list_message_timestamp_text);
                 TextView messageContentText = (TextView)view.findViewById(R.id.friend_list_message_content_text);
                 TextView locationTimestampText = (TextView)view.findViewById(R.id.friend_list_location_timestamp_text);
@@ -199,6 +208,7 @@ public class FragmentFriendList extends ListFragment {
                 TextView locationDistanceText = (TextView)view.findViewById(R.id.friend_list_location_distance_text);
 
                 // Not hiding missing fields
+                lastTimestampText.setText("");
                 messageTimestampText.setText("");
                 messageContentText.setText("");
                 locationTimestampText.setText("");
@@ -217,6 +227,26 @@ public class FragmentFriendList extends ListFragment {
                     }
 
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
+                    
+                    // Display most recent successful communication timestamp
+                    String lastTimestamp = "";
+                    if (friend.mLastReceivedStatusTimestamp != null &&
+                            (friend.mLastSentStatusTimestamp == null ||
+                             friend.mLastReceivedStatusTimestamp.after(friend.mLastSentStatusTimestamp))) {
+                        lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastReceivedStatusTimestamp, true);
+                    } else if (friend.mLastSentStatusTimestamp != null) {
+                        lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastSentStatusTimestamp, true);
+                    }
+                    lastTimestampText.setText(lastTimestamp);
+                    if (lastTimestamp.length() > 0) {
+                        // On touch, show log entries
+                        lastTimestampText.setOnClickListener(
+                            new View.OnClickListener() {
+                                public void onClick(View v) {
+                                    mContext.startActivity(new Intent(mContext, ActivityLogEntries.class));
+                                }
+                            });
+                    }
 
                     if (friendStatus.mMessages.size() > 0) {
                         Data.Message message = friendStatus.mMessages.get(0);
@@ -230,14 +260,13 @@ public class FragmentFriendList extends ListFragment {
                         } else {
                             locationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                         }
-                        if (selfStatus != null) {
+                        if (selfStatus != null && selfStatus.mLocation.mTimestamp != null) {
                             int distance = Utils.calculateLocationDistanceInMeters(
                                     selfStatus.mLocation.mLatitude,
                                     selfStatus.mLocation.mLongitude,
                                     friendStatus.mLocation.mLatitude,
                                     friendStatus.mLocation.mLongitude);
-                            locationDistanceText.setText(
-                                    mContext.getString(R.string.format_friend_list_distance, distance));
+                            locationDistanceText.setText(Utils.formatDistance(mContext, distance));
                         } else {
                             locationDistanceText.setText(R.string.prompt_unknown_distance);
                         }

@@ -60,18 +60,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     private static final String LOG_TAG = "Engine";
     
-    public static class NewMessage {
-        public final String mNickname;
-        public final Data.Message mMessage;
-
-        public NewMessage(
-                String nickname,
-                Data.Message message) {
-            mNickname = nickname;
-            mMessage = message;
-        }
-    }
-
     private Context mContext;
     private Handler mHandler;
     private Runnable mRestartTask;
@@ -81,7 +69,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
-    private List<NewMessage> mNewMessages;
     
     private static final int THREAD_POOL_SIZE = 30;
 
@@ -92,9 +79,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
-        // TODO: persistent (on disk) new-message state?
-        // Note: new-messages is not cleared in start() or stop(), so its state is retained when the Engine restarts
-        mNewMessages = new ArrayList<NewMessage>();
     }
 
     public synchronized void start() throws Utils.ApplicationError {
@@ -281,47 +265,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     @Subscribe
-    public synchronized void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
-        // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
-        Data.Message lastMessage = null;
-        if (updatedFriendStatus.mPreviousStatus != null &&
-                updatedFriendStatus.mPreviousStatus.mMessages.size() > 0) {
-            lastMessage = updatedFriendStatus.mPreviousStatus.mMessages.get(0);
-        }
-        boolean updatedNewMessages = false;
-        for (Data.Message message : updatedFriendStatus.mStatus.mMessages) {
-            if (lastMessage == null ||
-                    !message.mTimestamp.equals(lastMessage.mTimestamp) ||
-                    !message.mContent.equals(lastMessage.mContent)) {
-                mNewMessages.add(
-                        0,
-                        new NewMessage(
-                                updatedFriendStatus.mFriend.mPublicIdentity.mNickname,
-                                message));
-                updatedNewMessages = true;
-            } else {
-                break;
-            }
-        }
-
-        if (updatedNewMessages) {
-            Events.post(new Events.UpdatedNewMessages());
+    public synchronized void onDisplayedMessages(Events.DisplayedMessages displayedMessages) {
+        try {
+            Data.getInstance().resetNewMessages();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to reset new messages");
         }
     }
 
-    @Subscribe
-    public synchronized void onDisplayedFriends(Events.DisplayedFriends displayedFriends) {
-        boolean updatedNewMessages = (mNewMessages.size() > 0);
-        mNewMessages.clear();
-        if (updatedNewMessages) {
-            Events.post(new Events.UpdatedNewMessages());
-        }
-    }
-
-    public synchronized List<NewMessage> getNewMessages() {
-        return new ArrayList<NewMessage>(mNewMessages);
-    }
-    
     private void pushToFriends() throws Utils.ApplicationError {
         // TODO: check for existing pushes in worker thread queue
         if (!currentlySharingLocation()) {

@@ -45,12 +45,11 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
 
     private static final String LOG_TAG = "Main Activity";
 
-    public static final String ACTION_DISPLAY_FRIENDS = "ca.psiphon.ploggy.action.DISPLAY_FRIENDS";
-
-    private int mFriendTabIndex;
-
-    ViewPager mViewPager;
-    AppTabsPagerAdapter mAppTabsPagerAdapter;
+    public static final String ACTION_DISPLAY_MESSAGES = "ca.psiphon.ploggy.action.DISPLAY_MESSAGES";
+    
+    private int mMessageListTabIndex;    
+    private ViewPager mViewPager;
+    private AppTabsPagerAdapter mAppTabsPagerAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,17 +83,19 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
 
         actionBar.addTab(
                 actionBar.newTab()
-                    .setText(R.string.title_your_status_fragment)
+                    .setText(R.string.title_self_status_fragment)
                     .setTabListener(this));
+                    
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_friend_list_fragment)
                     .setTabListener(this));
-        mFriendTabIndex = 1;
+
         actionBar.addTab(
                 actionBar.newTab()
-                    .setText(R.string.title_recent_activity_fragment)
+                    .setText(R.string.title_message_list_fragment)
                     .setTabListener(this));
+        mMessageListTabIndex = 2;
 
         if (savedInstanceState != null) {
             actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
@@ -116,8 +117,8 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
         if (getIntent().getAction() != null &&
-                getIntent().getAction().equals(ACTION_DISPLAY_FRIENDS)) {
-            getActionBar().setSelectedNavigationItem(mFriendTabIndex);
+                getIntent().getAction().equals(ACTION_DISPLAY_MESSAGES)) {
+            getActionBar().setSelectedNavigationItem(mMessageListTabIndex);
         }
     }
 
@@ -142,20 +143,18 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
         case R.id.action_email_self:
             ExportIdentity.composeEmail(this);
             return true;
-        case R.id.action_settings:
-            startActivity(new Intent(this, ActivitySettings.class));
+        case R.id.action_activity_log:
+            startActivity(new Intent(this, ActivityLogEntries.class));
             return true;
         case R.id.action_save_identity_to_file:
             ExportIdentity.saveIdentityToFile(this);
             return true;
         case R.id.action_run_tests:
-            // TODO: temporary feature for prototype
             Tests.scheduleComponentTests();
-            getActionBar().setSelectedNavigationItem(1);
+            startActivity(new Intent(this, ActivityLogEntries.class));
             return true;
-        case R.id.action_email_log:
-            // TODO: temporary feature for prototype
-            Log.composeEmail(this);
+        case R.id.action_settings:
+            startActivity(new Intent(this, ActivitySettings.class));
             return true;
         case R.id.action_quit:
             stopService(new Intent(this, PloggyService.class));
@@ -199,7 +198,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
                     return new FragmentFriendList();
 
                 case 2:
-                    return new FragmentRecentActivity();
+                    return new FragmentMessageList();
             }
 
             assert(false);

@@ -20,7 +20,6 @@
 package ca.psiphon.ploggy;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import android.location.Address;
@@ -121,17 +120,10 @@ public class Events {
     }
 
     public static class UpdatedFriendStatus {
-        public final Data.Friend mFriend;
-        public final Data.Status mStatus;
-        public final Data.Status mPreviousStatus;
-        
-        public UpdatedFriendStatus(
-                Data.Friend friend,
-                Data.Status status,
-                Data.Status previousStatus) {
-            mFriend = friend;
-            mStatus = status;
-            mPreviousStatus = previousStatus;
+        public final String mId;
+
+        public UpdatedFriendStatus(String id) {
+            mId = id;
         }
     }
 
@@ -146,7 +138,12 @@ public class Events {
     public static class UpdatedNewMessages {
     }
 
+    public static class UpdatedAllMessages {
+    }
 
     public static class DisplayedFriends {
+    }
+
+    public static class DisplayedMessages {
     }
 }

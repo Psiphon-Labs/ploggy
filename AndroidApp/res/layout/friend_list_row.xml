@@ -31,32 +31,34 @@
         android:textStyle="bold" />
  
     <TextView
-        android:id="@+id/friend_list_message_timestamp_text"
-        android:layout_width="fill_parent"
+        android:id="@+id/friend_list_last_timestamp_text"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_nickname_text"
-        android:layout_marginTop="1dip"
-        android:layout_toRightOf="@+id/friend_list_avatar"
+        android:layout_alignParentRight="true"
+        android:layout_alignTop="@id/friend_list_nickname_text"
+        android:layout_marginRight="4dip"
+        android:gravity="right"
         android:typeface="sans"
-        android:textSize="12dip"
+        android:textSize="8dip"
         android:textColor="#808080" />
 
     <TextView
         android:id="@+id/friend_list_message_content_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_message_timestamp_text"
+        android:layout_below="@id/friend_list_nickname_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_location_timestamp_text"
+        android:id="@+id/friend_list_message_timestamp_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/friend_list_message_content_text"
         android:layout_marginTop="1dip"
+        android:layout_marginBottom="4dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
         android:textSize="12dip"
@@ -66,7 +68,7 @@
         android:id="@+id/friend_list_location_street_address_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_location_timestamp_text"
+        android:layout_below="@id/friend_list_message_timestamp_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
@@ -82,4 +84,15 @@
         android:typeface="sans"
         android:textSize="12dip" />
  
+    <TextView
+        android:id="@+id/friend_list_location_timestamp_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/friend_list_location_distance_text"
+        android:layout_marginTop="1dip"
+        android:layout_toRightOf="@+id/friend_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip"
+        android:textColor="#808080" />
+
 </RelativeLayout>

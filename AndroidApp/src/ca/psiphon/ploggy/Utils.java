@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.text.DateFormat;
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -221,7 +222,20 @@ public class Utils {
         Location.distanceBetween(latitudeA, longitudeA, latitudeB, longitudeB, results);
         return Math.round(results[0]);
     }
-
+    
+    public static String formatDistance(Context context, int distanceInMeters) {
+        if (distanceInMeters < 1000) {
+            return context.getString(
+                    R.string.format_distance_meters,
+                    NumberFormat.getInstance().format(distanceInMeters));
+        } else {
+            double distanceInKilometers = (double)distanceInMeters/1000.0;
+            return context.getString(
+                    R.string.format_distance_kilometers,
+                    NumberFormat.getInstance().format(distanceInKilometers));
+        }
+    }
+    
     public static class DateFormatter {
 
         private static DateFormat mShortTimeFormat = DateFormat.getTimeInstance(DateFormat.SHORT);
@@ -353,9 +367,8 @@ public class Utils {
     }
 
     public static class MessageAdapter extends ArrayAdapter<Data.Message> {
-
-        private final Context mContext;
-
+        private Context mContext;
+        
         public MessageAdapter(Context context, List<Data.Message> messages) {
             super(context, R.layout.message_list_row, messages);
             mContext = context;
@@ -370,9 +383,11 @@ public class Utils {
             Data.Message message = getItem(position);
             if (message != null) {
                 TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
 
                 timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
+                nicknameText.setVisibility(View.GONE);
                 contentText.setText(message.mContent);
             }
             return view;

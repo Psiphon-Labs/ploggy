@@ -19,19 +19,12 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.Date;
-
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.text.InputFilter;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.EditorInfo;
-import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ScrollView;
@@ -47,7 +40,7 @@ import com.squareup.otto.Subscribe;
  * while in the foreground (e.g., location data updated
  * the the engine).
  */
-public class FragmentSelfStatusDetails extends Fragment implements View.OnClickListener, TextView.OnEditorActionListener {
+public class FragmentSelfStatusDetails extends Fragment {
 
     private static final String LOG_TAG = "Self Status Details";
 
@@ -55,8 +48,6 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
     private ImageView mAvatarImage;
     private TextView mNicknameText;
     private TextView mFingerprintText;
-    private EditText mNewMessageContentEdit;
-    private ImageButton mNewMessageAddButton;
     private ListView mMessagesList;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
@@ -76,8 +67,6 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
         mAvatarImage = (ImageView)view.findViewById(R.id.self_status_details_avatar_image);
         mNicknameText = (TextView)view.findViewById(R.id.self_status_details_nickname_text);
         mFingerprintText = (TextView)view.findViewById(R.id.self_status_details_fingerprint_text);
-        mNewMessageContentEdit = (EditText)view.findViewById(R.id.self_status_details_new_message_content_edit);
-        mNewMessageAddButton = (ImageButton)view.findViewById(R.id.self_status_details_new_message_add_button);
         mMessagesList = (ListView)view.findViewById(R.id.self_status_details_messages_list);
         mLocationLabel = (TextView)view.findViewById(R.id.self_status_details_location_label);
         mLocationStreetAddressLabel = (TextView)view.findViewById(R.id.self_status_details_location_street_address_label);
@@ -129,18 +118,22 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
                 }
             });
 
-        InputFilter[] filters = new InputFilter[1];
-        filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
-        mNewMessageContentEdit.setFilters(filters);
-        mNewMessageContentEdit.setOnEditorActionListener(this);
-
-        mNewMessageAddButton.setOnClickListener(this);
-
         show(view);
 
         Events.register(this);
 
         return view;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // Fragment seems to require manual cleanup; or else we get the following: 
+        // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
+        FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
+        if (fragment != null) {
+            getFragmentManager().beginTransaction().remove(fragment).commit();
+        }
     }
 
     @Override
@@ -220,37 +213,6 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to display self status details");
             view.setVisibility(View.GONE);
-        }
-    }
-
-    @Override
-    public void onClick(View view) {
-        if (view.equals(mNewMessageAddButton)) {
-            addNewMessage();
-        }
-    }
-
-    @Override
-    public boolean onEditorAction(TextView textView, int actionId, KeyEvent event) {
-        if (textView.equals(mNewMessageContentEdit) &&
-                actionId == EditorInfo.IME_ACTION_SEND) {
-            addNewMessage();
-            return true;
-        }
-        return false;
-    }
-
-    private void addNewMessage() {
-        try {
-            String messageContent = mNewMessageContentEdit.getText().toString();
-            if (messageContent.length() > 0) {
-                Data.getInstance().addSelfStatusMessage(
-                        new Data.Message(new Date(), messageContent));
-                mNewMessageContentEdit.getEditableText().clear();
-                Utils.hideKeyboard(getActivity());
-            }
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to update self message");
         }
     }
 }

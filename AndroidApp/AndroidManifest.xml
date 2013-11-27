@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ca.psiphon.ploggy"
     android:versionCode="1"
-    android:versionName="0.4" >
+    android:versionName="0.5" >
 
     <uses-sdk
         android:minSdkVersion="16"
@@ -97,6 +97,11 @@
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.ploggy" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="ca.psiphon.ploggy.ActivityLogEntries"
+            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
+        </activity>
+
         <activity
             android:name="ca.psiphon.ploggy.ActivitySettings"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
