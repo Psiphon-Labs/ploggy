@@ -21,8 +21,8 @@ package ca.psiphon.ploggy;
 
 import java.util.Date;
 
-import android.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.text.InputFilter;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -101,9 +101,30 @@ public class FragmentSelfStatusDetails extends Fragment implements View.OnClickL
             });
         mMessagesList.setOnTouchListener(
             new View.OnTouchListener() {
+                private float downX, downY;
+
                 @Override
                 public boolean onTouch(View view, MotionEvent event) {
-                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                    // We want to capture vertical scrolling motions for use by
+                    // the messages list, but we don't want to capture horizontal
+                    // swiping that should be used to switch tabs. So we're going
+                    // to decide based on whether the move looks more X-ish or Y-ish.
+                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        downX = event.getX();
+                        downY = event.getY();
+
+                        // Make sure the parent is allowed to intercept.
+                        view.getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+                    else if (event.getAction() == MotionEvent.ACTION_MOVE) {
+                        float deltaX = downX - event.getX();
+                        float deltaY = downY - event.getY();
+                        if (deltaY > deltaX) {
+                            // Looks like a Y-ish scroll attept. Disallow parent from intercepting.
+                            view.getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                    }
+
                     return false;
                 }
             });
