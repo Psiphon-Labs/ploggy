@@ -19,12 +19,8 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.Date;
-
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.text.InputFilter;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -112,8 +108,8 @@ public class FragmentSelfStatusDetails extends Fragment {
                     else if (event.getAction() == MotionEvent.ACTION_MOVE) {
                         float deltaX = downX - event.getX();
                         float deltaY = downY - event.getY();
-                        if (deltaY > deltaX) {
-                            // Looks like a Y-ish scroll attept. Disallow parent from intercepting.
+                        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+                            // Looks like a Y-ish scroll attempt. Disallow parent from intercepting.
                             view.getParent().requestDisallowInterceptTouchEvent(true);
                         }
                     }
@@ -132,7 +128,7 @@ public class FragmentSelfStatusDetails extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Fragment seems to require manual cleanup; or else we get the following: 
+        // Fragment seems to require manual cleanup; or else we get the following:
         // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
         FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
         if (fragment != null) {
