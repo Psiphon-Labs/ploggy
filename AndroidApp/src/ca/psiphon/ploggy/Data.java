@@ -294,25 +294,24 @@ public class Data {
         if (mFriends == null) {
             try {
                 mFriends = new ArrayList<Friend>(Arrays.asList(Json.fromJson(readFile(FRIENDS_FILENAME), Friend[].class)));
-                Collections.sort(mFriends, new FriendComparator());
             } catch (DataNotFoundError e) {
                 mFriends = new ArrayList<Friend>();
             }
         }
     }
     
-    public synchronized final List<Friend> getFriends() throws Utils.ApplicationError {
+    public synchronized List<Friend> getFriends() throws Utils.ApplicationError {
         initFriends();
-        return new ArrayList<Friend>(mFriends);
+        ArrayList<Friend> friends = new ArrayList<Friend>(mFriends);
+        Collections.sort(friends, new FriendComparator());
+        return friends;
     }
 
     public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundError {
         initFriends();
-        synchronized(mFriends) {
-            for (Friend friend : mFriends) {
-                if (friend.mId.equals(id)) {
-                    return friend;
-                }
+        for (Friend friend : mFriends) {
+            if (friend.mId.equals(id)) {
+                return friend;
             }
         }
         throw new DataNotFoundError();
@@ -320,11 +319,9 @@ public class Data {
 
     public synchronized Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, DataNotFoundError {
         initFriends();
-        synchronized(mFriends) {
-            for (Friend friend : mFriends) {
-                if (friend.mPublicIdentity.mNickname.equals(nickname)) {
-                    return friend;
-                }
+        for (Friend friend : mFriends) {
+            if (friend.mPublicIdentity.mNickname.equals(nickname)) {
+                return friend;
             }
         }
         throw new DataNotFoundError();
@@ -332,11 +329,9 @@ public class Data {
 
     public synchronized Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, DataNotFoundError {
         initFriends();
-        synchronized(mFriends) {
-            for (Friend friend : mFriends) {
-                if (friend.mPublicIdentity.mX509Certificate.equals(certificate)) {
-                    return friend;
-                }
+        for (Friend friend : mFriends) {
+            if (friend.mPublicIdentity.mX509Certificate.equals(certificate)) {
+                return friend;
             }
         }
         throw new DataNotFoundError();
@@ -344,31 +339,28 @@ public class Data {
 
     public synchronized void addFriend(Friend friend) throws Utils.ApplicationError {
         initFriends();
-        synchronized(mFriends) {
-            boolean friendWithIdExists = true;
-            boolean friendWithNicknameExists = true;
-            try {
-                getFriendById(friend.mId);
-            } catch (DataNotFoundError e) {
-                friendWithIdExists = false;
-            }
-            try {
-                getFriendByNickname(friend.mPublicIdentity.mNickname);
-            } catch (DataNotFoundError e) {
-                friendWithNicknameExists = false;
-            }
-            // TODO: report which conflict occurred
-            if (friendWithIdExists || friendWithNicknameExists) {
-                throw new DataAlreadyExistsError();
-            }
-            ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-            newFriends.add(friend);
-            writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-            mFriends.add(friend);
-            Collections.sort(mFriends, new FriendComparator());
-            Log.addEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
-            Events.post(new Events.AddedFriend(friend.mId));
+        boolean friendWithIdExists = true;
+        boolean friendWithNicknameExists = true;
+        try {
+            getFriendById(friend.mId);
+        } catch (DataNotFoundError e) {
+            friendWithIdExists = false;
         }
+        try {
+            getFriendByNickname(friend.mPublicIdentity.mNickname);
+        } catch (DataNotFoundError e) {
+            friendWithNicknameExists = false;
+        }
+        // TODO: report which conflict occurred
+        if (friendWithIdExists || friendWithNicknameExists) {
+            throw new DataAlreadyExistsError();
+        }
+        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        newFriends.add(friend);
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+        mFriends.add(friend);
+        Log.addEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
+        Events.post(new Events.AddedFriend(friend.mId));
     }
 
     private void updateFriendHelper(List<Friend> list, Friend friend) throws DataNotFoundError {
@@ -387,14 +379,12 @@ public class Data {
 
     public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
         initFriends();
-        synchronized(mFriends) {
-            ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-            updateFriendHelper(newFriends, friend);
-            writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-            updateFriendHelper(mFriends, friend);
-            Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
-            Events.post(new Events.UpdatedFriend(friend.mId));
-        }
+        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        updateFriendHelper(newFriends, friend);
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+        updateFriendHelper(mFriends, friend);
+        Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
+        Events.post(new Events.UpdatedFriend(friend.mId));
     }
 
     public synchronized Date getFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
@@ -445,16 +435,18 @@ public class Data {
 
     public synchronized void removeFriend(String id) throws Utils.ApplicationError, DataNotFoundError {
         initFriends();
-        synchronized(mFriends) {
-            Friend friend = getFriendById(id);
-            deleteFile(String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id));
-            ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
-            removeFriendHelper(id, newFriends);
-            writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-            removeFriendHelper(id, mFriends);
-            Log.addEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
-            Events.post(new Events.RemovedFriend(id));
-        }
+        Friend friend = getFriendById(id);
+        deleteFile(String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id));
+        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        removeFriendHelper(id, newFriends);
+        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
+        removeFriendHelper(id, mFriends);
+        Log.addEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
+        Events.post(new Events.RemovedFriend(id));
+        // Reset all-messages to remove messages from deleted friend
+        // TODO: reset new-messages
+        mAllMessages = null;
+        initMessages();
     }
 
     public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundError {
