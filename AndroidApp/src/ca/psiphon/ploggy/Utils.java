@@ -367,9 +367,8 @@ public class Utils {
     }
 
     public static class MessageAdapter extends ArrayAdapter<Data.Message> {
-
-        private final Context mContext;
-
+        private Context mContext;
+        
         public MessageAdapter(Context context, List<Data.Message> messages) {
             super(context, R.layout.message_list_row, messages);
             mContext = context;
@@ -384,9 +383,11 @@ public class Utils {
             Data.Message message = getItem(position);
             if (message != null) {
                 TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
 
                 timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
+                nicknameText.setVisibility(View.GONE);
                 contentText.setText(message.mContent);
             }
             return view;

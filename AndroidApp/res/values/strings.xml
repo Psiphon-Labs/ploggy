@@ -24,8 +24,9 @@
     <string name="prompt_no_status_updates_received">No updates received</string>
     <string name="prompt_no_street_address_reported">No street address reported</string>
     <string name="prompt_unknown_distance">Unknown distance</string>
-    <string name="title_your_status_fragment">Your Status</string>
+    <string name="title_self_status_fragment">Your Status</string>
     <string name="title_friend_list_fragment">Friends</string>
+    <string name="title_message_list_fragment">Messages</string>
     <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
     <string name="prompt_nfc_push_complete">Your identity was beamed to a friend</string>
     <string name="label_email_self_title">Email Your Identity to a Friend</string>
@@ -49,12 +50,12 @@
     <string name="button_add_friend_add">Add</string>
     <string name="prompt_add_friend_friend_already_exists">A friend with the nickname %1$s already exists</string>
     <string name="prompt_add_friend_friend_added">Added friend %1$s</string>
+    <string name="label_compose_message_content_hint">Compose your message</string>
     <string name="label_status_details_identity">Identity</string>
     <string name="label_status_details_message">Messages</string>
     <string name="label_status_details_location">Location</string>
     <string name="label_status_details_history">History</string>
     <string name="label_status_details_fingerprint">Fingerprint:</string>
-    <string name="label_self_status_details_new_message_hint">Compose your message</string>
     <string name="label_friend_status_details_message_content">Message:</string>
     <string name="format_distance_meters">%1$s meters</string>
     <string name="format_distance_kilometers">%1$s kilometers</string>

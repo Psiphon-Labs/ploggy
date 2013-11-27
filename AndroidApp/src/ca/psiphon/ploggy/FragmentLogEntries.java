@@ -83,7 +83,7 @@ public class FragmentLogEntries extends ListFragment implements Log.Observer {
         public View getView(int position, View view, ViewGroup parent) {
             if (view == null) {
                 LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.recent_activity_row, null);
+                view = inflater.inflate(R.layout.log_entries_row, null);
             }
             Log.Entry entry = Log.getRecentEntry(position);
             if (entry != null) {

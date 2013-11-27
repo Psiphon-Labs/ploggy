@@ -43,9 +43,9 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
 
     private static final String LOG_TAG = "Main Activity";
 
-    public static final String ACTION_DISPLAY_FRIENDS = "ca.psiphon.ploggy.action.DISPLAY_FRIENDS";
+    public static final String ACTION_DISPLAY_MESSAGES = "ca.psiphon.ploggy.action.DISPLAY_MESSAGES";
     
-    private int mFriendTabIndex;
+    private int mMessageListTabIndex;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +58,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         // TODO: http://developer.android.com/reference/android/support/v4/view/ViewPager.html instead?
         actionBar.addTab(
                 actionBar.newTab()
-                    .setText(R.string.title_your_status_fragment)
+                    .setText(R.string.title_self_status_fragment)
                     .setTabListener(
                             new TabListener<FragmentSelfStatusDetails>(
                                     this,
@@ -72,8 +72,17 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
                                     this,
                                     "fragment_friend_list",
                                     FragmentFriendList.class)));
-        mFriendTabIndex = 1;
 
+        actionBar.addTab(
+                actionBar.newTab()
+                    .setText(R.string.title_message_list_fragment)
+                    .setTabListener(
+                            new TabListener<FragmentMessageList>(
+                                    this,
+                                    "fragment_message_list",
+                                    FragmentMessageList.class)));
+        mMessageListTabIndex = 2;
+        
         if (savedInstanceState != null) {
             actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
         }
@@ -94,8 +103,8 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
         if (getIntent().getAction() != null &&
-                getIntent().getAction().equals(ACTION_DISPLAY_FRIENDS)) {
-            getActionBar().setSelectedNavigationItem(mFriendTabIndex);
+                getIntent().getAction().equals(ACTION_DISPLAY_MESSAGES)) {
+            getActionBar().setSelectedNavigationItem(mMessageListTabIndex);
         }
     }
     

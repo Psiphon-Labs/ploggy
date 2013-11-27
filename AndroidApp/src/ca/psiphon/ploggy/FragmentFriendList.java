@@ -19,7 +19,7 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import android.app.AlertDialog;
 import android.app.ListFragment;
@@ -55,13 +55,21 @@ public class FragmentFriendList extends ListFragment {
     private FriendAdapter mFriendAdapter;
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = super.onCreateView(inflater, container, savedInstanceState);
         try {
             mFriendAdapter = new FriendAdapter(getActivity());
-            setListAdapter(mFriendAdapter);
         } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to initialize friend list");
+            Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
+        }
+        return view;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        if (mFriendAdapter != null) {
+            setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(this.getListView());
         Events.register(this);
@@ -170,7 +178,7 @@ public class FragmentFriendList extends ListFragment {
 
     private static class FriendAdapter extends BaseAdapter {
         private final Context mContext;
-        private ArrayList<Data.Friend> mFriends;
+        private List<Data.Friend> mFriends;
 
         public FriendAdapter(Context context) throws Utils.ApplicationError {
             mContext = context;
