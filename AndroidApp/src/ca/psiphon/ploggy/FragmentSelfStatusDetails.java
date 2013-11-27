@@ -19,12 +19,8 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.Date;
-
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
-import android.text.InputFilter;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
