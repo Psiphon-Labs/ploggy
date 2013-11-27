@@ -502,6 +502,7 @@ public class Data {
                 }
             }
             Collections.sort(mAllMessages, new AnnotatedMessageComparator());
+            Events.post(new Events.UpdatedAllMessages());
         }
     }
     
@@ -518,7 +519,7 @@ public class Data {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(0, new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
             } else {
                 break;
             }
@@ -530,6 +531,7 @@ public class Data {
             // Hack to continue supporting self-as-friend, for now
             if (!getSelf().mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
                 mAllMessages.addAll(0, newMessages);
+                Collections.sort(mAllMessages, new AnnotatedMessageComparator());
                 Events.post(new Events.UpdatedAllMessages());
             }
         }
