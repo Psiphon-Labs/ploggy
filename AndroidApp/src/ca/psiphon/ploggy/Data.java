@@ -95,7 +95,7 @@ public class Data {
     public class FriendComparator implements Comparator<Friend> {
         @Override
         public int compare(Friend a, Friend b) {
-            return a.mPublicIdentity.mNickname.compareTo(b.mPublicIdentity.mNickname);
+            return a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
         }
     }
     
@@ -129,7 +129,7 @@ public class Data {
             // Descending time order
             int result = b.mMessage.mTimestamp.compareTo(a.mMessage.mTimestamp);
             if (result == 0) {
-                result = a.mNickname.compareTo(b.mNickname);
+                result = a.mNickname.compareToIgnoreCase(b.mNickname);
             }
             return result;
         }
