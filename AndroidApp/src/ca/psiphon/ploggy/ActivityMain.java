@@ -20,11 +20,13 @@
 package ca.psiphon.ploggy;
 
 import android.app.ActionBar;
-import android.app.Activity;
-import android.app.Fragment;
 import android.app.FragmentTransaction;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.FragmentPagerAdapter;
+import android.support.v4.view.ViewPager;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -39,48 +41,60 @@ import android.view.WindowManager;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class ActivityMain extends ActivitySendIdentityByNfc {
+public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar.TabListener {
 
     private static final String LOG_TAG = "Main Activity";
 
     public static final String ACTION_DISPLAY_FRIENDS = "ca.psiphon.ploggy.action.DISPLAY_FRIENDS";
-    
+
     private int mFriendTabIndex;
-    
+
+    ViewPager mViewPager;
+    AppTabsPagerAdapter mAppTabsPagerAdapter;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        ActionBar actionBar = getActionBar();
+        // Create the adapter that will return a fragment for each of the three primary sections
+        // of the app.
+        mAppTabsPagerAdapter = new AppTabsPagerAdapter(getSupportFragmentManager());
+
+        final ActionBar actionBar = getActionBar();
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
 
-        // TODO: http://developer.android.com/reference/android/support/v4/view/ViewPager.html instead?
+        // Specify that the Home/Up button should not be enabled, since there is
+        // no hierarchical parent.
+        actionBar.setHomeButtonEnabled(false);
+
+        // Set up the ViewPager, attaching the adapter and setting up a listener for when the
+        // user swipes between sections.
+        mViewPager = (ViewPager)findViewById(R.id.pager);
+        mViewPager.setAdapter(mAppTabsPagerAdapter);
+        mViewPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
+            @Override
+            public void onPageSelected(int position) {
+                // When swiping between different app sections, select the corresponding tab.
+                // We can also use ActionBar.Tab#select() to do this if we have a reference to the
+                // Tab.
+                actionBar.setSelectedNavigationItem(position);
+            }
+        });
+
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_your_status_fragment)
-                    .setTabListener(
-                            new TabListener<FragmentSelfStatusDetails>(
-                                    this,
-                                    "fragment_self_status_details",
-                                    FragmentSelfStatusDetails.class)));
+                    .setTabListener(this));
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_friend_list_fragment)
-                    .setTabListener(
-                            new TabListener<FragmentFriendList>(
-                                    this,
-                                    "fragment_friend_list",
-                                    FragmentFriendList.class)));
+                    .setTabListener(this));
         mFriendTabIndex = 1;
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_recent_activity_fragment)
-                    .setTabListener(
-                            new TabListener<FragmentRecentActivity>(
-                                    this,
-                                    "fragment_recent_activity",
-                                    FragmentRecentActivity.class)));
+                    .setTabListener(this));
 
         if (savedInstanceState != null) {
             actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
@@ -106,7 +120,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
             getActionBar().setSelectedNavigationItem(mFriendTabIndex);
         }
     }
-    
+
     @Override
     protected void onNewIntent(Intent intent) {
         setIntent(intent);
@@ -152,56 +166,49 @@ public class ActivityMain extends ActivitySendIdentityByNfc {
         }
     }
 
-    // Adapted from: http://developer.android.com/reference/android/app/ActionBar.html#newTab%28%29
-    private static class TabListener<T extends Fragment> implements ActionBar.TabListener {
-        private Fragment mFragment;
-        private final Activity mActivity;
-        private final String mTag;
-        private final Class<T> mClass;
-        private final Bundle mArgs;
+    @Override
+    public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+    }
 
+    @Override
+    public void onTabSelected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+        // When the given tab is selected, switch to the corresponding page in the ViewPager.
+        mViewPager.setCurrentItem(tab.getPosition());
+    }
 
-        public TabListener(Activity activity, String tag, Class<T> clz) {
-            this(activity, tag, clz, null);
+    @Override
+    public void onTabReselected(ActionBar.Tab tab, FragmentTransaction fragmentTransaction) {
+    }
 
-        }
+    /**
+     * Returns a fragment corresponding to one of the primary sections of the app.
+     */
+    public static class AppTabsPagerAdapter extends FragmentPagerAdapter {
 
-        public TabListener(Activity activity, String tag, Class<T> clz, Bundle args) {
-            mActivity = activity;
-            mTag = tag;
-            mClass = clz;
-            mArgs = args;
-
-            // Check to see if we already have a fragment for this tab, probably
-            // from a previously saved state.  If so, deactivate it, because our
-            // initial state is that a tab isn't shown.
-            mFragment = mActivity.getFragmentManager().findFragmentByTag(mTag);
-            if (mFragment != null && !mFragment.isDetached()) {
-                FragmentTransaction ft = mActivity.getFragmentManager().beginTransaction();
-                ft.detach(mFragment);
-                ft.commit();
-            }
+        public AppTabsPagerAdapter(FragmentManager fm) {
+            super(fm);
         }
 
         @Override
-        public void onTabSelected(ActionBar.Tab tab, FragmentTransaction ft) {
-            if (mFragment == null) {
-                mFragment = Fragment.instantiate(mActivity, mClass.getName(), mArgs);
-                ft.add(android.R.id.content, mFragment, mTag);
-            } else {
-                ft.attach(mFragment);
+        public Fragment getItem(int i) {
+            switch (i) {
+                case 0:
+                    return new FragmentSelfStatusDetails();
+
+                case 1:
+                    return new FragmentFriendList();
+
+                case 2:
+                    return new FragmentRecentActivity();
             }
+
+            assert(false);
+            return null;
         }
 
         @Override
-        public void onTabUnselected(ActionBar.Tab tab, FragmentTransaction ft) {
-            if (mFragment != null) {
-                ft.detach(mFragment);
-            }
-        }
-
-        @Override
-        public void onTabReselected(ActionBar.Tab tab, FragmentTransaction ft) {
+        public int getCount() {
+            return 3;
         }
     }
 }
