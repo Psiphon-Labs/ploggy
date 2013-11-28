@@ -222,7 +222,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             newSelfLocation.mLocation.getLatitude(),
                             newSelfLocation.mLocation.getLongitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            address.toString()));
+                            address.toString()),
+                    currentlySharingLocation());
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update self status with new location");
         }
@@ -275,9 +276,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void pushToFriends() throws Utils.ApplicationError {
         // TODO: check for existing pushes in worker thread queue
-        if (!currentlySharingLocation()) {
-            return;
-        }
         if (!mTorWrapper.isCircuitEstablished()) {
             // TODO: schedule another push in the future?
             return;
@@ -374,9 +372,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
         // Friend is requesting (pulling) self status
-        if (!currentlySharingLocation()) {
-            return null;
-        }
         // TODO: cancel any pending push to this friend?
         Data data = Data.getInstance();
         Data.Friend friend = data.getFriendByCertificate(friendCertificate);

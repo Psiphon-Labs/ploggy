@@ -47,6 +47,14 @@ import android.content.Context;
  * 
  * If local security is added to the scope of Ploggy, here's where we'd interface with SQLCipher and/or
  * KeyChain, etc.
+ * 
+ * ==== PROTOTYPE NOTE ====
+ * This module is performant for the prototype only. Missing are:
+ * - incremental synchronization
+ * - synchronization based on logical timestamp
+ * - efficient data storage and viewing
+ * ========================
+ * 
  */
 public class Data {
     
@@ -112,13 +120,13 @@ public class Data {
     }
     
     public static class AnnotatedMessage {
-        public final String mNickname;
+        public final Identity.PublicIdentity mPublicIdentity;
         public final Data.Message mMessage;
 
         public AnnotatedMessage(
-                String nickname,
+                Identity.PublicIdentity publicIdentity,
                 Data.Message message) {
-            mNickname = nickname;
+            mPublicIdentity = publicIdentity;
             mMessage = message;
         }
     }
@@ -129,7 +137,7 @@ public class Data {
             // Descending time order
             int result = b.mMessage.mTimestamp.compareTo(a.mMessage.mTimestamp);
             if (result == 0) {
-                result = a.mNickname.compareToIgnoreCase(b.mNickname);
+                result = a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
             }
             return result;
         }
@@ -213,6 +221,7 @@ public class Data {
     
     Self mSelf;
     Status mSelfStatus;
+    Location mPrivateSelfLocation;
     ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     // TODO: in-memory, duplicate data -- only appropriate for prototype
@@ -266,6 +275,15 @@ public class Data {
         return mSelfStatus;
     }
 
+    public synchronized Location getCurrentSelfLocation() throws Utils.ApplicationError {
+        // If location sharing was off when updateSelfStatusLocation was last called, then
+        // mPrivateSelfLocation is the more up-to-date than mSelfStatus.
+        if (mPrivateSelfLocation == null) {
+            return getSelfStatus().mLocation;
+        }
+        return mPrivateSelfLocation;
+    }
+
     public synchronized void addSelfStatusMessage(Message message) throws Utils.ApplicationError, DataNotFoundError {
         Status currentStatus = getSelfStatus();
         ArrayList<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
@@ -281,11 +299,16 @@ public class Data {
         addMessagesHelper(getSelf(), message);
     }
 
-    public synchronized void updateSelfStatusLocation(Location location) throws Utils.ApplicationError {
-        Status currentStatus = getSelfStatus();
-        Status newStatus = new Status(currentStatus.mMessages, location);
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
-        mSelfStatus = newStatus;
+    public synchronized void updateSelfStatusLocation(Location location, boolean shared) throws Utils.ApplicationError {
+        if (shared) {
+            Status currentStatus = getSelfStatus();
+            Status newStatus = new Status(currentStatus.mMessages, location);
+            writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+            mSelfStatus = newStatus;
+            mPrivateSelfLocation = location;
+        } else {
+            mPrivateSelfLocation = location;
+        }
         Log.addEntry(LOG_TAG, "updated your location");
         Events.post(new Events.UpdatedSelfStatus());
     }
@@ -461,15 +484,19 @@ public class Data {
             previousStatus = getFriendStatus(id);
             
             // Mitigate push/pull race condition where older status overwrites newer status
+            // Only checks messages, not location
             // TODO: more robust protocol... don't rely on clocks
-            if ((previousStatus.mMessages.size() > 0 &&
-                    (status.mMessages.size() < previousStatus.mMessages.size()
-                     || status.mMessages.get(0).mTimestamp.before(previousStatus.mMessages.get(0).mTimestamp))) ||
-               ((previousStatus.mLocation != null &&
-                    (status.mLocation == null
-                     || status.mLocation.mTimestamp.before(previousStatus.mLocation.mTimestamp))))) {
-                Log.addEntry(LOG_TAG, "discarded stale friend status: " + friend.mPublicIdentity.mNickname);
+            if (previousStatus.mMessages.size() > status.mMessages.size()) {
+                Log.addEntry(LOG_TAG, "discarded friend status (fewer messages): " + friend.mPublicIdentity.mNickname);
                 return;
+            } else if (previousStatus.mMessages.size() == status.mMessages.size() && previousStatus.mMessages.size() > 0) {
+                if (previousStatus.mMessages.get(0).mTimestamp == null || status.mMessages.get(0).mTimestamp == null) {
+                    Log.addEntry(LOG_TAG, "discarded friend status (timestamp unexpectedly null): " + friend.mPublicIdentity.mNickname);
+                    return;
+                } else if (previousStatus.mMessages.get(0).mTimestamp.after(status.mMessages.get(0).mTimestamp)) {
+                    Log.addEntry(LOG_TAG, "discarded friend status (older timestamp): " + friend.mPublicIdentity.mNickname);
+                    return;
+                }
             }
         } catch (DataNotFoundError e) {
         }
@@ -490,14 +517,22 @@ public class Data {
         if (mAllMessages == null) {
             mAllMessages = new ArrayList<AnnotatedMessage>();
             Self self = getSelf();
-            for (Message message : getSelfStatus().mMessages) {
-                mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+            try {
+                for (Message message : getSelfStatus().mMessages) {
+                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity, message));
+                }
+            } catch (DataNotFoundError e) {
+                // Skip
             }
             for (Friend friend : getFriends()) {
                 // Hack to continue supporting self-as-friend, for now
                 if (!self.mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
-                    for (Message message : getFriendStatus(friend.mId).mMessages) {
-                        mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                    try {
+                        for (Message message : getFriendStatus(friend.mId).mMessages) {
+                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
+                        }
+                    } catch (DataNotFoundError e) {
+                        // Skip
                     }
                 }
             }
@@ -519,7 +554,7 @@ public class Data {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
             } else {
                 break;
             }
@@ -539,7 +574,7 @@ public class Data {
 
     private void addMessagesHelper(Self self, Message message) throws Utils.ApplicationError {
         initMessages();
-        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, message));
         Events.post(new Events.UpdatedAllMessages());
     }
     

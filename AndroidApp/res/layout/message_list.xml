@@ -1,0 +1,27 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical" >
+
+    <fragment
+        android:name="ca.psiphon.ploggy.FragmentComposeMessage"
+        android:id="@+id/fragment_message_list_compose_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dip"
+        android:layout_marginBottom="8dip" />
+
+    <ListView
+        android:id="@+id/message_list_messages"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+</LinearLayout>

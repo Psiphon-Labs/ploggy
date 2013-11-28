@@ -23,11 +23,13 @@ import java.util.List;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v4.app.ListFragment;
+import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ImageView;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import com.squareup.otto.Subscribe;
@@ -38,42 +40,37 @@ import com.squareup.otto.Subscribe;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class FragmentMessageList extends ListFragment {
+public class FragmentMessageList extends Fragment {
 
     private static final String LOG_TAG = "Message List";
 
+    private int mOrientation;
     private boolean mIsResumed = false;
-    private View mHeaderView;
+    private ListView mMessagesListView;
     private AnnotatedMessageAdapter mMessageAdapter;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = super.onCreateView(inflater, container, savedInstanceState);
-        if (mHeaderView == null) {
-            mHeaderView = inflater.inflate(R.layout.message_list_header, null);
-        }
+        View view = inflater.inflate(R.layout.message_list, container, false);
+
+        mOrientation = getResources().getConfiguration().orientation;
+
+        mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
+
         try {
             mMessageAdapter = new AnnotatedMessageAdapter(getActivity());
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize message adapter");
         }
+
         return view;
     }
     
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        setListAdapter(null);
-    }
-
-    @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        if (getListView().getHeaderViewsCount() == 0) {
-            getListView().addHeaderView(mHeaderView);
-        }
         if (mMessageAdapter != null) {
-            setListAdapter(mMessageAdapter);
+            mMessagesListView.setAdapter(mMessageAdapter);
         }
         Events.register(this);
     }
@@ -89,6 +86,19 @@ public class FragmentMessageList extends ListFragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (getResources().getConfiguration().orientation == mOrientation) {
+            // Fragment seems to require manual cleanup; or else we get the following: 
+            // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
+            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
+            if (fragment != null) {
+                getFragmentManager().beginTransaction().remove(fragment).commit();
+            }
+        }
     }
 
     @Override
@@ -139,13 +149,15 @@ public class FragmentMessageList extends ListFragment {
             }
             Data.AnnotatedMessage message = mMessages.get(position);
             if (message != null) {
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
+                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
 
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
-                nicknameText.setText(message.mNickname);
+                Robohash.setRobohashImage(mContext, avatarImage, true, message.mPublicIdentity);
+                nicknameText.setText(message.mPublicIdentity.mNickname);
                 contentText.setText(message.mMessage.mContent);
+                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
             }
             return view;
         }
