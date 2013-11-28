@@ -164,6 +164,9 @@ public class FragmentSelfStatusDetails extends Fragment {
             Data data = Data.getInstance();
             Data.Self self = data.getSelf();
             Data.Status selfStatus = data.getSelfStatus();
+            // Not using selfStatus.mLocation as it's not updated when location sharing is off
+            // TODO: cleaner API
+            Data.Location selfLocation = data.getCurrentSelfLocation();
 
             // Entire view may be hidden due to DataNotFoundError below
             view.setVisibility(View.VISIBLE);
@@ -180,7 +183,7 @@ public class FragmentSelfStatusDetails extends Fragment {
                 mMessagesList.setAdapter(adapter);
             }
 
-            int locationVisibility = (selfStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
+            int locationVisibility = (selfLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
             mLocationLabel.setVisibility(locationVisibility);
             mLocationStreetAddressLabel.setVisibility(locationVisibility);
             mLocationStreetAddressText.setVisibility(locationVisibility);
@@ -190,22 +193,22 @@ public class FragmentSelfStatusDetails extends Fragment {
             mLocationPrecisionText.setVisibility(locationVisibility);
             mLocationTimestampLabel.setVisibility(locationVisibility);
             mLocationTimestampText.setVisibility(locationVisibility);
-            if (selfStatus.mLocation.mTimestamp != null) {
-                if (selfStatus.mLocation.mStreetAddress.length() > 0) {
-                    mLocationStreetAddressText.setText(selfStatus.mLocation.mStreetAddress);
+            if (selfLocation.mTimestamp != null) {
+                if (selfLocation.mStreetAddress.length() > 0) {
+                    mLocationStreetAddressText.setText(selfLocation.mStreetAddress);
                 } else {
                     mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
                 mLocationCoordinatesText.setText(
                         getString(
                                 R.string.format_status_details_coordinates,
-                                selfStatus.mLocation.mLatitude,
-                                selfStatus.mLocation.mLongitude));
+                                selfLocation.mLatitude,
+                                selfLocation.mLongitude));
                 mLocationPrecisionText.setText(
                         getString(
                                 R.string.format_status_details_precision,
-                                selfStatus.mLocation.mPrecision));
-                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfStatus.mLocation.mTimestamp, true));
+                                selfLocation.mPrecision));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfLocation.mTimestamp, true));
             }
         } catch (Data.DataNotFoundError e) {
             // TODO: display "no data" prompt?

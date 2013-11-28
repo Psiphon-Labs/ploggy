@@ -221,6 +221,7 @@ public class Data {
     
     Self mSelf;
     Status mSelfStatus;
+    Location mPrivateSelfLocation;
     ArrayList<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
     // TODO: in-memory, duplicate data -- only appropriate for prototype
@@ -274,6 +275,15 @@ public class Data {
         return mSelfStatus;
     }
 
+    public synchronized Location getCurrentSelfLocation() throws Utils.ApplicationError {
+        // If location sharing was off when updateSelfStatusLocation was last called, then
+        // mPrivateSelfLocation is the more up-to-date than mSelfStatus.
+        if (mPrivateSelfLocation == null) {
+            return getSelfStatus().mLocation;
+        }
+        return mPrivateSelfLocation;
+    }
+
     public synchronized void addSelfStatusMessage(Message message) throws Utils.ApplicationError, DataNotFoundError {
         Status currentStatus = getSelfStatus();
         ArrayList<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
@@ -289,11 +299,16 @@ public class Data {
         addMessagesHelper(getSelf(), message);
     }
 
-    public synchronized void updateSelfStatusLocation(Location location) throws Utils.ApplicationError {
-        Status currentStatus = getSelfStatus();
-        Status newStatus = new Status(currentStatus.mMessages, location);
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
-        mSelfStatus = newStatus;
+    public synchronized void updateSelfStatusLocation(Location location, boolean shared) throws Utils.ApplicationError {
+        if (shared) {
+            Status currentStatus = getSelfStatus();
+            Status newStatus = new Status(currentStatus.mMessages, location);
+            writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+            mSelfStatus = newStatus;
+            mPrivateSelfLocation = location;
+        } else {
+            mPrivateSelfLocation = location;
+        }
         Log.addEntry(LOG_TAG, "updated your location");
         Events.post(new Events.UpdatedSelfStatus());
     }
