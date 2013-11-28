@@ -47,6 +47,14 @@ import android.content.Context;
  * 
  * If local security is added to the scope of Ploggy, here's where we'd interface with SQLCipher and/or
  * KeyChain, etc.
+ * 
+ * ==== PROTOTYPE NOTE ====
+ * This module is performant for the prototype only. Missing are:
+ * - incremental synchronization
+ * - synchronization based on logical timestamp
+ * - efficient data storage and viewing
+ * ========================
+ * 
  */
 public class Data {
     
@@ -461,15 +469,19 @@ public class Data {
             previousStatus = getFriendStatus(id);
             
             // Mitigate push/pull race condition where older status overwrites newer status
+            // Only checks messages, not location
             // TODO: more robust protocol... don't rely on clocks
-            if ((previousStatus.mMessages.size() > 0 &&
-                    (status.mMessages.size() < previousStatus.mMessages.size()
-                     || status.mMessages.get(0).mTimestamp.before(previousStatus.mMessages.get(0).mTimestamp))) ||
-               ((previousStatus.mLocation != null &&
-                    (status.mLocation == null
-                     || status.mLocation.mTimestamp.before(previousStatus.mLocation.mTimestamp))))) {
-                Log.addEntry(LOG_TAG, "discarded stale friend status: " + friend.mPublicIdentity.mNickname);
+            if (previousStatus.mMessages.size() > status.mMessages.size()) {
+                Log.addEntry(LOG_TAG, "discarded friend status (fewer messages): " + friend.mPublicIdentity.mNickname);
                 return;
+            } else if (previousStatus.mMessages.size() == status.mMessages.size() && previousStatus.mMessages.size() > 0) {
+                if (previousStatus.mMessages.get(0).mTimestamp == null || status.mMessages.get(0).mTimestamp == null) {
+                    Log.addEntry(LOG_TAG, "discarded friend status (timestamp unexpectedly null): " + friend.mPublicIdentity.mNickname);
+                    return;
+                } else if (previousStatus.mMessages.get(0).mTimestamp.after(status.mMessages.get(0).mTimestamp)) {
+                    Log.addEntry(LOG_TAG, "discarded friend status (older timestamp): " + friend.mPublicIdentity.mNickname);
+                    return;
+                }
             }
         } catch (DataNotFoundError e) {
         }
