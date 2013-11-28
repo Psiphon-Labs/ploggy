@@ -109,11 +109,14 @@ public class PloggyService extends Service {
             new Notification.Builder(this)
                 .setContentIntent(pendingIntent)
                 .setContentTitle(contentTitle)
-                .setSmallIcon(iconResourceId)
-                .setDefaults(Notification.DEFAULT_ALL); // use default (system) sound, lights, and vibrate
+                .setSmallIcon(iconResourceId);
 
         Notification notification;
         if (newMessages != null && newMessages.size() > 0) {
+            // Use default (system) sound, lights, and vibrate
+            notificationBuilder.setDefaults(Notification.DEFAULT_ALL);
+
+            // Build email-style big view with summary of new messages
             Notification.InboxStyle inboxStyleBuilder =
                 new Notification.InboxStyle(notificationBuilder);
             for (int i = 0; i < MAX_LINES && i < newMessages.size(); i++) {
