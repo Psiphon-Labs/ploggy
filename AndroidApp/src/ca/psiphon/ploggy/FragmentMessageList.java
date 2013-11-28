@@ -44,6 +44,7 @@ public class FragmentMessageList extends Fragment {
 
     private static final String LOG_TAG = "Message List";
 
+    private int mOrientation;
     private boolean mIsResumed = false;
     private ListView mMessagesListView;
     private AnnotatedMessageAdapter mMessageAdapter;
@@ -51,6 +52,8 @@ public class FragmentMessageList extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.message_list, container, false);
+
+        mOrientation = getResources().getConfiguration().orientation;
 
         mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
 
@@ -88,11 +91,13 @@ public class FragmentMessageList extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Fragment seems to require manual cleanup; or else we get the following: 
-        // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
-        FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
-        if (fragment != null) {
-            getFragmentManager().beginTransaction().remove(fragment).commit();
+        if (getResources().getConfiguration().orientation == mOrientation) {
+            // Fragment seems to require manual cleanup; or else we get the following: 
+            // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
+            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
+            if (fragment != null) {
+                getFragmentManager().beginTransaction().remove(fragment).commit();
+            }
         }
     }
 

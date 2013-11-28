@@ -44,6 +44,7 @@ public class FragmentSelfStatusDetails extends Fragment {
 
     private static final String LOG_TAG = "Self Status Details";
 
+    private int mOrientation;
     private ScrollView mScrollView;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -62,6 +63,8 @@ public class FragmentSelfStatusDetails extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.self_status_details, container, false);
+        
+        mOrientation = getResources().getConfiguration().orientation;
 
         mScrollView = (ScrollView)view.findViewById(R.id.self_status_details_scroll_view);
         mAvatarImage = (ImageView)view.findViewById(R.id.self_status_details_avatar_image);
@@ -130,9 +133,11 @@ public class FragmentSelfStatusDetails extends Fragment {
         super.onDestroyView();
         // Fragment seems to require manual cleanup; or else we get the following:
         // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
-        FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
-        if (fragment != null) {
-            getFragmentManager().beginTransaction().remove(fragment).commit();
+        if (getResources().getConfiguration().orientation == mOrientation) {
+            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
+            if (fragment != null) {
+                getFragmentManager().beginTransaction().remove(fragment).commit();
+            }
         }
     }
 
