@@ -112,13 +112,13 @@ public class Data {
     }
     
     public static class AnnotatedMessage {
-        public final String mNickname;
+        public final Identity.PublicIdentity mPublicIdentity;
         public final Data.Message mMessage;
 
         public AnnotatedMessage(
-                String nickname,
+                Identity.PublicIdentity publicIdentity,
                 Data.Message message) {
-            mNickname = nickname;
+            mPublicIdentity = publicIdentity;
             mMessage = message;
         }
     }
@@ -129,7 +129,7 @@ public class Data {
             // Descending time order
             int result = b.mMessage.mTimestamp.compareTo(a.mMessage.mTimestamp);
             if (result == 0) {
-                result = a.mNickname.compareToIgnoreCase(b.mNickname);
+                result = a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
             }
             return result;
         }
@@ -492,7 +492,7 @@ public class Data {
             Self self = getSelf();
             try {
                 for (Message message : getSelfStatus().mMessages) {
-                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity, message));
                 }
             } catch (DataNotFoundError e) {
                 // Skip
@@ -502,7 +502,7 @@ public class Data {
                 if (!self.mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
                     try {
                         for (Message message : getFriendStatus(friend.mId).mMessages) {
-                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
                         }
                     } catch (DataNotFoundError e) {
                         // Skip
@@ -527,7 +527,7 @@ public class Data {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity.mNickname, message));
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
             } else {
                 break;
             }
@@ -547,7 +547,7 @@ public class Data {
 
     private void addMessagesHelper(Self self, Message message) throws Utils.ApplicationError {
         initMessages();
-        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity.mNickname, message));
+        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, message));
         Events.post(new Events.UpdatedAllMessages());
     }
     

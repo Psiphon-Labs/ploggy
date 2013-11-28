@@ -3,11 +3,28 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="4dip" >
- 
+
+    <LinearLayout
+        android:id="@+id/message_avatar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="4dip"
+        android:layout_alignParentLeft="true"
+        android:layout_marginRight="4dip">
+
+        <ImageView
+            android:id="@+id/message_avatar_image"
+            android:layout_width="50dip"
+            android:layout_height="50dip" />
+
+    </LinearLayout>
+
     <TextView
         android:id="@+id/message_nickname_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/message_avatar"
+        android:layout_toRightOf="@+id/message_avatar"
         android:typeface="sans"
         android:textSize="8dip"
         android:textStyle="bold" />
@@ -18,6 +35,7 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/message_nickname_text"
         android:layout_toLeftOf="@+id/message_timestamp_text"
+        android:layout_toRightOf="@+id/message_avatar"
         android:typeface="sans"
         android:textSize="12dip"
         android:layout_marginTop="4dp"

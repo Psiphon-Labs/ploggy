@@ -28,6 +28,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.squareup.otto.Subscribe;
@@ -139,13 +140,15 @@ public class FragmentMessageList extends ListFragment {
             }
             Data.AnnotatedMessage message = mMessages.get(position);
             if (message != null) {
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
+                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
 
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
-                nicknameText.setText(message.mNickname);
+                Robohash.setRobohashImage(mContext, avatarImage, true, message.mPublicIdentity);
+                nicknameText.setText(message.mPublicIdentity.mNickname);
                 contentText.setText(message.mMessage.mContent);
+                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
             }
             return view;
         }

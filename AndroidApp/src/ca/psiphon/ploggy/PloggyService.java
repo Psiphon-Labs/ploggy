@@ -121,7 +121,7 @@ public class PloggyService extends Service {
                     Html.fromHtml(
                         getString(
                             R.string.foreground_service_notification_inbox_line,
-                            newMessages.get(i).mNickname,
+                            newMessages.get(i).mPublicIdentity.mNickname,
                             newMessages.get(i).mMessage.mContent)));
             }
             if (newMessages.size() > MAX_LINES) {

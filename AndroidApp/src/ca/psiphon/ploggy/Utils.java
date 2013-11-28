@@ -52,6 +52,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
@@ -382,13 +383,16 @@ public class Utils {
             }
             Data.Message message = getItem(position);
             if (message != null) {
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
+                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
 
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
+                // TODO: use a different layout instead of inflating then hiding?
+                avatarImage.setVisibility(View.GONE);
                 nicknameText.setVisibility(View.GONE);
                 contentText.setText(message.mContent);
+                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
             }
             return view;
         }
