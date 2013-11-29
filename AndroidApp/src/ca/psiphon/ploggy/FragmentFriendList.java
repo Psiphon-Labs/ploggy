@@ -219,9 +219,9 @@ public class FragmentFriendList extends ListFragment {
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
                 try {
                     Data data = Data.getInstance();
-                    Data.Status selfStatus = null;
+                    Data.Location selfLocation = null;
                     try {
-                        selfStatus = data.getSelfStatus();
+                        selfLocation = data.getCurrentSelfLocation();
                     } catch (Data.DataNotFoundError e) {
                         // Won't be able to compute distance
                     }
@@ -260,10 +260,10 @@ public class FragmentFriendList extends ListFragment {
                         } else {
                             locationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                         }
-                        if (selfStatus != null && selfStatus.mLocation.mTimestamp != null) {
+                        if (selfLocation != null && selfLocation.mTimestamp != null) {
                             int distance = Utils.calculateLocationDistanceInMeters(
-                                    selfStatus.mLocation.mLatitude,
-                                    selfStatus.mLocation.mLongitude,
+                                    selfLocation.mLatitude,
+                                    selfLocation.mLongitude,
                                     friendStatus.mLocation.mLatitude,
                                     friendStatus.mLocation.mLongitude);
                             locationDistanceText.setText(Utils.formatDistance(mContext, distance));
