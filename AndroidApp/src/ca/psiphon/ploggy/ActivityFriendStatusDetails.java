@@ -144,12 +144,11 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     private void show() {
         try {
             Data data = Data.getInstance();
-            Data.Status selfStatus = null;
             Data.Friend friend = data.getFriendById(mFriendId);
             Data.Status friendStatus = data.getFriendStatus(mFriendId);
-
+            Data.Location selfLocation = null;
             try {
-                selfStatus = data.getSelfStatus();
+                selfLocation = data.getCurrentSelfLocation();
             } catch (Data.DataNotFoundError e) {
                 // Won't be able to compute distance
             }
@@ -185,10 +184,10 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 } else {
                     mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
-                if (selfStatus != null && selfStatus.mLocation.mTimestamp != null) {
+                if (selfLocation != null && selfLocation.mTimestamp != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
-                            selfStatus.mLocation.mLatitude,
-                            selfStatus.mLocation.mLongitude,
+                            selfLocation.mLatitude,
+                            selfLocation.mLongitude,
                             friendStatus.mLocation.mLatitude,
                             friendStatus.mLocation.mLongitude);
                     mLocationDistanceText.setText(Utils.formatDistance(this, distance));

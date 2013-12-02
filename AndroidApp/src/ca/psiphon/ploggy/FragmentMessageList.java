@@ -65,7 +65,7 @@ public class FragmentMessageList extends Fragment {
 
         return view;
     }
-    
+
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -89,14 +89,14 @@ public class FragmentMessageList extends Fragment {
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onStop() {
+        super.onStop();
         if (getResources().getConfiguration().orientation == mOrientation) {
-            // Fragment seems to require manual cleanup; or else we get the following: 
+            // Fragment seems to require manual cleanup; or else we get the following:
             // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
             FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
             if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commit();
+                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
             }
         }
     }
@@ -128,14 +128,14 @@ public class FragmentMessageList extends Fragment {
     }
 
     public static class AnnotatedMessageAdapter extends BaseAdapter {
-        private Context mContext;
+        private final Context mContext;
         private List<Data.AnnotatedMessage> mMessages;
-        
+
         public AnnotatedMessageAdapter(Context context) throws Utils.ApplicationError {
             mContext = context;
             mMessages = Data.getInstance().getAllMessages();
         }
-        
+
         public void updateMessages() throws Utils.ApplicationError {
             mMessages = Data.getInstance().getAllMessages();
             notifyDataSetChanged();

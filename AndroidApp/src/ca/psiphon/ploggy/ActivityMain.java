@@ -46,8 +46,8 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
     private static final String LOG_TAG = "Main Activity";
 
     public static final String ACTION_DISPLAY_MESSAGES = "ca.psiphon.ploggy.action.DISPLAY_MESSAGES";
-    
-    private int mMessageListTabIndex;    
+
+    private int mMessageListTabIndex;
     private ViewPager mViewPager;
     private AppTabsPagerAdapter mAppTabsPagerAdapter;
 
@@ -85,7 +85,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
                 actionBar.newTab()
                     .setText(R.string.title_self_status_fragment)
                     .setTabListener(this));
-                    
+
         actionBar.addTab(
                 actionBar.newTab()
                     .setText(R.string.title_friend_list_fragment)
@@ -104,8 +104,8 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ActionBar
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
         outState.putInt("currentTab", getActionBar().getSelectedNavigationIndex());
+        super.onSaveInstanceState(outState);
     }
 
     @Override
