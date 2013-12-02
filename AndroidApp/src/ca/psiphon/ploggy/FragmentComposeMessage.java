@@ -19,18 +19,32 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.File;
 import java.util.Date;
 
+import com.squareup.picasso.Picasso;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.text.InputFilter;
+import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 /**
@@ -40,30 +54,44 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
 
     private static final String LOG_TAG = "Compose Message";
 
+    private ImageButton mSetPictureButton;
+    private ImageView mPictureThumbnail;
     private EditText mContentEdit;
-    private ImageButton mAddButton;
+    private ImageButton mSendButton;
+    
+    private static final int REQUEST_CODE_SELECT_IMAGE = 1;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.compose_message, container, false);
 
+        mSetPictureButton = (ImageButton)view.findViewById(R.id.compose_message_set_picture_button);
+        mPictureThumbnail = (ImageView)view.findViewById(R.id.compose_message_picture_thumbnail);
         mContentEdit = (EditText)view.findViewById(R.id.compose_message_content_edit);
-        mAddButton = (ImageButton)view.findViewById(R.id.compose_message_add_button);
+        mSendButton = (ImageButton)view.findViewById(R.id.compose_message_send_button);
+        
+        mSetPictureButton.setOnClickListener(this);
+        
+        mPictureThumbnail.setVisibility(View.GONE);
+        mPictureThumbnail.setOnClickListener(this);
+        registerForContextMenu(mPictureThumbnail);
 
         InputFilter[] filters = new InputFilter[1];
         filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
         mContentEdit.setFilters(filters);
         mContentEdit.setOnEditorActionListener(this);
 
-        mAddButton.setOnClickListener(this);
+        mSendButton.setOnClickListener(this);
 
         return view;
     }
 
     @Override
     public void onClick(View view) {
-        if (view.equals(mAddButton)) {
+        if (view.equals(mSendButton)) {
             addNewMessage();
+        } else if (view.equals(mSetPictureButton) || view.equals(mPictureThumbnail)) {
+            selectPicture();
         }
     }
 
@@ -77,6 +105,31 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
         return false;
     }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == REQUEST_CODE_SELECT_IMAGE && data != null && data.getData() != null) {
+            setPicture(data.getData());
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
+        super.onCreateContextMenu(menu, view, menuInfo);
+        if (view.equals(mPictureThumbnail)) {
+            getActivity().getMenuInflater().inflate(R.menu.compose_message_picture_context, menu);
+        }
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_compose_message_remove_picture) {
+            resetPicture();
+            return true;
+        }
+        return super.onContextItemSelected(item);
+    }
+
     private void addNewMessage() {
         try {
             String messageContent = mContentEdit.getText().toString();
@@ -88,5 +141,51 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update self message");
         }
+    }
+
+    private void selectPicture() {
+        Intent intent = new Intent();
+        intent.setType("image/*");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(
+                Intent.createChooser(
+                        intent,
+                        getText(R.string.prompt_compose_message_select_picture)),
+                        REQUEST_CODE_SELECT_IMAGE);
+    }
+    
+    private void resetPicture() {
+        mSetPictureButton.setVisibility(View.VISIBLE);
+        mPictureThumbnail.setVisibility(View.GONE);
+    }
+
+    private void setPicture(Uri pictureUri) {
+        // Try to use the MediaStore for gallery selections; otherwise, treat
+        // the URI as a filesystem path.
+        String path = null;
+        Cursor cursor = null;
+        try {
+            String[] projection = {MediaStore.Images.Media.DATA};
+            cursor = getActivity().getContentResolver().query(pictureUri, projection, null, null, null);
+            if (cursor != null) {
+                int column_index = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
+                if (column_index != -1) {
+                    cursor.moveToFirst();
+                    path = cursor.getString(column_index);
+                }
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        if (path == null) {
+            path = pictureUri.getPath();
+        }
+        
+        mSetPictureButton.setVisibility(View.GONE);
+
+        Picasso.with(getActivity()).load(new File(path)).into(mPictureThumbnail);
+        mPictureThumbnail.setVisibility(View.VISIBLE);
     }
 }

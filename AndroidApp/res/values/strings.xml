@@ -15,7 +15,8 @@
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">Run Diagnostic Tests</string>
     <string name="action_quit">Quit</string>
-    <string name="action_delete_friend">Delete Friend</string>
+    <string name="action_friend_list_delete_friend">Delete friend</string>
+    <string name="action_compose_message_remove_picture">Remove picture from message</string>
     <string name="label_delete_friend_title">Delete Friend</string>
     <string name="label_delete_friend_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_friend_positive">Delete</string>
@@ -51,6 +52,7 @@
     <string name="prompt_add_friend_friend_already_exists">A friend with the nickname %1$s already exists</string>
     <string name="prompt_add_friend_friend_added">Added friend %1$s</string>
     <string name="label_compose_message_content_hint">Compose your message</string>
+    <string name="prompt_compose_message_select_picture">Select picture for your message</string>
     <string name="label_status_details_identity">Identity</string>
     <string name="label_status_details_message">Messages</string>
     <string name="label_status_details_location">Location</string>

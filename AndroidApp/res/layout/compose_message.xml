@@ -5,24 +5,46 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal" >
 
+    <ImageButton
+        android:id="@+id/compose_message_set_picture_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft = "true"
+        android:layout_marginRight="4dip"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_button_set_picture"
+        android:background="@null" />
+
+    <ImageView
+        android:id="@+id/compose_message_picture_thumbnail"
+        android:layout_width="64dip"
+        android:layout_height="64dip"
+        android:layout_toRightOf="@+id/compose_message_set_picture_button"
+        android:layout_centerVertical="true"
+        android:layout_marginRight="4dip" />
+
     <EditText
         android:id="@+id/compose_message_content_edit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_toLeftOf="@+id/compose_message_add_button"
+        android:layout_marginRight="4dip"
+        android:layout_toRightOf="@+id/compose_message_picture_thumbnail"
+        android:layout_toLeftOf="@+id/compose_message_send_button"
+        android:layout_centerVertical="true"
         android:hint="@string/label_compose_message_content_hint"
         android:imeOptions="actionSend"
         android:inputType="text|textCapSentences|textAutoCorrect"
         android:maxLines="1"
-        android:textSize="12dip"
+        android:textSize="14dip"
         android:typeface="sans" />
 
     <ImageButton
-        android:id="@+id/compose_message_add_button"
+        android:id="@+id/compose_message_send_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentRight = "true"
-        android:src="@drawable/ic_button_add_message"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_button_send_message"
         android:background="@null" />
 
 </RelativeLayout>
