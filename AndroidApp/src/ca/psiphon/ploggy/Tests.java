@@ -80,7 +80,7 @@ public class Tests {
         }
         
         @Override
-        public void submitTask(Runnable task) {
+        public void submitWebRequestTask(Runnable task) {
             mThreadPool.execute(task);
         }
 

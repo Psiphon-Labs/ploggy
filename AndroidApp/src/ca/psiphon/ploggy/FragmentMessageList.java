@@ -152,11 +152,17 @@ public class FragmentMessageList extends Fragment {
                 ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
                 TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
                 TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
+                TextView pictureDownloadText = (TextView)view.findViewById(R.id.message_picture_download_text);
+                ImageView pictureThumbnailImage = (ImageView)view.findViewById(R.id.message_picture_thumbnail);
                 TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
 
                 Robohash.setRobohashImage(mContext, avatarImage, true, message.mPublicIdentity);
                 nicknameText.setText(message.mPublicIdentity.mNickname);
                 contentText.setText(message.mMessage.mContent);
+
+                // *** TODO: getDownloadSize(), etc.
+                pictureDownloadText.setText("99%");
+                pictureThumbnailImage.setVisibility(View.GONE);
                 timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
             }
             return view;

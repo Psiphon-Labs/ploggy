@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -69,10 +70,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private Runnable mRestartTask;
     private SharedPreferences mSharedPreferences;
     private ScheduledExecutorService mTaskThreadPool;
+    private ExecutorService mPeerRequestThreadPool;
     private HashMap<String, ScheduledFuture<?>> mFriendPullTasks;
     private HashMap<String, ScheduledFuture<?>> mFriendDownloadTasks;
-    
-    // TODO: server: |friends| x 2 threads
     
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
@@ -93,6 +93,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "starting...");
         Events.register(this);
         mTaskThreadPool = Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
+        // Using a distinct worker thread pool and queue to manage peer
+        // requests, so local tasks are not blocked by peer actions. Currently,
+        // maximum number of simultaneous peer requests is expected to be
+        // 2 * #friends as each friend could be performing a push/pull and download.
+        mPeerRequestThreadPool = Executors.newFixedThreadPool(
+                Math.max(THREAD_POOL_SIZE, Data.getInstance().getFriends().size()*2));
         mFriendPullTasks = new HashMap<String, ScheduledFuture<?>>();
         mFriendDownloadTasks = new HashMap<String, ScheduledFuture<?>>();
         mLocationMonitor = new LocationMonitor(this);
@@ -118,6 +124,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             mTaskThreadPool = null;
             mFriendPullTasks = null;
             mFriendDownloadTasks = null;
+        }
+        if (mPeerRequestThreadPool != null) {
+            Utils.shutdownExecutorService(mPeerRequestThreadPool);
+            mPeerRequestThreadPool = null;
         }
         Log.addEntry(LOG_TAG, "stopped");
     }
@@ -147,6 +157,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     public synchronized void submitTask(Runnable task) {
         mTaskThreadPool.submit(task);
+    }
+    
+    @Override
+    public synchronized void submitWebRequestTask(Runnable task) {
+        mPeerRequestThreadPool.submit(task);
     }
     
     private void startHiddenService() throws Utils.ApplicationError {

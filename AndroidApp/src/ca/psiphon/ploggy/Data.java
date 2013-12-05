@@ -752,7 +752,7 @@ public class Data {
         mDownloads.add(download);
         Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
         // *** TODO: engine start downloading immediately if not already
-        Events.post(new Events.AddedDownload());
+        //Events.post(new Events.AddedDownload());
     }
     
     private void updateDownloadHelper(List<Download> list, Download download) throws DataNotFoundError {
@@ -788,7 +788,7 @@ public class Data {
             Log.addEntry(LOG_TAG, "completed download from friend: " + friend.mPublicIdentity.mNickname);
         }
         // *** TODO: engine stop downloading on cancel
-        Events.post(new Events.UpdatedDownloadState());
+        //Events.post(new Events.UpdatedDownloadState());
     }
 
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundError {

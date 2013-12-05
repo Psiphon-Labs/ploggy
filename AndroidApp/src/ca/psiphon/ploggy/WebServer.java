@@ -61,7 +61,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             }
         }
 
-        public void submitTask(Runnable task);
+        public void submitWebRequestTask(Runnable task);
         public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
         public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError;        
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError;
@@ -104,7 +104,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     public void exec(Runnable webRequestTask) {
         // TODO: verify that either InterruptedException is thrown, or check Thread.isInterrupted(), in NanoHTTPD request handling Runnables
         Log.addEntry(LOG_TAG, "got web request");
-        mRequestHandler.submitTask(webRequestTask);
+        mRequestHandler.submitWebRequestTask(webRequestTask);
     }
 
     private String getPeerCertificate(Socket socket) throws Utils.ApplicationError {
