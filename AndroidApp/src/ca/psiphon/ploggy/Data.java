@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -110,12 +111,15 @@ public class Data {
     public static class Message {
         public final Date mTimestamp;
         public final String mContent;
+        public final List<Resource> mAttachments;
 
         public Message(
                 Date timestamp,
-                String content) {
+                String content,
+                List<Resource> attachments) {
             mTimestamp = timestamp;
             mContent = content;
+            mAttachments = attachments;
         }
     }
     
@@ -176,6 +180,65 @@ public class Data {
         }
     }
     
+    public static class Resource {
+        public final String mId;
+        public final String mMimeType;
+        public final long mSize;
+
+        public Resource(
+                String id,
+                String mimeType,
+                long size) {
+            mId = id;
+            mMimeType = mimeType;
+            mSize = size;
+        }
+    }
+    
+    public static class LocalResource {
+        public enum Type {PICTURE, RAW}
+        public final Type mType;
+        public final String mResourceId;
+        public final String mMimeType;
+        public final String mFilePath;
+        public final String mTempFilePath;
+
+        public LocalResource(
+                Type type,
+                String resourceId,
+                String mimeType,
+                String filePath,
+                String tempFilePath) {
+            mType = type;
+            mResourceId = resourceId;
+            mMimeType = mimeType;
+            mFilePath = filePath;
+            mTempFilePath = tempFilePath;
+        }
+    }
+    
+    public static class Download {
+        public final String mFriendId;
+        public final String mResourceId;
+        public final String mMimeType;
+        public final long mSize;
+        public enum State {IN_PROGRESS, CANCELLED, COMPLETE}
+        public final State mState;
+
+        public Download(
+                String friendId,
+                String resourceId,
+                String mimeType,
+                long size,
+                State state) {
+            mFriendId = friendId;
+            mResourceId = resourceId;
+            mMimeType = mimeType;
+            mSize = size;
+            mState = state;
+        }
+    }
+    
     public static class DataNotFoundError extends Utils.ApplicationError {
         private static final long serialVersionUID = -8736069103392081076L;
         
@@ -217,16 +280,19 @@ public class Data {
     private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
     private static final String FRIENDS_FILENAME = "friends.json"; 
     private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json"; 
+    private static final String LOCAL_RESOURCES_FILENAME = "localResources.json"; 
+    private static final String DOWNLOADS_FILENAME = "downloads.json"; 
     private static final String COMMIT_FILENAME_SUFFIX = ".commit"; 
     
     Self mSelf;
     Status mSelfStatus;
     Location mPrivateSelfLocation;
-    ArrayList<Friend> mFriends;
+    List<Friend> mFriends;
     HashMap<String, Status> mFriendStatuses;
-    // TODO: in-memory, duplicate data -- only appropriate for prototype
-    ArrayList<AnnotatedMessage> mNewMessages;
-    ArrayList<AnnotatedMessage> mAllMessages;
+    List<AnnotatedMessage> mNewMessages;
+    List<AnnotatedMessage> mAllMessages;
+    List<LocalResource> mLocalResources;
+    List<Download> mDownloads;
 
     public synchronized void reset() throws Utils.ApplicationError {
         // Warning: deletes all files in DATA_DIRECTORY (not recursively)
@@ -284,15 +350,29 @@ public class Data {
         return mPrivateSelfLocation;
     }
 
-    public synchronized void addSelfStatusMessage(Message message) throws Utils.ApplicationError, DataNotFoundError {
+    public synchronized void addSelfStatusMessage(Message message, List<LocalResource> attachmentLocalResources) throws Utils.ApplicationError, DataNotFoundError {
+        initLocalResources();
+        List<LocalResource> newLocalResources = null;
+        if (attachmentLocalResources != null) {
+            newLocalResources = new ArrayList<LocalResource>(mLocalResources);
+            newLocalResources.addAll(attachmentLocalResources);
+        }
+
         Status currentStatus = getSelfStatus();
-        ArrayList<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
+        List<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
         messages.add(0, message);
         while (messages.size() > Protocol.MAX_MESSAGE_COUNT) {
             messages.remove(messages.size() - 1);
         }
         Status newStatus = new Status(messages, currentStatus.mLocation);
+
+        if (newLocalResources != null) {
+            writeFile(LOCAL_RESOURCES_FILENAME, Json.toJson(newLocalResources));
+        }
         writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
+        if (newLocalResources != null) {
+            mLocalResources.addAll(attachmentLocalResources);
+        }
         mSelfStatus = newStatus;
         Log.addEntry(LOG_TAG, "added your message");
         Events.post(new Events.UpdatedSelfStatus());
@@ -325,7 +405,7 @@ public class Data {
     
     public synchronized List<Friend> getFriends() throws Utils.ApplicationError {
         initFriends();
-        ArrayList<Friend> friends = new ArrayList<Friend>(mFriends);
+        List<Friend> friends = new ArrayList<Friend>(mFriends);
         Collections.sort(friends, new FriendComparator());
         return friends;
     }
@@ -378,7 +458,7 @@ public class Data {
         if (friendWithIdExists || friendWithNicknameExists) {
             throw new DataAlreadyExistsError();
         }
-        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
         newFriends.add(friend);
         writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
         mFriends.add(friend);
@@ -402,7 +482,7 @@ public class Data {
 
     public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
         initFriends();
-        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
         updateFriendHelper(newFriends, friend);
         writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
         updateFriendHelper(mFriends, friend);
@@ -460,7 +540,7 @@ public class Data {
         initFriends();
         Friend friend = getFriendById(id);
         deleteFile(String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id));
-        ArrayList<Friend> newFriends = new ArrayList<Friend>(mFriends);
+        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
         removeFriendHelper(id, newFriends);
         writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
         removeFriendHelper(id, mFriends);
@@ -549,18 +629,26 @@ public class Data {
                 previousStatus.mMessages.size() > 0) {
             lastMessage = previousStatus.mMessages.get(0);
         }
-        ArrayList<AnnotatedMessage> newMessages = new ArrayList<AnnotatedMessage>();
+        List<AnnotatedMessage> newMessages = new ArrayList<AnnotatedMessage>();
         for (Data.Message message : status.mMessages) {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));                
+                // Automatically enqueue new message attachments for download
+                for (Resource resource : message.mAttachments) {
+                    try {
+                        addDownload(friend.mId, resource);
+                    } catch (DataAlreadyExistsError e) {
+                        // Ignore
+                    }
+                }
             } else {
                 break;
             }
         }
 
-        if (newMessages.size() > 0) {
+        if (newMessages.size() > 0) {            
             mNewMessages.addAll(0, newMessages);
             Events.post(new Events.UpdatedNewMessages());
             // Hack to continue supporting self-as-friend, for now
@@ -597,6 +685,112 @@ public class Data {
         return new ArrayList<AnnotatedMessage>(mAllMessages);
     }
     
+    private void initLocalResources() throws Utils.ApplicationError {
+        if (mLocalResources == null) {
+            try {
+                mLocalResources = new ArrayList<LocalResource>(Arrays.asList(Json.fromJson(readFile(LOCAL_RESOURCES_FILENAME), LocalResource[].class)));
+            } catch (DataNotFoundError e) {
+                mLocalResources = new ArrayList<LocalResource>();
+            }
+        }
+    }
+    
+    public synchronized LocalResource getLocalResource(String resourceId) throws Utils.ApplicationError, DataNotFoundError {
+        initLocalResources();
+        for (LocalResource localResource : mLocalResources) {
+            if (localResource.mResourceId.equals(resourceId)) {
+                return localResource;
+            }
+        }
+        throw new DataNotFoundError();
+    }
+
+    private void initDownloads() throws Utils.ApplicationError {
+        if (mDownloads == null) {
+            try {
+                mDownloads = new ArrayList<Download>(Arrays.asList(Json.fromJson(readFile(DOWNLOADS_FILENAME), Download[].class)));
+            } catch (DataNotFoundError e) {
+                mDownloads = new ArrayList<Download>();
+            }
+        }
+    }
+
+    public synchronized Download getDownload(String friendId, String resourceId) throws Utils.ApplicationError, DataNotFoundError {
+        initDownloads();
+        for (Download download : mDownloads) {
+            if (download.mFriendId.equals(friendId) && download.mResourceId.equals(resourceId)) {
+                return download;
+            }
+        }
+        // *** TODO: include resource total size, downloaded size
+        throw new DataNotFoundError();
+    }
+
+    public synchronized Download getNextInProgressDownload(String friendId) throws Utils.ApplicationError, DataNotFoundError {
+        initDownloads();
+        for (Download download : mDownloads) {
+            if (download.mFriendId.equals(friendId) && download.mState == Download.State.IN_PROGRESS) {
+                return download;
+            }
+        }
+        throw new DataNotFoundError();
+    }
+
+    public synchronized void addDownload(String friendId, Resource resource) throws Utils.ApplicationError, DataAlreadyExistsError {
+        initDownloads();
+        try {
+            getDownload(friendId, resource.mId);
+            throw new DataAlreadyExistsError();
+        } catch (DataNotFoundError e) {
+        }        
+        Friend friend = getFriendById(friendId);
+        // TODO: double check resource ID is from valid resource in friend message?
+        Download download = new Download(friendId, resource.mId, resource.mMimeType, resource.mSize, Download.State.IN_PROGRESS);
+        List<Download> newDownloads = new ArrayList<Download>(mDownloads);
+        newDownloads.add(download);
+        writeFile(FRIENDS_FILENAME, Json.toJson(newDownloads));
+        mDownloads.add(download);
+        Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
+        // *** TODO: engine start downloading immediately if not already
+        Events.post(new Events.AddedDownload());
+    }
+    
+    private void updateDownloadHelper(List<Download> list, Download download) throws DataNotFoundError {
+        boolean found = false;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).mFriendId.equals(download.mFriendId) && list.get(i).mResourceId.equals(download.mResourceId)) {
+                list.set(i, download);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            throw new DataNotFoundError();
+        }
+    }
+
+    public synchronized void updateDownloadState(String friendId, String resourceId, Download.State state) throws Utils.ApplicationError, DataNotFoundError {
+        initDownloads();
+        Friend friend = getFriendById(friendId);
+        Download download = getDownload(friendId, resourceId);
+        Download newDownload = new Download(download.mFriendId, download.mResourceId, download.mMimeType, download.mSize, state);
+
+        List<Download> newDownloads = new ArrayList<Download>(mDownloads);
+        updateDownloadHelper(newDownloads, download);
+        writeFile(DOWNLOADS_FILENAME, Json.toJson(newDownloads));
+        updateDownloadHelper(mDownloads, download);
+
+        if (state == Download.State.IN_PROGRESS) {
+            Log.addEntry(LOG_TAG, "resumed download from friend: " + friend.mPublicIdentity.mNickname);
+        } else if (state == Download.State.CANCELLED) {
+            Log.addEntry(LOG_TAG, "cancelled download from friend: " + friend.mPublicIdentity.mNickname);
+        } else if (state == Download.State.COMPLETE) {
+            Log.addEntry(LOG_TAG, "completed download from friend: " + friend.mPublicIdentity.mNickname);
+        }
+        // *** TODO: engine stop downloading on cancel
+        Events.post(new Events.UpdatedDownloadState());
+    }
+
     private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundError {
         FileInputStream inputStream = null;
         try {

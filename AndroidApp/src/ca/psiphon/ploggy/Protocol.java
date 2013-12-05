@@ -28,11 +28,13 @@ public class Protocol {
     
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
     
-    public static final String RESPONSE_MIME_TYPE = "application/json";
-    
     public static final String PUSH_STATUS_REQUEST_PATH = "/pushStatus";
 
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
+    public static final String PULL_STATUS_RESPONSE_MIME_TYPE = "application/json";
+    
+    public static final String DOWNLOAD_REQUEST_PATH = "/download";
+    public static final String DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
 
     public static int MAX_POST_REQUEST_BODY_SIZE = 1000000;
 
@@ -40,6 +42,8 @@ public class Protocol {
     public static int MAX_MESSAGE_LENGTH = 200;
     public static int MAX_MESSAGE_COUNT = 50;
 
+    public static int RESOURCE_ID_LENGTH = 32;
+    
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?
         return nickname.length() > 0;

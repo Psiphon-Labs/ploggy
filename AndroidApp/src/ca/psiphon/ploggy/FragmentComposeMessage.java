@@ -24,8 +24,6 @@ import java.util.Date;
 
 import com.squareup.picasso.Picasso;
 
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -36,12 +34,10 @@ import android.text.InputFilter;
 import android.view.ContextMenu;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
-import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -56,6 +52,8 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
 
     private ImageButton mSetPictureButton;
     private ImageView mPictureThumbnail;
+    private String mPictureMimeType;
+    private String mPicturePath;
     private EditText mContentEdit;
     private ImageButton mSendButton;
     
@@ -133,8 +131,14 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     private void addNewMessage() {
         try {
             String messageContent = mContentEdit.getText().toString();
-            if (messageContent.length() > 0) {
-                Data.getInstance().addSelfStatusMessage(new Data.Message(new Date(), messageContent));
+            if (mPicturePath != null || messageContent.length() > 0) {
+                Resources.MessageWithAttachments message = Resources.createMessageWithAttachment(
+                        new Date(),
+                        messageContent,
+                        Data.LocalResource.Type.PICTURE,
+                        mPictureMimeType,
+                        mPicturePath);
+                Data.getInstance().addSelfStatusMessage(message.mMessage, message.mLocalResources);
                 mContentEdit.getEditableText().clear();
                 Utils.hideKeyboard(getActivity());
             }
@@ -157,21 +161,26 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     private void resetPicture() {
         mSetPictureButton.setVisibility(View.VISIBLE);
         mPictureThumbnail.setVisibility(View.GONE);
+        mPictureMimeType = null;
+        mPicturePath = null;
     }
 
     private void setPicture(Uri pictureUri) {
         // Try to use the MediaStore for gallery selections; otherwise, treat
         // the URI as a filesystem path.
         String path = null;
+        String mimeType = null;
         Cursor cursor = null;
         try {
-            String[] projection = {MediaStore.Images.Media.DATA};
+            String[] projection = {MediaStore.Images.Media.DATA, MediaStore.Images.Media.MIME_TYPE};
             cursor = getActivity().getContentResolver().query(pictureUri, projection, null, null, null);
             if (cursor != null) {
-                int column_index = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
-                if (column_index != -1) {
+                int dataColumnIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATA);
+                int mimeTypeColumnIndex = cursor.getColumnIndex(MediaStore.Images.Media.MIME_TYPE);
+                if (dataColumnIndex != -1 && mimeTypeColumnIndex != -1) {
                     cursor.moveToFirst();
-                    path = cursor.getString(column_index);
+                    path = cursor.getString(dataColumnIndex);
+                    mimeType = cursor.getString(mimeTypeColumnIndex);
                 }
             }
         } finally {
@@ -179,13 +188,32 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
                 cursor.close();
             }
         }
+
+        if (mimeType == null) {
+            // TODO: vs. MimeTypeMap.getMimeTypeFromExtension?
+            mimeType = getActivity().getContentResolver().getType(pictureUri);
+            if (mimeType == null) {
+                mimeType = "application/octet-stream";
+            }
+        }
+
+        // For non-MediaStore cases
         if (path == null) {
             path = pictureUri.getPath();
         }
-        
-        mSetPictureButton.setVisibility(View.GONE);
 
-        Picasso.with(getActivity()).load(new File(path)).into(mPictureThumbnail);
+        // Abort when no path
+        if (path == null) {
+            return;
+        }
+
+        // Show a thumbnail; also, hide the add picture button (user can change picture by touching thumbnail instead).
+        mSetPictureButton.setVisibility(View.GONE);
+        Picasso.with(getActivity()).load(new File(mPicturePath)).into(mPictureThumbnail);
         mPictureThumbnail.setVisibility(View.VISIBLE);
+
+        // These fields hold the picture values used when the message is sent
+        mPicturePath = path;
+        mPictureMimeType = mimeType;        
     }
 }

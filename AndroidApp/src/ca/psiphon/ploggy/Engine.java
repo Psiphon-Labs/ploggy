@@ -20,7 +20,9 @@
 package ca.psiphon.ploggy;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.util.Pair;
 
 import ca.psiphon.ploggy.widgets.TimePickerPreference;
 
@@ -46,7 +49,8 @@ import com.squareup.otto.Subscribe;
  * Coordinator for background Ploggy work.
  * 
  * The Engine:
- * - schedule friend status push/pulls
+ * - schedules friend status push/pulls
+ * - schedules friend resource downloads
  * - maintains a worker thread pool for background tasks (pushing/pulling
  *   friends and handling friend requests
  * - runs the local location monitor
@@ -66,6 +70,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private SharedPreferences mSharedPreferences;
     private ScheduledExecutorService mTaskThreadPool;
     private HashMap<String, ScheduledFuture<?>> mFriendPullTasks;
+    private HashMap<String, ScheduledFuture<?>> mFriendDownloadTasks;
+    
+    // TODO: server: |friends| x 2 threads
+    
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
@@ -86,10 +94,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Events.register(this);
         mTaskThreadPool = Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
         mFriendPullTasks = new HashMap<String, ScheduledFuture<?>>();
+        mFriendDownloadTasks = new HashMap<String, ScheduledFuture<?>>();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         startHiddenService();
-        schedulePullFriends();
+        schedulePullFromFriends();
+        scheduleDownloadFromFriends();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
         Log.addEntry(LOG_TAG, "started");
     }
@@ -107,6 +117,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Utils.shutdownExecutorService(mTaskThreadPool);
             mTaskThreadPool = null;
             mFriendPullTasks = null;
+            mFriendDownloadTasks = null;
         }
         Log.addEntry(LOG_TAG, "stopped");
     }
@@ -247,7 +258,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         //       (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
         try {
             startHiddenService();
-            schedulePullFriends();
+            schedulePullFromFriends();
+            scheduleDownloadFromFriends();
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
         }
@@ -259,7 +271,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: don't need to restart Tor, just web server
         try {
             startHiddenService();
-            schedulePullFriends();
+            schedulePullFromFriends();
+            scheduleDownloadFromFriends();
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
         }
@@ -274,60 +287,20 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void pushToFriends() throws Utils.ApplicationError {
-        // TODO: check for existing pushes in worker thread queue
-        if (!mTorWrapper.isCircuitEstablished()) {
-            // TODO: schedule another push in the future?
-            return;
-        }
+    private void schedulePullFromFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            final String finalFriendId = friend.mId;
-            Runnable task = new Runnable() {
-                public void run() {
-                    Data data = Data.getInstance();
-                    try {
-                        Data.Self self = data.getSelf();
-                        Data.Status selfStatus = data.getSelfStatus();
-                        Data.Friend friend = data.getFriendById(finalFriendId);
-                        Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
-                        WebClient.makePostRequest(
-                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                friend.mPublicIdentity.mX509Certificate,
-                                getTorSocksProxyPort(),
-                                friend.mPublicIdentity.mHiddenServiceHostname,
-                                Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                Protocol.PUSH_STATUS_REQUEST_PATH,
-                                Json.toJson(selfStatus));
-                        data.updateFriendLastSentStatusTimestamp(finalFriendId);
-                    } catch (Data.DataNotFoundError e) {
-                        // Friend was deleted while push was enqueued. Ignore error.
-                    } catch (Utils.ApplicationError e) {
-                        try {
-                            Log.addEntry(LOG_TAG, "failed to push status to: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
-                        } catch (Utils.ApplicationError e2) {
-                            Log.addEntry(LOG_TAG, "failed to push status");
-                        }
-                    }
-                }
-            };
-            submitTask(task);
-        }
-    }
-
-    private void cancelPullFriend(String friendId) {
-        // Cancel any existing pull schedule for this friend
-        if (mFriendPullTasks.containsKey(friendId)) {
-            mFriendPullTasks.get(friendId).cancel(false);
+            schedulePullFromFriend(friend.mId, true);
         }
     }
     
-    private void schedulePullFriend(String friendId, boolean immediateInitialPull) throws Utils.ApplicationError {
+    private void schedulePullFromFriend(String friendId, boolean immediateInitialPull) throws Utils.ApplicationError {
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
                 Data data = Data.getInstance();
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
+                        // TODO: TorWrapper could signal circuit established, triggering a pull, instead of waiting up to a full period for retry
                         return;
                     }
                     Data.Self self = data.getSelf();
@@ -355,19 +328,129 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 }
             }
         };
-        cancelPullFriend(friendId);
-        // TODO: scheduleAtFixedRate has backlog issue
-        
+
+        // Cancel any existing pull schedule for this friend
+        if (mFriendPullTasks.containsKey(friendId)) {
+            mFriendPullTasks.get(friendId).cancel(false);
+        }
+        // TODO: scheduleAtFixedRate has backlog issue        
         int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
                 task, immediateInitialPull ? 0 : delay, delay, TimeUnit.MILLISECONDS);
         mFriendPullTasks.put(friendId, future);
     }
 
-    private void schedulePullFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            schedulePullFriend(friend.mId, true);
+    private void pushToFriends() throws Utils.ApplicationError {
+        // TODO: check for existing pushes in worker thread queue
+        if (!mTorWrapper.isCircuitEstablished()) {
+            // TODO: schedule another push in the future?
+            return;
         }
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            final String finalFriendId = friend.mId;
+            Runnable task = new Runnable() {
+                public void run() {
+                    Data data = Data.getInstance();
+                    try {
+                        Data.Self self = data.getSelf();
+                        Data.Status selfStatus = data.getSelfStatus();
+                        Data.Friend friend = data.getFriendById(finalFriendId);
+                        Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
+                        WebClient.makeJsonPostRequest(
+                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                friend.mPublicIdentity.mX509Certificate,
+                                getTorSocksProxyPort(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                Protocol.PUSH_STATUS_REQUEST_PATH,
+                                Json.toJson(selfStatus));
+                        data.updateFriendLastSentStatusTimestamp(finalFriendId);
+                    } catch (Data.DataNotFoundError e) {
+                        // Friend was deleted while push was enqueued. Ignore error.
+                    } catch (Utils.ApplicationError e) {
+                        try {
+                            Log.addEntry(LOG_TAG, "failed to push status to: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        } catch (Utils.ApplicationError e2) {
+                            Log.addEntry(LOG_TAG, "failed to push status");
+                        }
+                    }
+                }
+            };
+            submitTask(task);
+        }
+    }
+
+    private void scheduleDownloadFromFriends() throws Utils.ApplicationError {
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            scheduleDownloadFromFriend(friend.mId);
+        }
+    }
+    
+    private void scheduleDownloadFromFriend(String friendId) throws Utils.ApplicationError {
+        // Schedules one download (getNextInProgressDownload) per friend at a time.
+        // Reuses pull frequency as a retry frequency for downloads in case of failure
+        // TODO: use a different frequency? don't do polling retries (i.e., don't always wake every period)?
+
+        final String finalFriendId = friendId;
+        Runnable task = new Runnable() {
+            public void run() {
+                Data data = Data.getInstance();
+                try {
+                    if (!mTorWrapper.isCircuitEstablished()) {
+                        // TODO: TorWrapper could signal circuit established, triggering a pull, instead of waiting up to a full period for retry
+                        return;
+                    }
+                    Data.Self self = data.getSelf();
+                    Data.Friend friend = data.getFriendById(finalFriendId);
+                    while (true) {
+                        Data.Download download = null;
+                        try {
+                            download = data.getNextInProgressDownload(finalFriendId);
+                        } catch (Data.DataNotFoundError e) {
+                            break;
+                        }
+                        Log.addEntry(LOG_TAG, "download from: " + friend.mPublicIdentity.mNickname);
+                        // *** TODO: WebClient post to event bus for download progress (...?)
+                        // *** TODO: if getDownloadedSize is already expected size, skip to state change
+                        // *** TODO: race between getDownloadedSize and openDownloadResourceForAppending
+                        Pair<Long, Long> range = new Pair<Long, Long>(Downloads.getDownloadedSize(download), (long)-1);
+                        WebClient.makeGetRequest(
+                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                friend.mPublicIdentity.mX509Certificate,
+                                getTorSocksProxyPort(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                Protocol.DOWNLOAD_REQUEST_PATH,
+                                // Type safety: A generic array of Pair<String,String> is created for a varargs parameter
+                                Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
+                                range,
+                                Downloads.openDownloadResourceForAppending(download));
+                        // *** TODO: update Download state
+                        // *** TODO: expected mime-type? download.mMimeType
+                        // *** TODO: 404/403: denied by peer? -- change Download state to reflect this (new state: CANCELLED?)
+                        // *** TODO: update last received timestamp?
+                    }
+                } catch (Data.DataNotFoundError e) {
+                    // Friend was deleted while pull was enqueued. Ignore error.
+                    // RemovedFriend should eventually cancel schedule.
+                } catch (Utils.ApplicationError e) {
+                    try {
+                        Log.addEntry(LOG_TAG, "failed to download from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (Utils.ApplicationError e2) {
+                        Log.addEntry(LOG_TAG, "failed to download status");
+                    }
+                }
+            }
+        };
+
+        // Cancel any existing download schedule for this friend
+        if (mFriendDownloadTasks.containsKey(friendId)) {
+            mFriendDownloadTasks.get(friendId).cancel(false);
+        }
+        // TODO: scheduleAtFixedRate has backlog issue
+        int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
+        ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(task, 0, delay, TimeUnit.MILLISECONDS);
+        mFriendDownloadTasks.put(friendId, future);
     }
     
     public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
@@ -390,8 +473,20 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: we don't yet know the friend really received the response bytes
         data.updateFriendLastReceivedStatusTimestamp(friend.mId);
         // Reschedule (delay) any outstanding pull from this friend
-        schedulePullFriend(friend.mId, false);
+        schedulePullFromFriend(friend.mId, false);
         Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
+    }
+    
+    public synchronized WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
+            String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
+        // *** TODO: uncaught DataNotFoundError won't log invalid resourceId
+        Data data = Data.getInstance();
+        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+        Data.LocalResource localResource = data.getLocalResource(resourceId);
+        InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
+        // *** TODO: update last sent timestamp?
+        Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
+        return new DownloadResponse(localResource.mMimeType, inputStream);
     }
     
     public synchronized Context getContext() {
