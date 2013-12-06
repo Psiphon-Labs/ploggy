@@ -211,7 +211,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
 
         // Show a thumbnail; also, hide the add picture button (user can change picture by touching thumbnail instead).
         mSetPictureButton.setVisibility(View.GONE);
-        Picasso.with(getActivity()).load(new File(mPicturePath)).into(mPictureThumbnail);
+        Picasso.with(getActivity()).load(new File(path)).into(mPictureThumbnail);
         mPictureThumbnail.setVisibility(View.VISIBLE);
 
         // These fields hold the picture values used when the message is sent
