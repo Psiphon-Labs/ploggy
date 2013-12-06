@@ -165,7 +165,6 @@ public class WebClient {
             null); // responseBodyStream
     }
 
-    // --- request.addHeader("Range", "bytes="+Long.toString(resumableDownload.getResumeOffset()) + "-");
     private static void makeRequest(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
@@ -188,8 +187,10 @@ public class WebClient {
                         .setHost(hostname)
                         .setPort(port)
                         .setPath(requestPath);
-            for (Pair<String,String> requestParameter : requestParameters) {
-                uriBuilder.addParameter(requestParameter.first, requestParameter.second);
+            if (requestParameters != null) {
+                for (Pair<String,String> requestParameter : requestParameters) {
+                    uriBuilder.addParameter(requestParameter.first, requestParameter.second);
+                }
             }
             URI uri = uriBuilder.build();
 
@@ -216,6 +217,13 @@ public class WebClient {
                 entity.setContentType(requestBodyMimeType);
                 postRequest.setEntity(entity);
                 request = postRequest;
+            }
+            if (rangeHeader != null) {
+                String value = "bytes="+Long.toString(rangeHeader.first) + "-";
+                if (rangeHeader.second != -1) {
+                    value = value + Long.toString(rangeHeader.second);
+                }
+                request.addHeader("Range", value);
             }
             HttpResponse response = client.execute(request);
             int statusCode = response.getStatusLine().getStatusCode();

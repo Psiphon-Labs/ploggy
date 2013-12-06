@@ -118,7 +118,7 @@ public class MessageAdapter extends BaseAdapter {
             break;
         }
         
-        if (message.mAttachments.size() > 0) {
+        if (message.mAttachments != null && message.mAttachments.size() > 0) {
             try {
                 if (friendId != null) {
                     download = Data.getInstance().getDownload(friendId, message.mAttachments.get(0).mId);
@@ -188,12 +188,20 @@ public class MessageAdapter extends BaseAdapter {
 
     @Override
     public int getCount() {
-        return mAnnotatedMessages.size();
+        if (mMode == Mode.ALL_MESSAGES) {
+            return mAnnotatedMessages.size();
+        } else {
+            return mMessages.size();            
+        }
     }
 
     @Override
     public Object getItem(int position) {
-        return mAnnotatedMessages.get(position);
+        if (mMode == Mode.ALL_MESSAGES) {
+            return mAnnotatedMessages.get(position);
+        } else {
+            return mMessages.get(position);
+        }
     }
 
     @Override
