@@ -242,6 +242,9 @@ public class Data {
         }
     }
     
+    // TODO: fix -- having these errors as subclasses of Utils.ApplicationError with
+    // no log can result in silent failures when functions only handle the base class
+    
     public static class DataNotFoundError extends Utils.ApplicationError {
         private static final long serialVersionUID = -8736069103392081076L;
         
@@ -725,7 +728,6 @@ public class Data {
                 return download;
             }
         }
-        // *** TODO: include resource total size, downloaded size
         throw new DataNotFoundError();
     }
 
@@ -754,8 +756,7 @@ public class Data {
         writeFile(FRIENDS_FILENAME, Json.toJson(newDownloads));
         mDownloads.add(download);
         Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
-        // *** TODO: engine start downloading immediately if not already
-        //Events.post(new Events.AddedDownload());
+        Events.post(new Events.AddedDownload(friendId, resource.mId));
     }
     
     private void updateDownloadHelper(List<Download> list, Download download) throws DataNotFoundError {

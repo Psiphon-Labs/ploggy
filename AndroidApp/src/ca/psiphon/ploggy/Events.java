@@ -146,4 +146,14 @@ public class Events {
 
     public static class DisplayedMessages {
     }
+
+    public static class AddedDownload {
+        public final String mFriendId;
+        public final String mResourceId;
+
+        public AddedDownload(String friendId, String resourceId) {
+            mFriendId = friendId;
+            mResourceId = resourceId;
+        }
+    }
 }

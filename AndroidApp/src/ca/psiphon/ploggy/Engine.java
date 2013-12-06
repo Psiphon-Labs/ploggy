@@ -302,6 +302,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
+    @Subscribe
+    public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
+        // Schedule immediate download, if not already downloading from friend
+        try {
+            scheduleDownloadFromFriend(addedDownload.mFriendId);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to schedule download from friend after added download");
+        }
+    }
+
     private void schedulePullFromFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             schedulePullFromFriend(friend.mId, true);
@@ -348,6 +358,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (mFriendPullTasks.containsKey(friendId)) {
             mFriendPullTasks.get(friendId).cancel(false);
         }
+
         // TODO: scheduleAtFixedRate has backlog issue        
         int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
@@ -424,26 +435,31 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         } catch (Data.DataNotFoundError e) {
                             break;
                         }
-                        Log.addEntry(LOG_TAG, "download from: " + friend.mPublicIdentity.mNickname);
-                        // *** TODO: WebClient post to event bus for download progress (...?)
-                        // *** TODO: if getDownloadedSize is already expected size, skip to state change
-                        // *** TODO: race between getDownloadedSize and openDownloadResourceForAppending
-                        Pair<Long, Long> range = new Pair<Long, Long>(Downloads.getDownloadedSize(download), (long)-1);
-                        WebClient.makeGetRequest(
-                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                friend.mPublicIdentity.mX509Certificate,
-                                getTorSocksProxyPort(),
-                                friend.mPublicIdentity.mHiddenServiceHostname,
-                                Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                Protocol.DOWNLOAD_REQUEST_PATH,
-                                // Type safety: A generic array of Pair<String,String> is created for a varargs parameter
-                                Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
-                                range,
-                                Downloads.openDownloadResourceForAppending(download));
-                        // *** TODO: update Download state
-                        // *** TODO: expected mime-type? download.mMimeType
-                        // *** TODO: 404/403: denied by peer? -- change Download state to reflect this (new state: CANCELLED?)
-                        // *** TODO: update last received timestamp?
+                        // TODO: there's a potential race condition between getDownloadedSize and
+                        // openDownloadResourceForAppending; we may want to lock the file first.
+                        // However: currently only one thread downloads files for a given friend.
+                        long downloadedSize = Downloads.getDownloadedSize(download);
+                        if (downloadedSize == download.mSize) {
+                            // Already downloaded complete file, but may have failed to commit
+                            // the COMPLETED state change. Skip the download.
+                        } else {
+                            Log.addEntry(LOG_TAG, "download from: " + friend.mPublicIdentity.mNickname);
+                            Pair<Long, Long> range = new Pair<Long, Long>(downloadedSize, (long)-1);
+                            WebClient.makeGetRequest(
+                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                    friend.mPublicIdentity.mX509Certificate,
+                                    getTorSocksProxyPort(),
+                                    friend.mPublicIdentity.mHiddenServiceHostname,
+                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                    Protocol.DOWNLOAD_REQUEST_PATH,
+                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
+                                    range,
+                                    Downloads.openDownloadResourceForAppending(download));
+                        }
+                        data.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
+                        // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)
+                        // TODO: 404/403: denied by peer? -- change Download state to reflect this and don't retry (e.g., new state: CANCELLED)
+                        // TODO: update some last received timestamp?
                     }
                 } catch (Data.DataNotFoundError e) {
                     // Friend was deleted while pull was enqueued. Ignore error.
@@ -458,10 +474,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         };
 
-        // Cancel any existing download schedule for this friend
-        if (mFriendDownloadTasks.containsKey(friendId)) {
-            mFriendDownloadTasks.get(friendId).cancel(false);
+        // Only schedule if there's no existing task
+        if (mFriendDownloadTasks.containsKey(friendId) &&
+                !mFriendDownloadTasks.get(friendId).isDone()) {
+            return;
         }
+
         // TODO: scheduleAtFixedRate has backlog issue
         int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
         ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(task, 0, delay, TimeUnit.MILLISECONDS);
@@ -471,37 +489,48 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
         // Friend is requesting (pulling) self status
         // TODO: cancel any pending push to this friend?
-        Data data = Data.getInstance();
-        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-        Data.Status status = data.getSelfStatus();
-        // TODO: we don't yet know the friend really received the response bytes
-        data.updateFriendLastSentStatusTimestamp(friend.mId);
-        Log.addEntry(LOG_TAG, "served pull status request for " + friend.mPublicIdentity.mNickname);
-        return status;        
+        try {
+            Data data = Data.getInstance();
+            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+            Data.Status status = data.getSelfStatus();
+            // TODO: we don't yet know the friend really received the response bytes
+            data.updateFriendLastSentStatusTimestamp(friend.mId);
+            Log.addEntry(LOG_TAG, "served pull status request for " + friend.mPublicIdentity.mNickname);
+            return status;
+        } catch (Data.DataNotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "failed to handle pull status request: friend not found");
+        }
     }
     
     public synchronized void handlePushStatusRequest(String friendCertificate, Data.Status status) throws Utils.ApplicationError  {
         // Friend is pushing their own status
-        Data data = Data.getInstance();
-        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-        data.updateFriendStatus(friend.mId, status);
-        // TODO: we don't yet know the friend really received the response bytes
-        data.updateFriendLastReceivedStatusTimestamp(friend.mId);
-        // Reschedule (delay) any outstanding pull from this friend
-        schedulePullFromFriend(friend.mId, false);
-        Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
+        try {
+            Data data = Data.getInstance();
+            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+            data.updateFriendStatus(friend.mId, status);
+            // TODO: we don't yet know the friend really received the response bytes
+            data.updateFriendLastReceivedStatusTimestamp(friend.mId);
+            // Reschedule (delay) any outstanding pull from this friend
+            schedulePullFromFriend(friend.mId, false);
+            Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
+        } catch (Data.DataNotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");
+        }
     }
     
     public synchronized WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
             String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
-        // *** TODO: uncaught DataNotFoundError won't log invalid resourceId
-        Data data = Data.getInstance();
-        Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-        Data.LocalResource localResource = data.getLocalResource(resourceId);
-        InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
-        // *** TODO: update last sent timestamp?
-        Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
-        return new DownloadResponse(localResource.mMimeType, inputStream);
+        try {
+            Data data = Data.getInstance();
+            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+            Data.LocalResource localResource = data.getLocalResource(resourceId);
+            InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
+            // TODO: update last some last sent timestamp?
+            Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
+            return new DownloadResponse(localResource.mMimeType, inputStream);
+        } catch (Data.DataNotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
+        }
     }
     
     public synchronized Context getContext() {
