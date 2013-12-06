@@ -50,6 +50,8 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
 
     private static final String LOG_TAG = "Compose Message";
 
+    // TODO: support multiple attachments
+
     private ImageButton mSetPictureButton;
     private ImageView mPictureThumbnail;
     private String mPictureMimeType;

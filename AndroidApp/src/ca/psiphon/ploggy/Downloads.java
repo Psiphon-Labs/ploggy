@@ -51,7 +51,7 @@ public class Downloads {
         }
     }
 
-    private static File getDownloadFile(Data.Download download) {
+    public static File getDownloadFile(Data.Download download) {
         File directory = Utils.getApplicationContext().getDir(DOWNLOADS_DIRECTORY, Context.MODE_PRIVATE);
         directory.mkdirs();
         return new File(directory, String.format(DOWNLOAD_FILENAME_FORMAT_STRING, download.mFriendId, download.mResourceId));

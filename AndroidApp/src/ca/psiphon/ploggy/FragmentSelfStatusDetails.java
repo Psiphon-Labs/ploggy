@@ -50,6 +50,7 @@ public class FragmentSelfStatusDetails extends Fragment {
     private TextView mNicknameText;
     private TextView mFingerprintText;
     private ListView mMessagesList;
+    private MessageAdapter mMessageAdapter;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
     private TextView mLocationStreetAddressText;
@@ -59,6 +60,7 @@ public class FragmentSelfStatusDetails extends Fragment {
     private TextView mLocationPrecisionText;
     private TextView mLocationTimestampLabel;
     private TextView mLocationTimestampText;
+    Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -80,7 +82,7 @@ public class FragmentSelfStatusDetails extends Fragment {
         mLocationPrecisionText = (TextView)view.findViewById(R.id.self_status_details_location_precision_text);
         mLocationTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
-
+        
         // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
         // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
         mScrollView.setOnTouchListener(
@@ -121,7 +123,19 @@ public class FragmentSelfStatusDetails extends Fragment {
                 }
             });
 
-        show(view);
+        try {
+            mMessageAdapter = new MessageAdapter(getActivity(), MessageAdapter.Mode.SELF_MESSAGES);
+            mMessagesList.setAdapter(mMessageAdapter);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to load self messages");
+        }
+
+        show();
+
+        // Refresh the message list every 5 seconds. This updates "time ago" displays.
+        // TODO: event driven redrawing?
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
+        mRefreshUIExecutor.start();
 
         Events.register(this);
 
@@ -144,27 +158,25 @@ public class FragmentSelfStatusDetails extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-
+        mRefreshUIExecutor.stop();
         Events.unregister(this);
     }
 
     @Subscribe
     public void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
-        View view = getView();
-        if (view != null) {
-            show(view);
-        }
+        show();
     }
 
     @Subscribe
     public void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
-        View view = getView();
-        if (view != null) {
-            show(view);
-        }
+        show();
     }
 
-    private void show(View view) {
+    private void show() {
+        View view = getView();
+        if (view == null) {
+            return;
+        }
         try {
             Data data = Data.getInstance();
             Data.Self self = data.getSelf();
@@ -183,11 +195,9 @@ public class FragmentSelfStatusDetails extends Fragment {
             // Note: always show message section label and content edit
             int messageVisibility = (selfStatus.mMessages.size() > 0) ? View.VISIBLE : View.GONE;
             mMessagesList.setVisibility(messageVisibility);
-            if (selfStatus.mMessages.size() > 0) {
-                Utils.MessageAdapter adapter = new Utils.MessageAdapter(getActivity(), selfStatus.mMessages);
-                mMessagesList.setAdapter(adapter);
+            if (mMessageAdapter != null) {
+                mMessageAdapter.updateMessages();
             }
-
             int locationVisibility = (selfLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
             mLocationLabel.setVisibility(locationVisibility);
             mLocationStreetAddressLabel.setVisibility(locationVisibility);

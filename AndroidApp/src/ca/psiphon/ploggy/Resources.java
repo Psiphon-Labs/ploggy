@@ -149,6 +149,7 @@ public class Resources {
             }
             outputStream = new FileOutputStream(target);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+            bitmap.recycle();
         } catch (OutOfMemoryError e) {
             // Expected condition due to bitmap loading; friend will eventually retry download
             throw new Utils.ApplicationError(LOG_TAG, "out of memory error");

@@ -125,12 +125,15 @@ public class Data {
     
     public static class AnnotatedMessage {
         public final Identity.PublicIdentity mPublicIdentity;
+        public final String mFriendId;
         public final Data.Message mMessage;
 
         public AnnotatedMessage(
                 Identity.PublicIdentity publicIdentity,
+                String friendId,
                 Data.Message message) {
             mPublicIdentity = publicIdentity;
+            mFriendId = friendId;
             mMessage = message;
         }
     }
@@ -376,7 +379,7 @@ public class Data {
         mSelfStatus = newStatus;
         Log.addEntry(LOG_TAG, "added your message");
         Events.post(new Events.UpdatedSelfStatus());
-        addMessagesHelper(getSelf(), message);
+        addSelfMessageHelper(getSelf(), message);
     }
 
     public synchronized void updateSelfStatusLocation(Location location, boolean shared) throws Utils.ApplicationError {
@@ -584,7 +587,7 @@ public class Data {
         writeFile(filename, Json.toJson(status));
         Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.UpdatedFriendStatus(friend.mId));
-        addMessagesHelper(friend, status, previousStatus);
+        addFriendMessagesHelper(friend, status, previousStatus);
     }
 
     private void initMessages() throws Utils.ApplicationError {
@@ -599,7 +602,7 @@ public class Data {
             Self self = getSelf();
             try {
                 for (Message message : getSelfStatus().mMessages) {
-                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity, message));
+                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity, null, message));
                 }
             } catch (DataNotFoundError e) {
                 // Skip
@@ -609,7 +612,7 @@ public class Data {
                 if (!self.mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
                     try {
                         for (Message message : getFriendStatus(friend.mId).mMessages) {
-                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));
+                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));
                         }
                     } catch (DataNotFoundError e) {
                         // Skip
@@ -621,7 +624,7 @@ public class Data {
         }
     }
     
-    private void addMessagesHelper(Friend friend, Status status, Status previousStatus) throws Utils.ApplicationError {
+    private void addFriendMessagesHelper(Friend friend, Status status, Status previousStatus) throws Utils.ApplicationError {
         // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
         initMessages();
         Data.Message lastMessage = null;
@@ -634,7 +637,7 @@ public class Data {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, message));                
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));                
                 // Automatically enqueue new message attachments for download
                 for (Resource resource : message.mAttachments) {
                     try {
@@ -660,9 +663,9 @@ public class Data {
         }
     }
 
-    private void addMessagesHelper(Self self, Message message) throws Utils.ApplicationError {
+    private void addSelfMessageHelper(Self self, Message message) throws Utils.ApplicationError {
         initMessages();
-        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, message));
+        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, null, message));
         Events.post(new Events.UpdatedAllMessages());
     }
     
@@ -788,6 +791,7 @@ public class Data {
             Log.addEntry(LOG_TAG, "completed download from friend: " + friend.mPublicIdentity.mNickname);
         }
         // *** TODO: engine stop downloading on cancel
+        // *** TODO: delete download file on cancel
         //Events.post(new Events.UpdatedDownloadState());
     }
 

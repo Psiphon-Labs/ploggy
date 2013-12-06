@@ -52,6 +52,7 @@ public class FragmentFriendList extends ListFragment {
 
     private boolean mIsResumed = false;
     private FriendAdapter mFriendAdapter;
+    Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -61,6 +62,11 @@ public class FragmentFriendList extends ListFragment {
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
         }
+
+        // Refresh the message list every 5 seconds. This updates "time ago" displays.
+        // TODO: event driven redrawing?
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {updateFriends();}}, 5000);
+
         return view;
     }
 
@@ -71,6 +77,7 @@ public class FragmentFriendList extends ListFragment {
             setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(getListView());
+        mRefreshUIExecutor.start();
         Events.register(this);
     }
 
@@ -90,6 +97,7 @@ public class FragmentFriendList extends ListFragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        mRefreshUIExecutor.stop();
         Events.unregister(this);
     }
 

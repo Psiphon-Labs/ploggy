@@ -47,6 +47,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.location.Location;
 import android.os.FileObserver;
+import android.os.Handler;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -372,6 +373,38 @@ public class Utils {
         }
     }
 
+    public static class FixedDelayExecutor {
+        private Handler mHandler;
+        private Runnable mExecutorTask;
+        private Runnable mTask;
+        private int mDelayInMilliseconds;
+
+        public FixedDelayExecutor(Runnable task, int delayInMilliseconds) {
+            mHandler = new Handler();
+            mTask = task;
+            mDelayInMilliseconds = delayInMilliseconds;
+        }
+        
+        public void start() {
+            stop();
+            mExecutorTask = new Runnable() {
+                @Override
+                public void run() {
+                    mTask.run();
+                    mHandler.postDelayed(mExecutorTask, 1000*mDelayInMilliseconds);
+                }
+            };
+            mHandler.postDelayed(mExecutorTask, 1000*mDelayInMilliseconds);
+        }
+        
+        public void stop() {
+            if (mExecutorTask != null) {
+                mHandler.removeCallbacks(mExecutorTask);
+                mExecutorTask = null;
+            }
+        }
+    }
+    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {
@@ -389,37 +422,6 @@ public class Utils {
                     (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
             inputManager.hideSoftInputFromWindow(
                     currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
-        }
-    }
-
-    public static class MessageAdapter extends ArrayAdapter<Data.Message> {
-        private Context mContext;
-        
-        public MessageAdapter(Context context, List<Data.Message> messages) {
-            super(context, R.layout.message_list_row, messages);
-            mContext = context;
-        }
-
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.message_list_row, null);
-            }
-            Data.Message message = getItem(position);
-            if (message != null) {
-                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
-                TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
-                TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
-
-                // TODO: use a different layout instead of inflating then hiding?
-                avatarImage.setVisibility(View.GONE);
-                nicknameText.setVisibility(View.GONE);
-                contentText.setText(message.mContent);
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
-            }
-            return view;
         }
     }
 }

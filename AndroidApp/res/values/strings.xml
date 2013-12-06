@@ -73,6 +73,7 @@
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>
     <string name="format_status_details_precision">%1$d meters</string>
     <string name="prompt_status_details_data_not_found">Status details not found</string>
+    <string name="format_download_progress">%%1$.1f</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
     <string name="preference_use_geocoder_summary">Use 3rd party service to map current latitude/longitude to street address</string>
