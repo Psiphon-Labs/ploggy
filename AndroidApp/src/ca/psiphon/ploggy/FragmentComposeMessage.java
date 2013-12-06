@@ -142,6 +142,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
                         mPicturePath);
                 Data.getInstance().addSelfStatusMessage(message.mMessage, message.mLocalResources);
                 mContentEdit.getEditableText().clear();
+                resetPicture();
                 Utils.hideKeyboard(getActivity());
             }
         } catch (Utils.ApplicationError e) {
