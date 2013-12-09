@@ -180,18 +180,18 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         long startFrom = 0;
         long endAt = -1;
         String range = session.getHeaders().get("range");
-        if (range != null) {
-            if (range.startsWith("bytes=")) {
-                range = range.substring("bytes=".length());
-                int minus = range.indexOf('-');
-                try {
-                    if (minus > 0) {
-                        startFrom = Long.parseLong(range.substring(0, minus));
+        if (range != null && range.startsWith("bytes=")) {
+            range = range.substring("bytes=".length());
+            int minus = range.indexOf('-');
+            try {
+                if (minus > 0) {
+                    startFrom = Long.parseLong(range.substring(0, minus));
+                    if (minus < range.length() - 1) {
                         endAt = Long.parseLong(range.substring(minus + 1));
                     }
-                } catch (NumberFormatException ignored) {
-                    throw new Utils.ApplicationError(LOG_TAG, "invalid range header");
                 }
+            } catch (NumberFormatException ignored) {
+                throw new Utils.ApplicationError(LOG_TAG, "invalid range header");
             }
         }
         return new Pair<Long, Long>(startFrom, endAt);

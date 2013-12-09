@@ -83,6 +83,7 @@ public class Resources {
         InputStream inputStream = null;
         try {
             File file = new File(localResource.mFilePath);
+
             if (localResource.mType == Data.LocalResource.Type.PICTURE) {
                 File temporaryCopyFile = getTemporaryCopyFile(localResource);
                 // TODO: file size/date check sufficient?
@@ -126,6 +127,7 @@ public class Resources {
             BitmapFactory.Options bitmapFactoryOptions = new BitmapFactory.Options();
             bitmapFactoryOptions.inJustDecodeBounds = true;
             inputStream = new FileInputStream(source);
+            
             if (BitmapFactory.decodeStream(inputStream, null, bitmapFactoryOptions) == null) {
                 throw new Utils.ApplicationError(LOG_TAG, "cannot decode image size");
             }
@@ -158,11 +160,11 @@ public class Resources {
         } finally {
             if (inputStream != null) {
                 try {
-                    outputStream.close();
+                    inputStream.close();
                 } catch (IOException e) {
                 }
             }
-            if (inputStream != null) {
+            if (outputStream != null) {
                 try {
                     outputStream.close();
                 } catch (IOException e) {

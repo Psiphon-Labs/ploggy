@@ -125,7 +125,7 @@ public class MessageAdapter extends BaseAdapter {
                     if (download.mState == Data.Download.State.IN_PROGRESS) {
                         long downloadedSize = Downloads.getDownloadedSize(download);
                         if (download.mSize > 0) {
-                            downloadProgress = (double)downloadedSize/(double)download.mSize;
+                            downloadProgress = 100.0*(double)downloadedSize/(double)download.mSize;
                         }
                     }
                 } else {
@@ -191,7 +191,7 @@ public class MessageAdapter extends BaseAdapter {
         if (mMode == Mode.ALL_MESSAGES) {
             return mAnnotatedMessages.size();
         } else {
-            return mMessages.size();            
+            return mMessages.size();
         }
     }
 

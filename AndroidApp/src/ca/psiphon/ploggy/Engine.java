@@ -512,6 +512,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             data.updateFriendLastReceivedStatusTimestamp(friend.mId);
             // Reschedule (delay) any outstanding pull from this friend
             schedulePullFromFriend(friend.mId, false);
+            // Immediately start any pending downloads, since we know friend is online
+            scheduleDownloadFromFriend(friend.mId);
             Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.DataNotFoundError e) {
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");

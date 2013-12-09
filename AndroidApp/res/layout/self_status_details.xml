@@ -101,7 +101,7 @@
     <ListView
         android:id="@+id/self_status_details_messages_list"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="200dip"
         android:typeface="sans"
         android:textSize="12dip" />
 

@@ -219,7 +219,7 @@ public class WebClient {
                 request = postRequest;
             }
             if (rangeHeader != null) {
-                String value = "bytes="+Long.toString(rangeHeader.first) + "-";
+                String value = "bytes=" + Long.toString(rangeHeader.first) + "-";
                 if (rangeHeader.second != -1) {
                     value = value + Long.toString(rangeHeader.second);
                 }

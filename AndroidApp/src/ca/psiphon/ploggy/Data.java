@@ -753,7 +753,7 @@ public class Data {
         Download download = new Download(friendId, resource.mId, resource.mMimeType, resource.mSize, Download.State.IN_PROGRESS);
         List<Download> newDownloads = new ArrayList<Download>(mDownloads);
         newDownloads.add(download);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newDownloads));
+        writeFile(DOWNLOADS_FILENAME, Json.toJson(newDownloads));
         mDownloads.add(download);
         Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.AddedDownload(friendId, resource.mId));
@@ -780,9 +780,9 @@ public class Data {
         Download newDownload = new Download(download.mFriendId, download.mResourceId, download.mMimeType, download.mSize, state);
 
         List<Download> newDownloads = new ArrayList<Download>(mDownloads);
-        updateDownloadHelper(newDownloads, download);
+        updateDownloadHelper(newDownloads, newDownload);
         writeFile(DOWNLOADS_FILENAME, Json.toJson(newDownloads));
-        updateDownloadHelper(mDownloads, download);
+        updateDownloadHelper(mDownloads, newDownload);
 
         if (state == Download.State.IN_PROGRESS) {
             Log.addEntry(LOG_TAG, "resumed download from friend: " + friend.mPublicIdentity.mNickname);
