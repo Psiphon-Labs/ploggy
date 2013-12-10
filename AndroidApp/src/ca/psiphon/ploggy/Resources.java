@@ -60,12 +60,18 @@ public class Resources {
             String messageContent,
             Data.LocalResource.Type localResourceType,
             String attachmentMimeType,
-            String attachmentFilePath) {        
+            String attachmentFilePath) throws Utils.ApplicationError {
          // Create a resource with a random ID and add it to the message
          // Friends only see the random ID, not the local resource file name
          // Note: never reusing resource IDs, even if same local e.g., file, has been published previously
          String id = Utils.formatFingerprint(Utils.getRandomBytes(Protocol.RESOURCE_ID_LENGTH));
-         Data.Resource resource = new Data.Resource(id, attachmentMimeType, new File(attachmentFilePath).length());
+         File file = new File(attachmentFilePath);
+         if (localResourceType == Data.LocalResource.Type.PICTURE) {
+             // If the resource is transformed (e.g., picture is auto-scaled-down and has no metadata)
+             // then we need to do that now, to get the correct size
+             file = makeTemporaryCopyPictureFile(attachmentFilePath, id);
+         }
+         Data.Resource resource = new Data.Resource(id, attachmentMimeType, file.length());
          List<Data.Resource> messageAttachments = Arrays.asList(resource);
          Data.LocalResource localResource = new Data.LocalResource(localResourceType, id, attachmentMimeType, attachmentFilePath, null);
          List<Data.LocalResource> localResources = Arrays.asList(localResource);
@@ -78,15 +84,8 @@ public class Resources {
         InputStream inputStream = null;
         try {
             File file = new File(localResource.mFilePath);
-
             if (localResource.mType == Data.LocalResource.Type.PICTURE) {
-                File temporaryCopyFile = getTemporaryCopyFile(localResource);
-                // TODO: file size/date check sufficient?
-                if (temporaryCopyFile.length() != file.length() ||
-                        new Date(file.lastModified()).after(new Date(temporaryCopyFile.lastModified()))) {
-                    Pictures.copyScaledBitmapWithoutMetadata(file, temporaryCopyFile);
-                }
-                file = temporaryCopyFile;
+                file = makeTemporaryCopyPictureFile(localResource.mFilePath, localResource.mResourceId);
             }
             inputStream = new FileInputStream(file);
             // TODO: ignoring endAt (range.second)!
@@ -105,9 +104,20 @@ public class Resources {
         }
     }    
     
-    private static File getTemporaryCopyFile(Data.LocalResource localResource) {
+    private static File getTemporaryCopyFile(String resourceId) {
         File directory = Utils.getApplicationContext().getCacheDir();
         directory.mkdirs();
-        return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, localResource.mResourceId));
+        return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, resourceId));
+    }
+    
+    private static File makeTemporaryCopyPictureFile(String filePath, String resourceId) throws Utils.ApplicationError {
+        File file = new File(filePath);
+        File temporaryCopyFile = getTemporaryCopyFile(resourceId);
+        // TODO: file size/date check sufficient?
+        if (temporaryCopyFile.length() != file.length() ||
+                new Date(file.lastModified()).after(new Date(temporaryCopyFile.lastModified()))) {
+            Pictures.copyScaledBitmapWithoutMetadata(file, temporaryCopyFile);
+        }
+        return temporaryCopyFile;
     }
 }
