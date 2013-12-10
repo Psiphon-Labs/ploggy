@@ -25,6 +25,7 @@ import java.util.Date;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
@@ -105,8 +106,10 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(requestCode == REQUEST_CODE_SELECT_IMAGE && data != null && data.getData() != null) {
-            setPicture(data.getData());
+        if(requestCode == REQUEST_CODE_SELECT_IMAGE) {
+            if (data != null && data.getData() != null) {
+                setPicture(data.getData());
+            }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
@@ -149,9 +152,18 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     }
 
     private void selectPicture() {
-        Intent intent = new Intent();
+        Intent intent;
+        if (Build.VERSION.SDK_INT < 19) {
+            intent = new Intent(Intent.ACTION_GET_CONTENT);
+        } else {
+            // TODO: properly support the new DocumentsActivity invoked for
+            // Intent.ACTION_GET_CONTENT on KitKat. This includes getting
+            // results from cloud providers such as Drive -- which are only
+            // available as streams, not files.
+            // For now, forcing the equivilent of pre-KitKat gallery selection...
+            intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        }
         intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
         startActivityForResult(
                 Intent.createChooser(
                         intent,
@@ -211,10 +223,13 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
         // Show a thumbnail; also, hide the add picture button (user can change picture by touching thumbnail instead).
         mSetPictureButton.setVisibility(View.GONE);
         mPictureThumbnail.setVisibility(View.VISIBLE);
-        Pictures.loadThumbnail(getActivity(), new File(path), mPictureThumbnail);
-
-        // These fields hold the picture values used when the message is sent
-        mPicturePath = path;
-        mPictureMimeType = mimeType;        
+        if (Pictures.loadThumbnail(getActivity(), new File(path), mPictureThumbnail)) {
+            // These fields hold the picture values used when the message is sent
+            mPicturePath = path;
+            mPictureMimeType = mimeType;
+        } else {
+            mPicturePath = null;
+            mPictureMimeType = null;
+        }
     }
 }

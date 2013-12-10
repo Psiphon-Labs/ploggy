@@ -45,7 +45,7 @@ public class Pictures {
     
     private static BitmapCache mThumbnailCache = new BitmapCache();
     
-    public static void loadThumbnail(Context context, File source, ImageView target) {
+    public static boolean loadThumbnail(Context context, File source, ImageView target) {
         try {
             String key = source.getAbsolutePath();
             Bitmap bitmap = mThumbnailCache.get(key);
@@ -71,16 +71,20 @@ public class Pictures {
                             finalContext.startActivity(intent);
                         }
                     });
+            return true;
         } catch (Utils.ApplicationError e) {
             target.setImageResource(R.drawable.ic_picture_load_error);
         }
+        return false;
     }
     
-    public static void loadPicture(File source, ImageView target) {
+    public static boolean loadPicture(File source, ImageView target) {
         try {
             target.setImageBitmap(loadScaledBitmap(source, MAX_PICTURE_SIZE_IN_PIXELS));
+            return true;
         } catch (Utils.ApplicationError e) {
             target.setImageResource(R.drawable.ic_picture_load_error);
+            return false;
         }
     }
     
