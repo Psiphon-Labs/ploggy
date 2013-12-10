@@ -80,6 +80,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     
     private static final int THREAD_POOL_SIZE = 30;
 
+    // SCHEDULED_REQUEST_DELAY_IN_SECONDS is intended to compensate for
+    // peer hidden service publish latency. Use this when scheduling requests
+    // unless in response to a received peer communication (so, use it on
+    // start up, or when a friend is added, for example).
+    private static final int SCHEDULED_REQUEST_DELAY_IN_MILLISECONDS = 30*1000;
+
     public Engine(Context context) {
         Utils.initSecureRandom();
         mContext = context;
@@ -313,8 +319,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
         // Schedule immediate download, if not already downloading from friend
+        // Skips SCHEDULED_REQUEST_DELAY_IN_MILLISECONDS since friend is online (just received message with attachment)
         try {
-            scheduleDownloadFromFriend(addedDownload.mFriendId);
+            scheduleDownloadFromFriend(addedDownload.mFriendId, 0);
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to schedule download from friend after added download");
         }
@@ -322,11 +329,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void schedulePullFromFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            schedulePullFromFriend(friend.mId, true);
+            schedulePullFromFriend(friend.mId, SCHEDULED_REQUEST_DELAY_IN_MILLISECONDS);
         }
     }
     
-    private void schedulePullFromFriend(String friendId, boolean immediateInitialPull) throws Utils.ApplicationError {
+    private void schedulePullFromFriend(String friendId, int initialDelay) throws Utils.ApplicationError {
         final String finalFriendId = friendId;
         Runnable task = new Runnable() {
             public void run() {
@@ -360,17 +367,24 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 }
             }
         };
+        
+        boolean canSchedule = true;
 
-        // Cancel any existing pull schedule for this friend
+        // Cancel any existing pull schedule for this friend (but don't interrupt in progress task)
         if (mFriendPullTasks.containsKey(friendId)) {
-            mFriendPullTasks.get(friendId).cancel(false);
+            // Assumes task added with scheduleWithFixedDelay will never report isDone
+            canSchedule = mFriendPullTasks.get(friendId).cancel(false);
         }
 
-        // TODO: scheduleAtFixedRate has backlog issue        
-        int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
-        ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(
-                task, immediateInitialPull ? 0 : delay, delay, TimeUnit.MILLISECONDS);
-        mFriendPullTasks.put(friendId, future);
+        if (canSchedule) {
+            // TODO: scheduleAtFixedRate has backlog issue
+            int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
+            if (initialDelay == -1) {
+                initialDelay = delay;
+            }
+            ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(task, initialDelay, delay, TimeUnit.MILLISECONDS);
+            mFriendPullTasks.put(friendId, future);
+        }
     }
 
     private void pushToFriends() throws Utils.ApplicationError {
@@ -415,11 +429,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void scheduleDownloadFromFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            scheduleDownloadFromFriend(friend.mId);
+            scheduleDownloadFromFriend(friend.mId, SCHEDULED_REQUEST_DELAY_IN_MILLISECONDS);
         }
     }
     
-    private void scheduleDownloadFromFriend(String friendId) throws Utils.ApplicationError {
+    private void scheduleDownloadFromFriend(String friendId, int initialDelay) throws Utils.ApplicationError {
         // Schedules one download (getNextInProgressDownload) per friend at a time.
         // Reuses pull frequency as a retry frequency for downloads in case of failure
         // TODO: use a different frequency? don't do polling retries (i.e., don't always wake every period)?
@@ -432,11 +446,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
+                    
                     if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
                             && !Utils.isConnectedNetworkWifi(mContext)) {
                         // Will retry after next delay period
                         return;
                     }
+
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     while (true) {
@@ -485,16 +501,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         };
 
-        // Only schedule if there's no existing task
-        if (mFriendDownloadTasks.containsKey(friendId) &&
-                !mFriendDownloadTasks.get(friendId).isDone()) {
-            return;
+        boolean canSchedule = true;
+
+        // Cancel any existing download schedule for this friend (but don't interrupt in progress task)
+        if (mFriendDownloadTasks.containsKey(friendId)) {
+            // Assumes task added with scheduleWithFixedDelay will never report isDone
+            canSchedule = mFriendDownloadTasks.get(friendId).cancel(false);
         }
 
-        // TODO: scheduleAtFixedRate has backlog issue
-        int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
-        ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(task, 0, delay, TimeUnit.MILLISECONDS);
-        mFriendDownloadTasks.put(friendId, future);
+        if (canSchedule) {
+            // TODO: scheduleAtFixedRate has backlog issue
+            int delay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
+            if (initialDelay == -1) {
+                initialDelay = delay;
+            }
+            ScheduledFuture<?> future = mTaskThreadPool.scheduleWithFixedDelay(task, initialDelay, delay, TimeUnit.MILLISECONDS);
+            mFriendDownloadTasks.put(friendId, future);
+        }
     }
     
     public synchronized Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
@@ -522,9 +545,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             // TODO: we don't yet know the friend really received the response bytes
             data.updateFriendLastReceivedStatusTimestamp(friend.mId);
             // Reschedule (delay) any outstanding pull from this friend
-            schedulePullFromFriend(friend.mId, false);
+            schedulePullFromFriend(friend.mId, -1);
             // Immediately start any pending downloads, since we know friend is online
-            scheduleDownloadFromFriend(friend.mId);
+            scheduleDownloadFromFriend(friend.mId, 0);
             Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.DataNotFoundError e) {
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");
