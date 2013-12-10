@@ -21,15 +21,12 @@ package ca.psiphon.ploggy;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.util.Pair;
 
 /**
@@ -46,8 +43,6 @@ public class Resources {
 
     private static final String LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING = "%s.ploggyLocalResource"; 
 
-    private static final int MAX_PICTURE_SIZE_IN_PIXELS = 2097152; // approx. 8MB in ARGB_8888
-    
     public static class MessageWithAttachments {
         public final Data.Message mMessage;
         public final List<Data.LocalResource> mLocalResources;
@@ -89,7 +84,7 @@ public class Resources {
                 // TODO: file size/date check sufficient?
                 if (temporaryCopyFile.length() != file.length() ||
                         new Date(file.lastModified()).after(new Date(temporaryCopyFile.lastModified()))) {
-                    copyPicture(file, temporaryCopyFile);
+                    Pictures.copyScaledBitmapWithoutMetadata(file, temporaryCopyFile);
                 }
                 file = temporaryCopyFile;
             }
@@ -114,62 +109,5 @@ public class Resources {
         File directory = Utils.getApplicationContext().getCacheDir();
         directory.mkdirs();
         return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, localResource.mResourceId));
-    }
-    
-    private static void copyPicture(File source, File target) throws Utils.ApplicationError {
-        InputStream inputStream = null;
-        FileOutputStream outputStream = null;
-        try {
-            // Extracting a bitmap from the file omits EXIF and other metadata, regardless of
-            // origin file type (JPEG, PNG, etc.)
-            // TODO: implement this by streaming (or using BitmapRegionDecoder) to avoid loading the entire bitmap into memory
-
-            BitmapFactory.Options bitmapFactoryOptions = new BitmapFactory.Options();
-            bitmapFactoryOptions.inJustDecodeBounds = true;
-            inputStream = new FileInputStream(source);
-            
-            if (BitmapFactory.decodeStream(inputStream, null, bitmapFactoryOptions) == null) {
-                throw new Utils.ApplicationError(LOG_TAG, "cannot decode image size");
-            }
-            inputStream.close();
-
-            // Scale the picture down so that it's total size in pixels <= MAX_PICTURE_SIZE_IN_PIXELS
-            // Scale should be power of 2: http://developer.android.com/reference/android/graphics/BitmapFactory.Options.html#inSampleSize
-            int sourceSizeInPixels = bitmapFactoryOptions.outWidth * bitmapFactoryOptions.outHeight;
-            int scale = 1;
-            while (sourceSizeInPixels > MAX_PICTURE_SIZE_IN_PIXELS) {
-                scale *= 2;
-                sourceSizeInPixels /= (scale*2);
-            }
-
-            bitmapFactoryOptions.inJustDecodeBounds = false;
-            bitmapFactoryOptions.inSampleSize = scale;
-            inputStream = new FileInputStream(source);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream, null, bitmapFactoryOptions);
-            if (bitmap == null) {
-                throw new Utils.ApplicationError(LOG_TAG, "cannot decode image");
-            }
-            outputStream = new FileOutputStream(target);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-            bitmap.recycle();
-        } catch (OutOfMemoryError e) {
-            // Expected condition due to bitmap loading; friend will eventually retry download
-            throw new Utils.ApplicationError(LOG_TAG, "out of memory error");
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                }
-            }
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                }
-            }
-        }
     }
 }

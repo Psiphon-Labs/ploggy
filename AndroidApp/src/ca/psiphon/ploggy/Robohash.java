@@ -56,7 +56,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
 import java.util.Random;
 
 import org.json.JSONArray;
@@ -84,8 +83,8 @@ public class Robohash {
     private static final String ASSETS_SUBDIRECTORY = "robohash";
     private static final String CONFIG_FILENAME = "config.json";
 
-    // TODO: LRU cache; or, at least subscribe to RemovedFriend events to clear associated bitmaps
-    private static HashMap<String, Bitmap> mCache = new HashMap<String, Bitmap>();
+    // TODO: subscribe to RemovedFriend events to clear associated bitmaps
+    private static BitmapCache mCache = new BitmapCache();
     private static JSONObject mConfig = null;
 
     public static void setRobohashImage(
@@ -109,19 +108,14 @@ public class Robohash {
             Context context,
             boolean cacheCandidate,
             byte[] data) throws Utils.ApplicationError {
-        
-        // TODO: assets vs. res/raw -- memory management
-        //       http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/9194259#9194259
-        //       http://stackoverflow.com/questions/4349075/bitmapfactory-decoderesource-returns-a-mutable-bitmap-in-android-2-2-and-an-immu/16314940#16314940
-
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             byte[] digest = sha1.digest(data);
 
-            // TODO: byte[] key?
-            String cacheKey = Utils.formatFingerprint(digest);
-            if (mCache.containsKey(cacheKey)) {
-                return mCache.get(cacheKey);
+            String key = Utils.formatFingerprint(digest);
+            Bitmap cachedBitmap = mCache.get(key);
+            if (cachedBitmap != null) {
+                return cachedBitmap;
             }
 
             ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
@@ -156,7 +150,7 @@ public class Robohash {
             }
             
             if (cacheCandidate) {
-                mCache.put(cacheKey, robotBitmap);
+                mCache.set(key, robotBitmap);
             }
             
             return robotBitmap;

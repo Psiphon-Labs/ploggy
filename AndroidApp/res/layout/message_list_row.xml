@@ -66,8 +66,8 @@
 
     <ImageView
         android:id="@+id/message_picture_thumbnail"
-        android:layout_width="64dip"
-        android:layout_height="64dip"
+        android:layout_width="@dimen/picture_thumbnail_width"
+        android:layout_height="@dimen/picture_thumbnail_height"
         android:layout_below="@id/message_timestamp_text"
         android:layout_toRightOf = "@id/message_content_text"
         android:layout_marginTop="4dip"

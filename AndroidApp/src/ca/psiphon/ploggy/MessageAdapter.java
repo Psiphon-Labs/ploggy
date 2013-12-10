@@ -19,9 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.File;
 import java.util.List;
-
-import com.squareup.picasso.Picasso;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -169,13 +168,13 @@ public class MessageAdapter extends BaseAdapter {
             case COMPLETE:
                 pictureDownloadText.setVisibility(View.GONE);
                 pictureThumbnailImage.setVisibility(View.VISIBLE);
-                Picasso.with(mContext).load(Downloads.getDownloadFile(download)).into(pictureThumbnailImage);
+                Pictures.loadThumbnail(mContext, Downloads.getDownloadFile(download), pictureThumbnailImage);
                 break;
             }
         } else if (localResource != null) {
             pictureDownloadText.setVisibility(View.GONE);
             pictureThumbnailImage.setVisibility(View.VISIBLE);
-            Picasso.with(mContext).load(localResource.mFilePath).into(pictureThumbnailImage);            
+            Pictures.loadThumbnail(mContext, new File(localResource.mFilePath), pictureThumbnailImage);
         } else {
             pictureDownloadText.setVisibility(View.GONE);
             pictureThumbnailImage.setVisibility(View.GONE);    

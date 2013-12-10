@@ -391,10 +391,10 @@ public class Utils {
                 @Override
                 public void run() {
                     mTask.run();
-                    mHandler.postDelayed(mExecutorTask, 1000*mDelayInMilliseconds);
+                    mHandler.postDelayed(mExecutorTask, mDelayInMilliseconds);
                 }
             };
-            mHandler.postDelayed(mExecutorTask, 1000*mDelayInMilliseconds);
+            mHandler.postDelayed(mExecutorTask, mDelayInMilliseconds);
         }
         
         public void stop() {
