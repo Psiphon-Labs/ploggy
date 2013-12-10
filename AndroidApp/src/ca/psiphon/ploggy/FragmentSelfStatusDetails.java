@@ -130,7 +130,7 @@ public class FragmentSelfStatusDetails extends Fragment {
             Log.addEntry(LOG_TAG, "failed to load self messages");
         }
 
-        show();
+        show(view);
 
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
@@ -177,6 +177,10 @@ public class FragmentSelfStatusDetails extends Fragment {
         if (view == null) {
             return;
         }
+        show(view);
+    }
+
+    private void show(View view) {
         try {
             Data data = Data.getInstance();
             Data.Self self = data.getSelf();
