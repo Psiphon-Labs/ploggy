@@ -46,6 +46,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.location.Location;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.FileObserver;
 import android.os.Handler;
 import android.util.Base64;
@@ -423,5 +425,14 @@ public class Utils {
             inputManager.hideSoftInputFromWindow(
                     currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
         }
+    }
+
+    public static boolean isConnectedNetworkWifi(Context context) {
+        ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return false;
+        }
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+        return networkInfo != null && networkInfo.isConnected() && networkInfo.getType() == ConnectivityManager.TYPE_WIFI;
     }
 }

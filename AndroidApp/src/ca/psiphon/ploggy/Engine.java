@@ -432,6 +432,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
+                    if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
+                            && !Utils.isConnectedNetworkWifi(mContext)) {
+                        // Will retry after next delay period
+                        return;
+                    }
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     while (true) {
@@ -532,10 +537,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             Data.LocalResource localResource = data.getLocalResource(resourceId);
+            // Note: don't check availability until after input validation
+            if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
+                    && !Utils.isConnectedNetworkWifi(mContext)) {
+                // Download service not available
+                return new DownloadResponse(false, null, null);
+            }
             InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
             // TODO: update last some last sent timestamp?
             Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
-            return new DownloadResponse(localResource.mMimeType, inputStream);
+            return new DownloadResponse(true, localResource.mMimeType, inputStream);
         } catch (Data.DataNotFoundError e) {
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
         }

@@ -94,7 +94,9 @@
     <string name="preference_limit_location_sharing_day_summary">Share your location only on certain days of the week</string>
     <string name="preference_performance_title">Performance</string>
     <string name="preference_use_mobile_data_title">Use Mobile Data</string>
-    <string name="preference_use_mobile_data_summary">Send your location and receive friend locations while using mobile data</string>
+    <string name="preference_use_mobile_data_summary">Send and receive data while using a mobile network</string>
+    <string name="preference_exchange_files_wifi_only_title">Exchange Files on Wi-Fi Only</string>
+    <string name="preference_exchange_files_wifi_only_summary">Send and receive picture, attachment, and file data only while using Wi-Fi data</string>
     <string name="preference_enable_battery_saver_title">Enable Battery Saver</string>
     <string name="preference_enable_battery_saver_summary">Stop sending your location and receiving friend locations when battery level is below threshold</string>
     <string name="preference_battery_saver_level_title">Battery Saver Level</string>

@@ -52,10 +52,12 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     public interface RequestHandler {
 
         public static class DownloadResponse {
+            public final boolean mAvailable;
             public final String mMimeType;
             public final InputStream mData;
             
-            public DownloadResponse(String mimeType, InputStream data) {
+            public DownloadResponse(boolean available, String mimeType, InputStream data) {
+                mAvailable = available;
                 mMimeType = mimeType;
                 mData = data;
             }
@@ -152,8 +154,13 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
                 }
                 Pair<Long, Long> range = readRangeHeaderHelper(session);
                 RequestHandler.DownloadResponse downloadResponse = mRequestHandler.handleDownloadRequest(certificate, resourceId, range);
-                Response response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mData);
-                response.setChunkedTransfer(true);
+                Response response;
+                if (downloadResponse.mAvailable) {
+                    response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mData);
+                    response.setChunkedTransfer(true);
+                } else {
+                    response = new Response(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, null, "");
+                }
                 return response;
 
             } else if (Method.POST.equals(method) && uri.equals(Protocol.PUSH_STATUS_REQUEST_PATH)) {
