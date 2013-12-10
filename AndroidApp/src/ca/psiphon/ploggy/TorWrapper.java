@@ -545,10 +545,11 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     @Override
     public void unrecognized(String type, String message) {
         if (type.equals("STATUS_CLIENT") && message.equals("NOTICE CIRCUIT_ESTABLISHED")) {
-            Log.addEntry(logTag(), "circuit established");
             if (mCircuitEstablishedLatch != null) {
                 mCircuitEstablishedLatch.countDown();
             }
+            Log.addEntry(logTag(), "circuit established");
+            Events.post(new Events.TorCircuitEstablished());
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
             Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");

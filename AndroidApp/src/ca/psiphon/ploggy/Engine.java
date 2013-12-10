@@ -104,10 +104,18 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         startHiddenService();
-        schedulePullFromFriends();
-        scheduleDownloadFromFriends();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
         Log.addEntry(LOG_TAG, "started");
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelf(Events.TorCircuitEstablished torCircuitEstablished) {
+        try {
+            schedulePullFromFriends();
+            scheduleDownloadFromFriends();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to schedule requests after Tor circuit established");
+        }
     }
 
     public synchronized void stop() {
@@ -325,7 +333,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 Data data = Data.getInstance();
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
-                        // TODO: TorWrapper could signal circuit established, triggering a pull, instead of waiting up to a full period for retry
                         return;
                     }
                     Data.Self self = data.getSelf();
@@ -423,7 +430,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 Data data = Data.getInstance();
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
-                        // TODO: TorWrapper could signal circuit established, triggering a pull, instead of waiting up to a full period for retry
                         return;
                     }
                     Data.Self self = data.getSelf();
