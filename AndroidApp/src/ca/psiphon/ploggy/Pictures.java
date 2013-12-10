@@ -72,7 +72,7 @@ public class Pictures {
                         }
                     });
         } catch (Utils.ApplicationError e) {
-            // TODO: display stock failure image
+            target.setImageResource(R.drawable.ic_picture_load_error);
         }
     }
     
