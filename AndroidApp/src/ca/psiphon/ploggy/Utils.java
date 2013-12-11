@@ -358,13 +358,20 @@ public class Utils {
     }
 
     public static void hideKeyboard(Activity activity) {
-        View currentFocusView = activity.getCurrentFocus();
-        if (currentFocusView != null) {
-            InputMethodManager inputManager =
-                    (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
-            inputManager.hideSoftInputFromWindow(
-                    currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+        if (activity == null) {
+            return;
         }
+        View currentFocusView = activity.getCurrentFocus();
+        if (currentFocusView == null) {
+            return;
+        }
+        InputMethodManager inputManager =
+                (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (inputManager == null) {
+            return;
+        }
+        inputManager.hideSoftInputFromWindow(
+                currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
     public static class MessageAdapter extends ArrayAdapter<Data.Message> {
