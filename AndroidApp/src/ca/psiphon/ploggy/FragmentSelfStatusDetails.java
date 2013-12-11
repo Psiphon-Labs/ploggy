@@ -65,7 +65,7 @@ public class FragmentSelfStatusDetails extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.self_status_details, container, false);
-        
+
         mOrientation = getResources().getConfiguration().orientation;
 
         mScrollView = (ScrollView)view.findViewById(R.id.self_status_details_scroll_view);
@@ -143,14 +143,14 @@ public class FragmentSelfStatusDetails extends Fragment {
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onStop() {
+        super.onStop();
         // Fragment seems to require manual cleanup; or else we get the following:
         // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
         if (getResources().getConfiguration().orientation == mOrientation) {
             FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
             if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commit();
+                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
             }
         }
     }

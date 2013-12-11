@@ -65,7 +65,7 @@ public class FragmentMessageList extends Fragment {
 
         return view;
     }
-    
+
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -90,14 +90,14 @@ public class FragmentMessageList extends Fragment {
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onStop() {
+        super.onStop();
         if (getResources().getConfiguration().orientation == mOrientation) {
-            // Fragment seems to require manual cleanup; or else we get the following: 
+            // Fragment seems to require manual cleanup; or else we get the following:
             // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
             FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
             if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commit();
+                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
             }
         }
     }
