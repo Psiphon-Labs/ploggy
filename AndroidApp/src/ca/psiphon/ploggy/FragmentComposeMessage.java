@@ -153,11 +153,6 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     }
 
     private void selectPicture() {
-        if (!isAdded()) {
-            // Guard against errant "java.lang.IllegalStateException: Fragment not attached to Activity"
-            // thrown by getText() below.
-            return;
-        }
         Intent intent;
         if (Build.VERSION.SDK_INT < 19) {
             intent = new Intent(Intent.ACTION_GET_CONTENT);
