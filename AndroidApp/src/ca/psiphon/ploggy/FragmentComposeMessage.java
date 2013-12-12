@@ -153,14 +153,20 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     }
 
     private void selectPicture() {
+        if (!isAdded()) {
+            // Guard against errant "java.lang.IllegalStateException: Fragment not attached to Activity"
+            // thrown by getText() below.
+            return;
+        }
         Intent intent;
         if (Build.VERSION.SDK_INT < 19) {
             intent = new Intent(Intent.ACTION_GET_CONTENT);
         } else {
-            // TODO: properly support the new DocumentsActivity invoked for
-            // Intent.ACTION_GET_CONTENT on KitKat. This includes getting
-            // results from cloud providers such as Drive -- which are only
-            // available as streams, not files.
+            // TODO: properly support the new Storage Access Framework invoked for
+            // Intent.ACTION_GET_CONTENT on KitKat:
+            // https://developer.android.com/guide/topics/providers/document-provider.html
+            // This includes getting results from cloud providers such as
+            // Drive -- which are only available as streams, not files.
             // For now, forcing the equivilent of pre-KitKat gallery selection...
             intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         }
