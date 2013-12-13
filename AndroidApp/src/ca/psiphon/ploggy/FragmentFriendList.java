@@ -77,14 +77,14 @@ public class FragmentFriendList extends ListFragment {
             setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(getListView());
-        mRefreshUIExecutor.start();
-        Events.register(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         mIsResumed = true;
+        mRefreshUIExecutor.start();
+        Events.register(this);
         Events.post(new Events.DisplayedFriends());
     }
 
@@ -92,11 +92,6 @@ public class FragmentFriendList extends ListFragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
         mRefreshUIExecutor.stop();
         Events.unregister(this);
     }
