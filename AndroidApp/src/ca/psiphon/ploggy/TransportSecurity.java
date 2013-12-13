@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -38,12 +38,12 @@ import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 
 /**
  * Helpers for building custom TLS connections.
- * 
+ *
  * Each TLS connection (both client- and server-side):
  * - Requires TLS 1.2
  * - Requires a strong CipherSuite (limited by what's commonly available on Android 4.1+)
  *   which includes perfect forward secrecy
- * - Requires mutual authentication using self key material and friend certificates 
+ * - Requires mutual authentication using self key material and friend certificates
  */
 public class TransportSecurity {
 
@@ -65,7 +65,7 @@ public class TransportSecurity {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
 
         public ClientSSLSocketFactory(SSLContext sslContext) {
@@ -77,11 +77,11 @@ public class TransportSecurity {
 
         @Override
         protected void prepareSocket(SSLSocket socket) throws IOException {
-            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            //socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
         }
     }
-    
+
     public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext) {
         return new ClientSSLSocketFactory(sslContext);
     }
@@ -90,12 +90,15 @@ public class TransportSecurity {
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws Utils.ApplicationError {
         try {
-            KeyStore selfKeyStore = X509.makeKeyStore();
-            X509.loadKeyMaterial(selfKeyStore, x509KeyMaterial);
-            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509");
-            keyManagerFactory.init(selfKeyStore, null);
-            KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
-            
+            KeyManager[] keyManagers = null;
+            if (x509KeyMaterial != null) {
+                KeyStore selfKeyStore = X509.makeKeyStore();
+                X509.loadKeyMaterial(selfKeyStore, x509KeyMaterial);
+                KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("X509");
+                keyManagerFactory.init(selfKeyStore, null);
+                keyManagers = keyManagerFactory.getKeyManagers();
+            }
+
             KeyStore peerKeyStore = X509.makeKeyStore();
             for (String friendCertificate : friendCertificates) {
                 X509.loadKeyMaterial(peerKeyStore, friendCertificate, null);
@@ -113,7 +116,7 @@ public class TransportSecurity {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     // Protocol specification
 
     // TODO: ECC disabled -- key generation works, but TLS fails in ClientHello

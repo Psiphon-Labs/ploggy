@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -19,56 +19,53 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.IOException;
-import java.util.List;
-
 import android.content.Context;
 import android.location.Address;
-import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import ca.psiphon.ploggy.Utils.ApplicationError;
 
 /**
- * Schedule and monitor location events from Android OS. 
- * 
+ * Schedule and monitor location events from Android OS.
+ *
  * Implements best practices from:
  * - http://developer.android.com/guide/topics/location/strategies.html
  * - http://code.google.com/p/android-protips-location/
- * 
+ *
  * Does not use the newer, higher level Play Services location API as it's
  * not available on open source Android builds and its source is not available
- * to review (e.g., verify that location isn't sent to 3rd party).  
+ * to review (e.g., verify that location isn't sent to 3rd party).
  */
 public class LocationMonitor implements android.location.LocationListener {
-    
+
     private static final String LOG_TAG = "Location Monitor";
 
-    Engine mEngine;    
+    Engine mEngine;
     Handler mHandler;
     Runnable mStartLocationFixTask;
     Runnable mFinishLocationFixTask;
     Runnable mStopLocationUpdatesTask;
     Location mLastReportedLocation;
     Location mCurrentLocation;
-    
+
     LocationMonitor(Engine engine) {
-        
+
         // TODO: use Utils.FixedDelayExecutor
-        
+
         mEngine = engine;
         mHandler = new Handler();
         initRunnables();
     }
-    
+
     public void start() throws Utils.ApplicationError {
         // Using a Handler for LocationManager calls, which need to run on a Looper thread. StartLocationFixTask
         // kicks off location updates and schedules FinishLocationFixTask which reports the "best" location fix
         // and stops updates after a set time period. FinishLocationFixTask also schedules the next location fix.
         mHandler.post(mStartLocationFixTask);
     }
-    
+
     public void stop() {
         mHandler.removeCallbacks(mStartLocationFixTask);
         mHandler.removeCallbacks(mFinishLocationFixTask);
@@ -78,35 +75,35 @@ public class LocationMonitor implements android.location.LocationListener {
     }
 
     private void initRunnables() {
-        final LocationMonitor finalLocationMonitor = this; 
+        final LocationMonitor finalLocationMonitor = this;
 
         mStartLocationFixTask = new Runnable() {
             @Override
             public void run() {
                 try {
                     LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-    
+
                     // Use last known location already present in all providers (they don't need to be enabled)
                     for (String provider: locationManager.getAllProviders()) {
                         updateCurrentLocation(locationManager.getLastKnownLocation(provider));
                     }
-    
+
                     if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 1, finalLocationMonitor);    
+                        locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 1, finalLocationMonitor);
                     }
-                    
+
                     if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, finalLocationMonitor);    
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, finalLocationMonitor);
                     }
-                    
+
                     // TODO: previously had a preference to allow use of Network location provider, since this provider
                     // sends data to a 3rd party. But is the provider always sending this data? I.e., is there any privacy
                     // benefit to not using it if it's available?
-                    
+
                     if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1, finalLocationMonitor);    
+                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1, finalLocationMonitor);
                     }
-                    
+
                     mHandler.postDelayed(
                             mFinishLocationFixTask,
                             1000*mEngine.getIntPreference(R.string.preferenceLocationFixPeriodInSeconds));
@@ -122,9 +119,9 @@ public class LocationMonitor implements android.location.LocationListener {
                 try {
                     LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
                     locationManager.removeUpdates(finalLocationMonitor);
-                    
+
                     reportLocation();
-    
+
                     // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period
                     mHandler.postDelayed(
                             mStartLocationFixTask,
@@ -139,7 +136,7 @@ public class LocationMonitor implements android.location.LocationListener {
             @Override
             public void run() {
                 LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-                locationManager.removeUpdates(finalLocationMonitor);        
+                locationManager.removeUpdates(finalLocationMonitor);
             }
         };
     }
@@ -154,27 +151,30 @@ public class LocationMonitor implements android.location.LocationListener {
         if (mEngine.getBooleanPreference(R.string.preferenceUseGeoCoder)) {
             // Run a background task to map and reverse geocode the location
             Runnable task = new Runnable() {
+                @Override
                 public void run() {
-                    Geocoder geocoder = new Geocoder(mEngine.getContext());
-                    List<Address> addresses = null;
+
+                    int torSocksProxyPort;
                     try {
-                        // TODO: Google terms of service prohibit use of this data with non-Google maps.
-                        //       In any case, all will be replaced with Open Street Map (geocoding and maps)
-                        addresses = geocoder.getFromLocation(
-                                mLastReportedLocation.getLatitude(),
-                                mLastReportedLocation.getLongitude(),
-                                1);
-                    } catch (IOException e) {
-                        Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
+                        torSocksProxyPort = mEngine.getTorSocksProxyPort();
                     }
-                    
-                    // TODO: get map                    
-                    Address address = (addresses != null && addresses.size() > 0) ? addresses.get(0) : null;
+                    catch (ApplicationError e) {
+                        Log.addEntry(LOG_TAG, "failed to get Tor SOCKS port: " + e.getMessage());
+                        Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+                        return;
+                    }
+
+                    Address address = Nominatim.getFromLocation(
+                            torSocksProxyPort,
+                            mLastReportedLocation.getLatitude(),
+                            mLastReportedLocation.getLongitude());
+
+                    // TODO: get map
                     Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
                 }
             };
             mEngine.submitTask(task);
-            
+
         } else {
             Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
         }
@@ -216,7 +216,7 @@ public class LocationMonitor implements android.location.LocationListener {
             }
         }
     }
-    
+
     // From: http://developer.android.com/guide/topics/location/strategies.html
     private boolean isBetterLocation(Location location, Location currentBestLocation) {
 
