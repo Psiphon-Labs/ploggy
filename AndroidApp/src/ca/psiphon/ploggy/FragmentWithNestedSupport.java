@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -33,15 +34,15 @@ public class FragmentWithNestedSupport extends Fragment {
 
     private static final String LOG_TAG = "Fragment With Nested Support";
 
-    private List<Fragment> mChildFragments;
+    private List<WeakReference<Fragment>> mChildFragments;
 
     public FragmentWithNestedSupport() {
-        mChildFragments = new ArrayList<Fragment>();
+        mChildFragments = new ArrayList<WeakReference<Fragment>>();
     }
     
     public void registerChildFragment(Fragment fragment) {
         if (!mChildFragments.contains(fragment)) {
-            mChildFragments.add(fragment);
+            mChildFragments.add(new WeakReference<Fragment>(fragment));
         }
     }
     
@@ -53,8 +54,11 @@ public class FragmentWithNestedSupport extends Fragment {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        for (Fragment fragment : mChildFragments) {
-            fragment.onActivityResult(requestCode, resultCode, data);
+        for (WeakReference<Fragment> childFragment : mChildFragments) {
+            Fragment fragment = childFragment.get();
+            if (fragment != null) {
+                fragment.onActivityResult(requestCode, resultCode, data);
+            }
         }
     }
 }
