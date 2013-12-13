@@ -157,6 +157,14 @@ public class FragmentSelfStatusDetails extends FragmentWithNestedSupport {
         Events.unregister(this);
     }
 
+    @Override
+    public void onDestroyView() {
+        unregisterChildFragment(mFragmentComposeMessage);
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
+        super.onDestroyView();
+    }
+    
     @Subscribe
     public void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
         show();

@@ -76,7 +76,6 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         if (mMessageAdapter != null) {
             mMessagesListView.setAdapter(mMessageAdapter);
         }
-        Events.register(this);
     }
 
     @Override
@@ -84,6 +83,7 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         super.onResume();
         mIsResumed = true;
         mRefreshUIExecutor.start();
+        Events.register(this);
         Events.post(new Events.DisplayedMessages());
     }
 
@@ -92,14 +92,17 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         super.onPause();
         mIsResumed = false;
         mRefreshUIExecutor.stop();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
         Events.unregister(this);
     }
 
+    @Override
+    public void onDestroyView() {
+        unregisterChildFragment(mFragmentComposeMessage);
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
+        super.onDestroyView();
+    }
+    
     @Subscribe
     public void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
         if (mIsResumed) {

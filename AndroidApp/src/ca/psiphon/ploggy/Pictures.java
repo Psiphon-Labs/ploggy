@@ -45,6 +45,26 @@ public class Pictures {
     
     private static BitmapCache mThumbnailCache = new BitmapCache();
     
+    public static boolean loadThumbnailWithClickToShowPicture(Context context, File source, ImageView target) {
+        if (!loadThumbnail(context, source, target)) {
+            return false;
+        }
+        // On click ImageView, load activity with full picture
+        final Context finalContext = context;
+        final String finalFilePath = source.getAbsolutePath();
+        target.setOnClickListener(
+                new View.OnClickListener() {
+                    public void onClick(View v) {
+                        Intent intent = new Intent(finalContext, ActivityShowPicture.class);
+                        Bundle bundle = new Bundle();
+                        bundle.putString(ActivityShowPicture.FILE_PATH_BUNDLE_KEY, finalFilePath);
+                        intent.putExtras(bundle);
+                        finalContext.startActivity(intent);
+                    }
+                });
+        return true;
+    }
+
     public static boolean loadThumbnail(Context context, File source, ImageView target) {
         try {
             String key = source.getAbsolutePath();
@@ -58,19 +78,6 @@ public class Pictures {
                 mThumbnailCache.set(key, bitmap);
             }
             target.setImageBitmap(bitmap);
-            // On click ImageView, load activity with full picture
-            final Context finalContext = context;
-            final String finalFilePath = source.getAbsolutePath();
-            target.setOnClickListener(
-                    new View.OnClickListener() {
-                        public void onClick(View v) {
-                            Intent intent = new Intent(finalContext, ActivityShowPicture.class);
-                            Bundle bundle = new Bundle();
-                            bundle.putString(ActivityShowPicture.FILE_PATH_BUNDLE_KEY, finalFilePath);
-                            intent.putExtras(bundle);
-                            finalContext.startActivity(intent);
-                        }
-                    });
             return true;
         } catch (Utils.ApplicationError e) {
             target.setImageResource(R.drawable.ic_picture_load_error);

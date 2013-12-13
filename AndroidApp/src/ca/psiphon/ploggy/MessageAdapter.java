@@ -168,13 +168,13 @@ public class MessageAdapter extends BaseAdapter {
             case COMPLETE:
                 pictureDownloadText.setVisibility(View.GONE);
                 pictureThumbnailImage.setVisibility(View.VISIBLE);
-                Pictures.loadThumbnail(mContext, Downloads.getDownloadFile(download), pictureThumbnailImage);
+                Pictures.loadThumbnailWithClickToShowPicture(mContext, Downloads.getDownloadFile(download), pictureThumbnailImage);
                 break;
             }
         } else if (localResource != null) {
             pictureDownloadText.setVisibility(View.GONE);
             pictureThumbnailImage.setVisibility(View.VISIBLE);
-            Pictures.loadThumbnail(mContext, new File(localResource.mFilePath), pictureThumbnailImage);
+            Pictures.loadThumbnailWithClickToShowPicture(mContext, new File(localResource.mFilePath), pictureThumbnailImage);
         } else {
             pictureDownloadText.setVisibility(View.GONE);
             pictureThumbnailImage.setVisibility(View.GONE);    

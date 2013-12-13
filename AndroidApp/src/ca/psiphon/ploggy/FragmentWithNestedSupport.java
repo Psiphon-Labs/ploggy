@@ -34,16 +34,20 @@ public class FragmentWithNestedSupport extends Fragment {
 
     private static final String LOG_TAG = "Fragment With Nested Support";
 
-    private List<WeakReference<Fragment>> mChildFragments;
+    private List<Fragment> mChildFragments;
 
     public FragmentWithNestedSupport() {
-        mChildFragments = new ArrayList<WeakReference<Fragment>>();
+        mChildFragments = new ArrayList<Fragment>();
     }
     
     public void registerChildFragment(Fragment fragment) {
         if (!mChildFragments.contains(fragment)) {
-            mChildFragments.add(new WeakReference<Fragment>(fragment));
+            mChildFragments.add(fragment);
         }
+    }
+    
+    public void unregisterChildFragment(Fragment fragment) {
+        mChildFragments.remove(fragment);
     }
     
     public void startActivityForResult(Intent intent, int requestCode) {
@@ -54,11 +58,8 @@ public class FragmentWithNestedSupport extends Fragment {
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        for (WeakReference<Fragment> childFragment : mChildFragments) {
-            Fragment fragment = childFragment.get();
-            if (fragment != null) {
-                fragment.onActivityResult(requestCode, resultCode, data);
-            }
+        for (Fragment fragment : mChildFragments) {
+            fragment.onActivityResult(requestCode, resultCode, data);
         }
     }
 }
