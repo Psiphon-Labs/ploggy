@@ -166,7 +166,8 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
             intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         }
         intent.setType("image/*");
-        startActivityForResult(
+        // Note: assumes nested fragment
+        getParentFragment().startActivityForResult(
                 Intent.createChooser(
                         intent,
                         getText(R.string.prompt_compose_message_select_picture)),

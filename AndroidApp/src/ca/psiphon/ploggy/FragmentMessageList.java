@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
@@ -35,7 +36,7 @@ import com.squareup.otto.Subscribe;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class FragmentMessageList extends FragmentWithNestedSupport {
+public class FragmentMessageList extends Fragment {
 
     private static final String LOG_TAG = "Message List";
 
@@ -52,7 +53,6 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         mFragmentComposeMessage = new FragmentComposeMessage();
         FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         transaction.add(R.id.fragment_message_list_compose_message, mFragmentComposeMessage).commit();
-        registerChildFragment(mFragmentComposeMessage);
 
         mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
 
@@ -76,6 +76,7 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         if (mMessageAdapter != null) {
             mMessagesListView.setAdapter(mMessageAdapter);
         }
+        Events.register(this);
     }
 
     @Override
@@ -83,7 +84,6 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         super.onResume();
         mIsResumed = true;
         mRefreshUIExecutor.start();
-        Events.register(this);
         Events.post(new Events.DisplayedMessages());
     }
 
@@ -92,17 +92,25 @@ public class FragmentMessageList extends FragmentWithNestedSupport {
         super.onPause();
         mIsResumed = false;
         mRefreshUIExecutor.stop();
-        Events.unregister(this);
     }
 
     @Override
     public void onDestroyView() {
-        unregisterChildFragment(mFragmentComposeMessage);
         FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
+        Events.unregister(this);
         super.onDestroyView();
     }
     
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        // Note: require explicit result routing for nested fragment
+        if (mFragmentComposeMessage != null) {
+            mFragmentComposeMessage.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
     @Subscribe
     public void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
         if (mIsResumed) {

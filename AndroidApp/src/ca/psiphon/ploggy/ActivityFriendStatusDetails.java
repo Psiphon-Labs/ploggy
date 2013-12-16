@@ -139,22 +139,28 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
+
+        Events.register(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         mRefreshUIExecutor.start();
-        Events.register(this);
     }
 
     @Override
     public void onPause() {
         super.onPause();
         mRefreshUIExecutor.stop();
-        Events.unregister(this);
     }
-    
+
+    @Override
+    public void onDestroy() {
+        Events.unregister(this);
+        super.onDestroy();
+    }
+
     @Subscribe
     public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
         show();
