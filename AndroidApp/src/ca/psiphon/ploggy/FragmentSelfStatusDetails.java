@@ -201,9 +201,6 @@ public class FragmentSelfStatusDetails extends Fragment {
             // TODO: cleaner API
             Data.Location selfLocation = data.getCurrentSelfLocation();
 
-            // Entire view may be hidden due to DataNotFoundError below
-            view.setVisibility(View.VISIBLE);
-
             Robohash.setRobohashImage(getActivity(), mAvatarImage, true, self.mPublicIdentity);
             mNicknameText.setText(self.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
@@ -241,12 +238,9 @@ public class FragmentSelfStatusDetails extends Fragment {
                                 selfLocation.mPrecision));
                 mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfLocation.mTimestamp, true));
             }
-        } catch (Data.DataNotFoundError e) {
-            // TODO: display "no data" prompt?
-            view.setVisibility(View.GONE);
         } catch (Utils.ApplicationError e) {
+            // TODO: hide identity/message views?
             Log.addEntry(LOG_TAG, "failed to display self status details");
-            view.setVisibility(View.GONE);
         }
     }
 }
