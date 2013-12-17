@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -45,7 +46,10 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
 import android.location.Location;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.FileObserver;
+import android.os.Handler;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -148,6 +152,24 @@ public class Utils {
             outputStream.close();
         }
     }
+    
+    public static class NullOutputStream extends OutputStream {
+        @Override
+        public void write(int arg0) throws IOException {
+        }
+
+        @Override
+        public void write(byte[] b) throws IOException {
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+        }
+    }
+
+    public static void discardStream(InputStream inputStream) throws IOException {
+        copyStream(inputStream, new NullOutputStream());
+    }
 
     public static class FileInitializedObserver extends FileObserver {
         private final CountDownLatch mLatch;
@@ -188,6 +210,12 @@ public class Utils {
         new LinuxSecureRandom();
     }
 
+    public static byte[] getRandomBytes(int byteCount) {
+        byte[] buffer = new byte[byteCount];
+        new SecureRandom().nextBytes(buffer);
+        return buffer;
+    }
+    
     public static String encodeBase64(byte[] data) {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
@@ -203,15 +231,15 @@ public class Utils {
     public static String formatFingerprint(byte[] fingerprintBytes) {
         // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
-        char[] hexChars = new char[fingerprintBytes.length * 3 - 1];
+        char[] chars = new char[fingerprintBytes.length * 3 - 1];
         for (int i = 0; i < fingerprintBytes.length; i++)  {
-            hexChars[i*3] = hexArray[(fingerprintBytes[i] & 0xFF)/16];
-            hexChars[i*3 + 1] = hexArray[(fingerprintBytes[i] & 0xFF)%16];
+            chars[i*3] = hexArray[(fingerprintBytes[i] & 0xFF)/16];
+            chars[i*3 + 1] = hexArray[(fingerprintBytes[i] & 0xFF)%16];
             if (i < fingerprintBytes.length - 1) {
-                hexChars[i*3 + 2] = ':';
+                chars[i*3 + 2] = ':';
             }
         }
-        return new String(hexChars);
+        return new String(chars);
     }
 
     public static int calculateLocationDistanceInMeters(
@@ -347,6 +375,38 @@ public class Utils {
         }
     }
 
+    public static class FixedDelayExecutor {
+        private Handler mHandler;
+        private Runnable mExecutorTask;
+        private Runnable mTask;
+        private int mDelayInMilliseconds;
+
+        public FixedDelayExecutor(Runnable task, int delayInMilliseconds) {
+            mHandler = new Handler();
+            mTask = task;
+            mDelayInMilliseconds = delayInMilliseconds;
+        }
+        
+        public void start() {
+            stop();
+            mExecutorTask = new Runnable() {
+                @Override
+                public void run() {
+                    mTask.run();
+                    mHandler.postDelayed(mExecutorTask, mDelayInMilliseconds);
+                }
+            };
+            mHandler.postDelayed(mExecutorTask, mDelayInMilliseconds);
+        }
+        
+        public void stop() {
+            if (mExecutorTask != null) {
+                mHandler.removeCallbacks(mExecutorTask);
+                mExecutorTask = null;
+            }
+        }
+    }
+    
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {
@@ -358,43 +418,28 @@ public class Utils {
     }
 
     public static void hideKeyboard(Activity activity) {
-        View currentFocusView = activity.getCurrentFocus();
-        if (currentFocusView != null) {
-            InputMethodManager inputManager =
-                    (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
-            inputManager.hideSoftInputFromWindow(
-                    currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
+        if (activity == null) {
+            return;
         }
+        View currentFocusView = activity.getCurrentFocus();
+        if (currentFocusView == null) {
+            return;
+        }
+        InputMethodManager inputManager =
+                (InputMethodManager)activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (inputManager == null) {
+            return;
+        }
+        inputManager.hideSoftInputFromWindow(
+                currentFocusView.getWindowToken(), InputMethodManager.HIDE_NOT_ALWAYS);
     }
 
-    public static class MessageAdapter extends ArrayAdapter<Data.Message> {
-        private Context mContext;
-        
-        public MessageAdapter(Context context, List<Data.Message> messages) {
-            super(context, R.layout.message_list_row, messages);
-            mContext = context;
+    public static boolean isConnectedNetworkWifi(Context context) {
+        ConnectivityManager connectivityManager = (ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return false;
         }
-
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.message_list_row, null);
-            }
-            Data.Message message = getItem(position);
-            if (message != null) {
-                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
-                TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
-                TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
-
-                // TODO: use a different layout instead of inflating then hiding?
-                avatarImage.setVisibility(View.GONE);
-                nicknameText.setVisibility(View.GONE);
-                contentText.setText(message.mContent);
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
-            }
-            return view;
-        }
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+        return networkInfo != null && networkInfo.isConnected() && networkInfo.getType() == ConnectivityManager.TYPE_WIFI;
     }
 }

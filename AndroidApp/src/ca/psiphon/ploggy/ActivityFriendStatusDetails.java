@@ -52,6 +52,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     private TextView mFingerprintText;
     private TextView mMessageLabel;
     private ListView mMessagesList;
+    private MessageAdapter mMessageAdapter;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
     private TextView mLocationStreetAddressText;
@@ -66,11 +67,25 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     private TextView mLastReceivedStatusTimestampText;
     private TextView mLastSentStatusTimestampText;
     private TextView mAddedTimestampText;
+    Utils.FixedDelayExecutor mRefreshUIExecutor;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_friend_status_details);
+
+        Bundle bundle = getIntent().getExtras();
+        if (bundle == null) {
+            finish();
+            return;
+        }
+
+        mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
+        if (mFriendId == null) {
+            finish();
+            return;
+        }
 
         mScrollView = (ScrollView)findViewById(R.id.friend_status_details_scroll_view);
         mAvatarImage = (ImageView)findViewById(R.id.friend_status_details_avatar_image);
@@ -112,28 +127,38 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 }
             });
 
-        Bundle bundle = getIntent().getExtras();
-        if (bundle == null) {
-            finish();
-            return;
-        }
-
-        mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
-        if (mFriendId == null) {
-            finish();
-            return;
+        try {
+            mMessageAdapter = new MessageAdapter(this, MessageAdapter.Mode.FRIEND_MESSAGES, mFriendId);
+            mMessagesList.setAdapter(mMessageAdapter);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to load friend messages");
         }
 
         show();
+
+        // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
+        // TODO: event driven redrawing?
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
 
         Events.register(this);
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onResume() {
+        super.onResume();
+        mRefreshUIExecutor.start();
+    }
 
+    @Override
+    public void onPause() {
+        super.onPause();
+        mRefreshUIExecutor.stop();
+    }
+
+    @Override
+    public void onDestroy() {
         Events.unregister(this);
+        super.onDestroy();
     }
 
     @Subscribe
@@ -162,10 +187,9 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             int messageVisibility = (friendStatus.mMessages.size() > 0) ? View.VISIBLE : View.GONE;
             mMessageLabel.setVisibility(messageVisibility);
             mMessagesList.setVisibility(messageVisibility);
-            if (friendStatus.mMessages.size() > 0) {
-                mMessagesList.setAdapter(new Utils.MessageAdapter(this, friendStatus.mMessages));
+            if (mMessageAdapter != null) {
+                mMessageAdapter.updateMessages();
             }
-
             int locationVisibility = (friendStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
             mLocationLabel.setVisibility(locationVisibility);
             mLocationStreetAddressLabel.setVisibility(locationVisibility);

@@ -54,6 +54,9 @@ public class LocationMonitor implements android.location.LocationListener {
     Location mCurrentLocation;
     
     LocationMonitor(Engine engine) {
+        
+        // TODO: use Utils.FixedDelayExecutor
+        
         mEngine = engine;
         mHandler = new Handler();
         initRunnables();

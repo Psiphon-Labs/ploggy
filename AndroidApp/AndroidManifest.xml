@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="ca.psiphon.ploggy"
     android:versionCode="1"
-    android:versionName="0.7" >
+    android:versionName="0.8" >
 
     <uses-sdk
         android:minSdkVersion="16"
@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"></uses-permission>
     <uses-permission android:name="android.permission.NFC"></uses-permission>
     <uses-permission android:name="android.permission.VIBRATE"></uses-permission>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"></uses-permission>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"></uses-permission>
 
     <application
@@ -98,10 +99,13 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="ca.psiphon.ploggy.ActivityShowPicture" >
+            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
+        </activity>
+        <activity
             android:name="ca.psiphon.ploggy.ActivityLogEntries"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
-
         <activity
             android:name="ca.psiphon.ploggy.ActivitySettings"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >

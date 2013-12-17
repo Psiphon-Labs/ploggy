@@ -21,6 +21,7 @@
     <string name="preferenceLimitLocationSharingDay">preferenceLimitLocationSharingDay</string>
     <string name="preferencesPerformance">preferencesPerformance</string>
     <string name="preferenceUseMobileData">preferenceUseMobileData</string>
+    <string name="preferenceExchangeFilesWifiOnly">preferenceExchangeFilesWifiOnly</string>
     <string name="preferenceEnableBatterySaver">preferenceEnableBatterySaver</string>
     <string name="preferenceBatterySaverLevel">preferenceBatterySaverLevel</string>
     <string name="preferenceLocationFixFrequencyInMinutes">preferenceLocationFixFrequencyInMinutes</string>

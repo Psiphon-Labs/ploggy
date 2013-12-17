@@ -4,4 +4,7 @@
     <dimen name="activity_horizontal_margin">16dp</dimen>
     <dimen name="activity_vertical_margin">16dp</dimen>
 
+    <dimen name="picture_thumbnail_width">64dip</dimen>
+    <dimen name="picture_thumbnail_height">64dip</dimen>
+
 </resources>

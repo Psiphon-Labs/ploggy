@@ -19,24 +19,20 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.List;
-
-import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.BaseAdapter;
-import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import com.squareup.otto.Subscribe;
 
 /**
  * User interface which displays all messages.
-
+ *
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
@@ -44,24 +40,32 @@ public class FragmentMessageList extends Fragment {
 
     private static final String LOG_TAG = "Message List";
 
-    private int mOrientation;
     private boolean mIsResumed = false;
+    private Fragment mFragmentComposeMessage;
     private ListView mMessagesListView;
-    private AnnotatedMessageAdapter mMessageAdapter;
+    private MessageAdapter mMessageAdapter;
+    Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.message_list, container, false);
 
-        mOrientation = getResources().getConfiguration().orientation;
+        mFragmentComposeMessage = new FragmentComposeMessage();
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.add(R.id.fragment_message_list_compose_message, mFragmentComposeMessage).commit();
 
         mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
 
         try {
-            mMessageAdapter = new AnnotatedMessageAdapter(getActivity());
+            mMessageAdapter = new MessageAdapter(getActivity(), MessageAdapter.Mode.ALL_MESSAGES);
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize message adapter");
         }
+        
+        // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
+        // TODO: event driven redrawing?
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(
+                new Runnable() {@Override public void run() {updateMessages();}}, 5000);
 
         return view;
     }
@@ -79,6 +83,7 @@ public class FragmentMessageList extends Fragment {
     public void onResume() {
         super.onResume();
         mIsResumed = true;
+        mRefreshUIExecutor.start();
         Events.post(new Events.DisplayedMessages());
     }
 
@@ -86,25 +91,24 @@ public class FragmentMessageList extends Fragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
+        mRefreshUIExecutor.stop();
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-        if (getResources().getConfiguration().orientation == mOrientation) {
-            // Fragment seems to require manual cleanup; or else we get the following:
-            // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
-            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
-            if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
-            }
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onDestroyView() {
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
         Events.unregister(this);
+        super.onDestroyView();
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        // Note: require explicit result routing for nested fragment
+        if (mFragmentComposeMessage != null) {
+            mFragmentComposeMessage.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Subscribe
@@ -124,57 +128,6 @@ public class FragmentMessageList extends Fragment {
             mMessageAdapter.updateMessages();
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update message list");
-        }
-    }
-
-    public static class AnnotatedMessageAdapter extends BaseAdapter {
-        private final Context mContext;
-        private List<Data.AnnotatedMessage> mMessages;
-
-        public AnnotatedMessageAdapter(Context context) throws Utils.ApplicationError {
-            mContext = context;
-            mMessages = Data.getInstance().getAllMessages();
-        }
-
-        public void updateMessages() throws Utils.ApplicationError {
-            mMessages = Data.getInstance().getAllMessages();
-            notifyDataSetChanged();
-        }
-
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.message_list_row, null);
-            }
-            Data.AnnotatedMessage message = mMessages.get(position);
-            if (message != null) {
-                ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
-                TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
-                TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
-                TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
-
-                Robohash.setRobohashImage(mContext, avatarImage, true, message.mPublicIdentity);
-                nicknameText.setText(message.mPublicIdentity.mNickname);
-                contentText.setText(message.mMessage.mContent);
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mMessage.mTimestamp, true));
-            }
-            return view;
-        }
-
-        @Override
-        public int getCount() {
-            return mMessages.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mMessages.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
         }
     }
 }

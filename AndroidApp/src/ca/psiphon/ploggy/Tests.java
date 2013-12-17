@@ -30,7 +30,7 @@ import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import ca.psiphon.ploggy.Utils.ApplicationError;
+import android.util.Pair;
 
 /**
  * Component tests. 
@@ -80,13 +80,13 @@ public class Tests {
         }
         
         @Override
-        public void submitTask(Runnable task) {
+        public void submitWebRequestTask(Runnable task) {
             mThreadPool.execute(task);
         }
 
         public Data.Status getMockStatus() {
             return new Data.Status(
-                    Arrays.asList(new Data.Message(mMockTimestamp, "")),
+                    Arrays.asList(new Data.Message(mMockTimestamp, "", null)),
                     new Data.Location(
                         mMockTimestamp,
                         mMockLatitude,
@@ -96,14 +96,21 @@ public class Tests {
         }
 
         @Override
-        public Data.Status handlePullStatusRequest(String friendId) throws ApplicationError {
+        public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError {
             Log.addEntry(LOG_TAG, "handle pull status request...");
             return getMockStatus();
         }
 
         @Override
-        public void handlePushStatusRequest(String friendId, Data.Status status) throws ApplicationError {
+        public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError {
             Log.addEntry(LOG_TAG, "handle push status request...");
+        }
+
+        @Override
+        public DownloadResponse handleDownloadRequest(
+                String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError {
+            Log.addEntry(LOG_TAG, "handle download request...");
+            return null;
         }
     }
     
@@ -196,7 +203,7 @@ public class Tests {
                     throw new Utils.ApplicationError(LOG_TAG, "unexpected status response value");
                 }
                 Log.addEntry(LOG_TAG, "Direct POST request from valid friend...");
-                WebClient.makePostRequest(
+                WebClient.makeJsonPostRequest(
                         friendX509KeyMaterial,
                         self.mPublicIdentity.mX509Certificate,
                         WebClient.UNTUNNELED_REQUEST,

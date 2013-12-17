@@ -26,10 +26,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -53,6 +53,7 @@ public class FragmentFriendList extends ListFragment {
 
     private boolean mIsResumed = false;
     private FriendAdapter mFriendAdapter;
+    Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -62,6 +63,11 @@ public class FragmentFriendList extends ListFragment {
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
         }
+
+        // Refresh the message list every 5 seconds. This updates "time ago" displays.
+        // TODO: event driven redrawing?
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {updateFriends();}}, 5000);
+
         return view;
     }
 
@@ -71,7 +77,7 @@ public class FragmentFriendList extends ListFragment {
         if (mFriendAdapter != null) {
             setListAdapter(mFriendAdapter);
         }
-        registerForContextMenu(this.getListView());
+        registerForContextMenu(getListView());
         Events.register(this);
     }
 
@@ -79,6 +85,7 @@ public class FragmentFriendList extends ListFragment {
     public void onResume() {
         super.onResume();
         mIsResumed = true;
+        mRefreshUIExecutor.start();
         Events.post(new Events.DisplayedFriends());
     }
 
@@ -86,14 +93,15 @@ public class FragmentFriendList extends ListFragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
+        mRefreshUIExecutor.stop();
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onDestroyView() {
         Events.unregister(this);
+        super.onDestroyView();
     }
-
+    
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
@@ -107,38 +115,37 @@ public class FragmentFriendList extends ListFragment {
     @Override
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, view, menuInfo);
-        MenuInflater inflater = this.getActivity().getMenuInflater();
-        inflater.inflate(R.menu.friend_list_context, menu);
+        if (view.equals(getListView())) {
+            getActivity().getMenuInflater().inflate(R.menu.friend_list_context, menu);
+        }
     }
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
-        final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
-        switch (item.getItemId()) {
-            case R.id.action_delete_friend:
-                new AlertDialog.Builder(getActivity())
-                    .setTitle(getString(R.string.label_delete_friend_title))
-                    .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
-                    .setPositiveButton(getString(R.string.label_delete_friend_positive),
-                            new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    try {
-                                        Data.getInstance().removeFriend(finalFriend.mId);
-                                    } catch (Data.DataNotFoundError e) {
-                                        // Ignore
-                                    } catch (Utils.ApplicationError e) {
-                                        Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
-                                    }
+        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)item.getMenuInfo();
+        if (item.getItemId() == R.id.action_friend_list_delete_friend) {
+            final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
+            new AlertDialog.Builder(getActivity())
+                .setTitle(getString(R.string.label_delete_friend_title))
+                .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
+                .setPositiveButton(getString(R.string.label_delete_friend_positive),
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                try {
+                                    Data.getInstance().removeFriend(finalFriend.mId);
+                                } catch (Data.DataNotFoundError e) {
+                                    // Ignore
+                                } catch (Utils.ApplicationError e) {
+                                    Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
                                 }
-                            })
-                    .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
-                    .show();
-                return true;
-            default:
-                return super.onContextItemSelected(item);
+                            }
+                        })
+                .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
+                .show();
+            return true;
         }
+        return super.onContextItemSelected(item);
     }
 
     @Subscribe

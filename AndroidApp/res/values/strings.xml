@@ -15,7 +15,8 @@
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">Run Diagnostic Tests</string>
     <string name="action_quit">Quit</string>
-    <string name="action_delete_friend">Delete Friend</string>
+    <string name="action_friend_list_delete_friend">Delete friend</string>
+    <string name="action_compose_message_remove_picture">Remove picture from message</string>
     <string name="label_delete_friend_title">Delete Friend</string>
     <string name="label_delete_friend_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_friend_positive">Delete</string>
@@ -51,6 +52,7 @@
     <string name="prompt_add_friend_friend_already_exists">A friend with the nickname %1$s already exists</string>
     <string name="prompt_add_friend_friend_added">Added friend %1$s</string>
     <string name="label_compose_message_content_hint">Compose your message</string>
+    <string name="prompt_compose_message_select_picture">Select picture for your message</string>
     <string name="label_status_details_identity">Identity</string>
     <string name="label_status_details_message">Messages</string>
     <string name="label_status_details_location">Location</string>
@@ -71,6 +73,7 @@
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>
     <string name="format_status_details_precision">%1$d meters</string>
     <string name="prompt_status_details_data_not_found">Status details not found</string>
+    <string name="format_download_progress">%1$.1f%%</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
     <string name="preference_use_geocoder_summary">Use 3rd party service to map current latitude/longitude to street address</string>
@@ -91,7 +94,9 @@
     <string name="preference_limit_location_sharing_day_summary">Share your location only on certain days of the week</string>
     <string name="preference_performance_title">Performance</string>
     <string name="preference_use_mobile_data_title">Use Mobile Data</string>
-    <string name="preference_use_mobile_data_summary">Send your location and receive friend locations while using mobile data</string>
+    <string name="preference_use_mobile_data_summary">Send and receive data while using a mobile network</string>
+    <string name="preference_exchange_files_wifi_only_title">Exchange Files on Wi-Fi Only</string>
+    <string name="preference_exchange_files_wifi_only_summary">Send and receive picture, attachment, and file data only while using Wi-Fi data</string>
     <string name="preference_enable_battery_saver_title">Enable Battery Saver</string>
     <string name="preference_enable_battery_saver_summary">Stop sending your location and receiving friend locations when battery level is below threshold</string>
     <string name="preference_battery_saver_level_title">Battery Saver Level</string>
