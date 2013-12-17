@@ -356,6 +356,8 @@ public class Data {
     }
 
     public synchronized void addSelfStatusMessage(Message message, List<LocalResource> attachmentLocalResources) throws Utils.ApplicationError, DataNotFoundError {
+        // Hack: initMessages before committing new message to avoid duplicate adds in addSelfMessageHelper
+        initMessages();
         initLocalResources();
         List<LocalResource> newLocalResources = null;
         if (attachmentLocalResources != null) {
@@ -563,6 +565,8 @@ public class Data {
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+        // Hack: initMessages before committing new status to avoid duplicate adds in addFriendMessagesHelper
+        initMessages();
         Friend friend = getFriendById(id);
         Status previousStatus = null;
         try {
