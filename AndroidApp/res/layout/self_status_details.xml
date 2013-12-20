@@ -92,8 +92,7 @@
         android:textColor="#F0F0F0"
         android:background="#687C97" />
 
-    <fragment
-        android:name="ca.psiphon.ploggy.FragmentComposeMessage"
+    <FrameLayout
         android:id="@+id/fragment_self_status_details_compose_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
@@ -101,7 +100,7 @@
     <ListView
         android:id="@+id/self_status_details_messages_list"
         android:layout_width="match_parent"
-        android:layout_height="200dip"
+        android:layout_height="150dip"
         android:typeface="sans"
         android:textSize="12dip" />
 

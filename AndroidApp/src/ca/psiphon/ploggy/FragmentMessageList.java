@@ -19,8 +19,10 @@
 
 package ca.psiphon.ploggy;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -38,8 +40,8 @@ public class FragmentMessageList extends Fragment {
 
     private static final String LOG_TAG = "Message List";
 
-    private int mOrientation;
     private boolean mIsResumed = false;
+    private Fragment mFragmentComposeMessage;
     private ListView mMessagesListView;
     private MessageAdapter mMessageAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
@@ -48,7 +50,9 @@ public class FragmentMessageList extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.message_list, container, false);
 
-        mOrientation = getResources().getConfiguration().orientation;
+        mFragmentComposeMessage = new FragmentComposeMessage();
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.add(R.id.fragment_message_list_compose_message, mFragmentComposeMessage).commit();
 
         mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
 
@@ -72,7 +76,6 @@ public class FragmentMessageList extends Fragment {
         if (mMessageAdapter != null) {
             mMessagesListView.setAdapter(mMessageAdapter);
         }
-        mRefreshUIExecutor.start();
         Events.register(this);
     }
 
@@ -80,6 +83,7 @@ public class FragmentMessageList extends Fragment {
     public void onResume() {
         super.onResume();
         mIsResumed = true;
+        mRefreshUIExecutor.start();
         Events.post(new Events.DisplayedMessages());
     }
 
@@ -87,26 +91,24 @@ public class FragmentMessageList extends Fragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (getResources().getConfiguration().orientation == mOrientation) {
-            // Fragment seems to require manual cleanup; or else we get the following:
-            // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
-            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_message_list_compose_message);
-            if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
-            }
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
         mRefreshUIExecutor.stop();
+    }
+
+    @Override
+    public void onDestroyView() {
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
         Events.unregister(this);
+        super.onDestroyView();
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        // Note: require explicit result routing for nested fragment
+        if (mFragmentComposeMessage != null) {
+            mFragmentComposeMessage.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Subscribe

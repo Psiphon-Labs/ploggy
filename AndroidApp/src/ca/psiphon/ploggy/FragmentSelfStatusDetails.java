@@ -19,8 +19,10 @@
 
 package ca.psiphon.ploggy;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -44,7 +46,7 @@ public class FragmentSelfStatusDetails extends Fragment {
 
     private static final String LOG_TAG = "Self Status Details";
 
-    private int mOrientation;
+    private Fragment mFragmentComposeMessage;
     private ScrollView mScrollView;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -66,7 +68,9 @@ public class FragmentSelfStatusDetails extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.self_status_details, container, false);
 
-        mOrientation = getResources().getConfiguration().orientation;
+        mFragmentComposeMessage = new FragmentComposeMessage();
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.add(R.id.fragment_self_status_details_compose_message, mFragmentComposeMessage).commit();
 
         mScrollView = (ScrollView)view.findViewById(R.id.self_status_details_scroll_view);
         mAvatarImage = (ImageView)view.findViewById(R.id.self_status_details_avatar_image);
@@ -135,7 +139,6 @@ public class FragmentSelfStatusDetails extends Fragment {
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
-        mRefreshUIExecutor.start();
 
         Events.register(this);
 
@@ -143,23 +146,32 @@ public class FragmentSelfStatusDetails extends Fragment {
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
-        // Fragment seems to require manual cleanup; or else we get the following:
-        // java.lang.IllegalArgumentException: Binary XML file line... Duplicate id... with another fragment...
-        if (getResources().getConfiguration().orientation == mOrientation) {
-            FragmentComposeMessage fragment = (FragmentComposeMessage)getFragmentManager().findFragmentById(R.id.fragment_self_status_details_compose_message);
-            if (fragment != null) {
-                getFragmentManager().beginTransaction().remove(fragment).commitAllowingStateLoss();
-            }
-        }
+    public void onResume() {
+        super.onResume();
+        mRefreshUIExecutor.start();
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
+    public void onPause() {
+        super.onPause();
         mRefreshUIExecutor.stop();
+    }
+
+    @Override
+    public void onDestroyView() {
+        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+        transaction.remove(mFragmentComposeMessage).commitAllowingStateLoss();
         Events.unregister(this);
+        super.onDestroyView();
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        // Note: require explicit result routing for nested fragment
+        if (mFragmentComposeMessage != null) {
+            mFragmentComposeMessage.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Subscribe

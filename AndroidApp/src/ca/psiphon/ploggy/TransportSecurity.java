@@ -56,6 +56,9 @@ public class TransportSecurity {
             SSLContext sslContext = TransportSecurity.getSSLContext(transportKeyMaterial, friendCertificates);
             SSLServerSocket sslServerSocket = (SSLServerSocket)(sslContext.getServerSocketFactory().createServerSocket());
             sslServerSocket.setNeedClientAuth(true);
+
+            String[] ciphers = sslServerSocket.getSupportedCipherSuites();
+
             sslServerSocket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
             return sslServerSocket;
@@ -77,7 +80,7 @@ public class TransportSecurity {
 
         @Override
         protected void prepareSocket(SSLSocket socket) throws IOException {
-            //socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
+            socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
         }
     }
@@ -126,7 +129,10 @@ public class TransportSecurity {
     // TODO: TLS_..._CBC_SHA256?
     // TODO: no GCM-SHA256 built-in, even on Android 4.1?; no JCCE for SpongyCastle to use its GCM-SHA256 with Android TLS?
     // TODO: TLS 1.2 only available on Android 4.1+?
-    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] { "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA" };
+    private static final String[] TLS_REQUIRED_CIPHER_SUITES = new String [] {
+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+        "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA" // ?
+        };
     private static final String TLS_REQUIRED_PROTOCOL = "TLSv1.2";
 
     private static final String[] TLS_REQUIRED_PROTOCOLS = new String [] { TLS_REQUIRED_PROTOCOL };

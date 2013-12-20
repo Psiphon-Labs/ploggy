@@ -23,7 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -65,18 +65,19 @@ public class Resources {
          // Friends only see the random ID, not the local resource file name
          // Note: never reusing resource IDs, even if same local e.g., file, has been published previously
          String id = Utils.formatFingerprint(Utils.getRandomBytes(Protocol.RESOURCE_ID_LENGTH));
-         File file = new File(attachmentFilePath);
-         if (localResourceType == Data.LocalResource.Type.PICTURE) {
-             // If the resource is transformed (e.g., picture is auto-scaled-down and has no metadata)
-             // then we need to do that now, to get the correct size
-             file = makeScaledDownPictureFileCopy(attachmentFilePath, id);
+         List<Data.Resource> messageAttachments = new ArrayList<Data.Resource>();
+         List<Data.LocalResource> localResources = new ArrayList<Data.LocalResource>();
+         if (attachmentMimeType != null || attachmentFilePath != null) {
+             File file = new File(attachmentFilePath);
+             if (localResourceType == Data.LocalResource.Type.PICTURE) {
+                 // If the resource is transformed (e.g., picture is auto-scaled-down and has no metadata)
+                 // then we need to do that now, to get the correct size
+                 file = makeScaledDownPictureFileCopy(attachmentFilePath, id);
+             }
+             messageAttachments.add(new Data.Resource(id, attachmentMimeType, file.length()));
+             localResources.add(new Data.LocalResource(localResourceType, id, attachmentMimeType, attachmentFilePath, null));
          }
-         Data.Resource resource = new Data.Resource(id, attachmentMimeType, file.length());
-         List<Data.Resource> messageAttachments = Arrays.asList(resource);
-         Data.LocalResource localResource = new Data.LocalResource(localResourceType, id, attachmentMimeType, attachmentFilePath, null);
-         List<Data.LocalResource> localResources = Arrays.asList(localResource);
-         Data.Message message = new Data.Message(messageTimestamp, messageContent, messageAttachments);
-         return new MessageWithAttachments(message, localResources);
+         return new MessageWithAttachments(new Data.Message(messageTimestamp, messageContent, messageAttachments), localResources);
      }
 
     public static InputStream openLocalResourceForReading(

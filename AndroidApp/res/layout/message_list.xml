@@ -9,8 +9,7 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     android:orientation="vertical" >
 
-    <fragment
-        android:name="ca.psiphon.ploggy.FragmentComposeMessage"
+    <FrameLayout
         android:id="@+id/fragment_message_list_compose_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

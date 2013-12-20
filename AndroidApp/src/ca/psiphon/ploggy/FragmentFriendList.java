@@ -26,6 +26,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -77,7 +78,6 @@ public class FragmentFriendList extends ListFragment {
             setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(getListView());
-        mRefreshUIExecutor.start();
         Events.register(this);
     }
 
@@ -85,6 +85,7 @@ public class FragmentFriendList extends ListFragment {
     public void onResume() {
         super.onResume();
         mIsResumed = true;
+        mRefreshUIExecutor.start();
         Events.post(new Events.DisplayedFriends());
     }
 
@@ -92,15 +93,15 @@ public class FragmentFriendList extends ListFragment {
     public void onPause() {
         super.onPause();
         mIsResumed = false;
+        mRefreshUIExecutor.stop();
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mRefreshUIExecutor.stop();
+    public void onDestroyView() {
         Events.unregister(this);
+        super.onDestroyView();
     }
-
+    
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
