@@ -110,6 +110,7 @@ Missing:
 * Robohash - http://robohash.org
 * SeekBarPreference - http://robobunny.com/wp/2013/08/24/android-seekbar-preference-v2
 * TimePickerPreference - http://code.google.com/p/android-my-time
+* osmbonuspack - http://code.google.com/p/osmbonuspack/ (only a very little code)
 
 License
 --------------------------------------------------------------------------------

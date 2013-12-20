@@ -13,6 +13,11 @@ import com.google.gson.JsonParser;
 public class Nominatim {
     private static final String LOG_TAG = "Nominatim";
 
+    private static final String SERVER_CERT = "MIIDdjCCAl4CCQDRQO1f49f5yDANBgkqhkiG9w0BAQUFADB9MQswCQYDVQQGEwJDQTEQMA4GA1UECAwHT250YXJpbzEQMA4GA1UEBwwHVG9yb250bzEVMBMGA1UECgwMUHNpcGhvbiBJbmMuMRIwEAYDVQQLDAlOb21pbmF0aW0xHzAdBgNVBAMMFmR5dWlndXZrbml5c3ZxZ2Iub25pb24wHhcNMTMxMjE5MjAzODU2WhcNMTQwMTE4MjAzODU2WjB9MQswCQYDVQQGEwJDQTEQMA4GA1UECAwHT250YXJpbzEQMA4GA1UEBwwHVG9yb250bzEVMBMGA1UECgwMUHNpcGhvbiBJbmMuMRIwEAYDVQQLDAlOb21pbmF0aW0xHzAdBgNVBAMMFmR5dWlndXZrbml5c3ZxZ2Iub25pb24wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCezDWDljtTizOIY5mXiW2rWRGblRyIaYoUrgFoW+UTjVMM6pqFKu8CgKCgVdyyunZA8hAn7bRnmMS2nJ2BVO27nWLe6CtG9/YCf8ZkNafr8re2AqQT6OOK3v5DPKM/Kkr1VO2xwgDaZnB2r/XiDwhEnKuOD2XpdEKWtpdCAscv7+K/iyKd4EuvXWsL3PGG17Ukd1BcGpAb6yt0JpGsVoKv5A/e6BmjJtNPyhcQYWDonKCJC2YNggMIYF6IGJbK4VUWoVY/eRX064T+GIgJQnIET1tJWWLFli5eWEkOhAMKRpzem27eIHUSMZNRKK1VVK4rNdCzNVlqnAvTmOt9Dh0fAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAH1IIT0bXeQokwZ0vaEeOO+NKPC/WOj3FKnj7q1DctBQw4sgkyA9ABwgkdPh/0hUKjypuc7LMBlGdvJOYvr+CbVe8C0xp9X7nyx8QQQSpOCLKU2DXcswWM4pD5JK9PL9Gm0fpvDyp27fmnuuSjZRVEgwwWvcj3Zdu5tAvjdUI2YYi66rnphIt033sdpIgWrvOFbv64cE6Z4Q/K909pNrettz1W4DITk5tExARngt7IqcwUKhhLwtXmk8Nu9T1zGElAsug08Bjy17ZgdH4t3fVmtxrEHVSXI01ACJlZMMQL3E3aY+M97BACMKEAZ48GsN90v9+jBNY3YdI7f1BcHGvh0=";
+    private static final String SERVER_ADDRESS = "dyuiguvkniysvqgb.onion";
+    private static final int SERVER_PORT = 443;
+    private static final String REQUEST_PATH = "/nominatim/reverse";
+
     public static class NominatimAddress extends Address {
         public NominatimAddress(Locale locale) {
             super(locale);
@@ -46,8 +51,6 @@ public class Nominatim {
         address.setLatitude(latitude);
         address.setLongitude(longitude);
 
-        String certString = "MIIDdjCCAl4CCQDRQO1f49f5yDANBgkqhkiG9w0BAQUFADB9MQswCQYDVQQGEwJDQTEQMA4GA1UECAwHT250YXJpbzEQMA4GA1UEBwwHVG9yb250bzEVMBMGA1UECgwMUHNpcGhvbiBJbmMuMRIwEAYDVQQLDAlOb21pbmF0aW0xHzAdBgNVBAMMFmR5dWlndXZrbml5c3ZxZ2Iub25pb24wHhcNMTMxMjE5MjAzODU2WhcNMTQwMTE4MjAzODU2WjB9MQswCQYDVQQGEwJDQTEQMA4GA1UECAwHT250YXJpbzEQMA4GA1UEBwwHVG9yb250bzEVMBMGA1UECgwMUHNpcGhvbiBJbmMuMRIwEAYDVQQLDAlOb21pbmF0aW0xHzAdBgNVBAMMFmR5dWlndXZrbml5c3ZxZ2Iub25pb24wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCezDWDljtTizOIY5mXiW2rWRGblRyIaYoUrgFoW+UTjVMM6pqFKu8CgKCgVdyyunZA8hAn7bRnmMS2nJ2BVO27nWLe6CtG9/YCf8ZkNafr8re2AqQT6OOK3v5DPKM/Kkr1VO2xwgDaZnB2r/XiDwhEnKuOD2XpdEKWtpdCAscv7+K/iyKd4EuvXWsL3PGG17Ukd1BcGpAb6yt0JpGsVoKv5A/e6BmjJtNPyhcQYWDonKCJC2YNggMIYF6IGJbK4VUWoVY/eRX064T+GIgJQnIET1tJWWLFli5eWEkOhAMKRpzem27eIHUSMZNRKK1VVK4rNdCzNVlqnAvTmOt9Dh0fAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAH1IIT0bXeQokwZ0vaEeOO+NKPC/WOj3FKnj7q1DctBQw4sgkyA9ABwgkdPh/0hUKjypuc7LMBlGdvJOYvr+CbVe8C0xp9X7nyx8QQQSpOCLKU2DXcswWM4pD5JK9PL9Gm0fpvDyp27fmnuuSjZRVEgwwWvcj3Zdu5tAvjdUI2YYi66rnphIt033sdpIgWrvOFbv64cE6Z4Q/K909pNrettz1W4DITk5tExARngt7IqcwUKhhLwtXmk8Nu9T1zGElAsug08Bjy17ZgdH4t3fVmtxrEHVSXI01ACJlZMMQL3E3aY+M97BACMKEAZ48GsN90v9+jBNY3YdI7f1BcHGvh0=";
-
         List<Pair<String,String>> requestParameters = new ArrayList<Pair<String, String>>();
         requestParameters.add(new Pair<String, String>("format", "json"));
         requestParameters.add(new Pair<String, String>("lat", String.valueOf(latitude)));
@@ -60,11 +63,11 @@ public class Nominatim {
         try {
             response = WebClient.makeGetRequest(
                 null,
-                certString,
+                SERVER_CERT,
                 torSocksProxyPort,
-                "dyuiguvkniysvqgb.onion",
-                443,
-                "/nominatim/reverse",
+                SERVER_ADDRESS,
+                SERVER_PORT,
+                REQUEST_PATH,
                 requestParameters);
         }
         catch (Utils.ApplicationError e) {
