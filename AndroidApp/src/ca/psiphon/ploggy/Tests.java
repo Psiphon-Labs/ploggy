@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -33,8 +33,8 @@ import java.util.concurrent.Executors;
 import android.util.Pair;
 
 /**
- * Component tests. 
- * 
+ * Component tests.
+ *
  * Covered (by end-to-end request from one peer to another through Tor):
  * - TorWrapper
  * - Identity
@@ -44,14 +44,14 @@ import android.util.Pair;
  * - WebServer
  */
 public class Tests {
-    
+
     private static final String LOG_TAG = "Tests";
 
     private static Timer mTimer = new Timer();
 
     public static void scheduleComponentTests() {
         mTimer.schedule(
-                new TimerTask() {          
+                new TimerTask() {
                     @Override
                     public void run() {
                         Tests.runComponentTests();
@@ -59,14 +59,14 @@ public class Tests {
                 },
                 2000);
     }
-    
+
     private static class MockRequestHandler implements WebServer.RequestHandler {
-        
-        private ExecutorService mThreadPool = Executors.newCachedThreadPool();
-        private Date mMockTimestamp;
-        private double mMockLatitude;
-        private double mMockLongitude;
-        private String mMockAddress;
+
+        private final ExecutorService mThreadPool = Executors.newCachedThreadPool();
+        private final Date mMockTimestamp;
+        private final double mMockLatitude;
+        private final double mMockLongitude;
+        private final String mMockAddress;
 
         MockRequestHandler() {
             mMockTimestamp = new Date();
@@ -74,11 +74,11 @@ public class Tests {
             mMockLongitude = Math.random()*100.0 - 50.0;
             mMockAddress = "301 Front St W, Toronto, ON M5V 2T6";
         }
-        
+
         public void stop() {
             Utils.shutdownExecutorService(mThreadPool);
         }
-        
+
         @Override
         public void submitWebRequestTask(Runnable task) {
             mThreadPool.execute(task);
@@ -113,7 +113,7 @@ public class Tests {
             return null;
         }
     }
-    
+
     public static void runComponentTests() {
         WebServer selfWebServer = null;
         MockRequestHandler selfRequestHandler = null;
@@ -156,7 +156,7 @@ public class Tests {
             Log.addEntry(LOG_TAG, "Make other friend...");
             HiddenService.KeyMaterial otherFriendHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial otherFriendX509KeyMaterial = X509.generateKeyMaterial(otherFriendHiddenServiceKeyMaterial.mHostname);
-            
+
             Log.addEntry(LOG_TAG, "Make unfriendly key material...");
             HiddenService.KeyMaterial unfriendlyHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial unfriendlyX509KeyMaterial = X509.generateKeyMaterial(unfriendlyHiddenServiceKeyMaterial.mHostname);
@@ -323,7 +323,7 @@ public class Tests {
             if (!failed) {
                 throw new Utils.ApplicationError(LOG_TAG, "unexpected success");
             }
-            
+
             Log.addEntry(LOG_TAG, "Component test run success");
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "Test failed");

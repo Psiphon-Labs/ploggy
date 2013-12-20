@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -41,25 +41,25 @@ import android.content.Context;
  * as immutable POJOs which are thread-safe and easily serializable. Self and friend metadata, including
  * identity, and recent status data are kept in-memory. Large data such as map tiles will be left on
  * disk with perhaps an in-memory cache.
- * 
+ *
  * Simple consistency is provided: data changes are first written to a commit file, then the commit
  * file replaces the data file. In memory structures are replaced only after the file write succeeds.
- * 
+ *
  * If local security is added to the scope of Ploggy, here's where we'd interface with SQLCipher and/or
  * KeyChain, etc.
- * 
+ *
  * ==== PROTOTYPE NOTE ====
  * This module is performant for the prototype only. Missing are:
  * - incremental synchronization
  * - synchronization based on logical timestamp
  * - efficient data storage and viewing
  * ========================
- * 
+ *
  */
 public class Data {
-    
+
     private static final String LOG_TAG = "Data";
-    
+
     public static class Self {
         public final Identity.PublicIdentity mPublicIdentity;
         public final Identity.PrivateIdentity mPrivateIdentity;
@@ -74,7 +74,7 @@ public class Data {
             mCreatedTimestamp = createdTimestamp;
         }
     }
-    
+
     public static class Friend {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
@@ -106,7 +106,7 @@ public class Data {
             return a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
         }
     }
-    
+
     public static class Message {
         public final Date mTimestamp;
         public final String mContent;
@@ -121,7 +121,7 @@ public class Data {
             mAttachments = attachments;
         }
     }
-    
+
     public static class AnnotatedMessage {
         public final Identity.PublicIdentity mPublicIdentity;
         public final String mFriendId;
@@ -148,7 +148,7 @@ public class Data {
             return result;
         }
     }
-    
+
     public static class Location {
         public final Date mTimestamp;
         public final double mLatitude;
@@ -166,10 +166,10 @@ public class Data {
             mLatitude = latitude;
             mLongitude = longitude;
             mPrecision = precision;
-            mStreetAddress = streetAddress;            
+            mStreetAddress = streetAddress;
         }
     }
-    
+
     public static class Status {
         final List<Message> mMessages;
         public final Location mLocation;
@@ -181,7 +181,7 @@ public class Data {
             mLocation = location;
         }
     }
-    
+
     public static class Resource {
         public final String mId;
         public final String mMimeType;
@@ -196,7 +196,7 @@ public class Data {
             mSize = size;
         }
     }
-    
+
     public static class LocalResource {
         public enum Type {PICTURE, RAW}
         public final Type mType;
@@ -218,7 +218,7 @@ public class Data {
             mTempFilePath = tempFilePath;
         }
     }
-    
+
     public static class Download {
         public final String mFriendId;
         public final String mResourceId;
@@ -240,13 +240,13 @@ public class Data {
             mState = state;
         }
     }
-    
+
     // TODO: fix -- having these errors as subclasses of Utils.ApplicationError with
     // no log can result in silent failures when functions only handle the base class
-    
+
     public static class DataNotFoundError extends Utils.ApplicationError {
         private static final long serialVersionUID = -8736069103392081076L;
-        
+
         public DataNotFoundError() {
             // No log for this expected condition
             super(null, "");
@@ -270,6 +270,7 @@ public class Data {
        }
        return instance;
     }
+    @Override
     public Object clone() throws CloneNotSupportedException {
         throw new CloneNotSupportedException();
     }
@@ -279,16 +280,16 @@ public class Data {
     // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
     // ...consistency: write file, then update in-memory; 2pc; only for short lists of friends
     // ...eventually use file system for map tiles etc.
-       
-    private static final String DATA_DIRECTORY = "ploggyData"; 
-    private static final String SELF_FILENAME = "self.json"; 
-    private static final String SELF_STATUS_FILENAME = "selfStatus.json"; 
-    private static final String FRIENDS_FILENAME = "friends.json"; 
-    private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json"; 
-    private static final String LOCAL_RESOURCES_FILENAME = "localResources.json"; 
-    private static final String DOWNLOADS_FILENAME = "downloads.json"; 
-    private static final String COMMIT_FILENAME_SUFFIX = ".commit"; 
-    
+
+    private static final String DATA_DIRECTORY = "ploggyData";
+    private static final String SELF_FILENAME = "self.json";
+    private static final String SELF_STATUS_FILENAME = "selfStatus.json";
+    private static final String FRIENDS_FILENAME = "friends.json";
+    private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json";
+    private static final String LOCAL_RESOURCES_FILENAME = "localResources.json";
+    private static final String DOWNLOADS_FILENAME = "downloads.json";
+    private static final String COMMIT_FILENAME_SUFFIX = ".commit";
+
     Self mSelf;
     Status mSelfStatus;
     Location mPrivateSelfLocation;
@@ -317,7 +318,7 @@ public class Data {
             throw new Utils.ApplicationError(LOG_TAG, "delete data file failed");
         }
     }
-    
+
     public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundError {
         if (mSelf == null) {
             mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
@@ -356,6 +357,8 @@ public class Data {
     }
 
     public synchronized void addSelfStatusMessage(Message message, List<LocalResource> attachmentLocalResources) throws Utils.ApplicationError, DataNotFoundError {
+        // Hack: initMessages before committing new message to avoid duplicate adds in addSelfMessageHelper
+        initMessages();
         initLocalResources();
         List<LocalResource> newLocalResources = null;
         if (attachmentLocalResources != null) {
@@ -407,7 +410,7 @@ public class Data {
             }
         }
     }
-    
+
     public synchronized List<Friend> getFriends() throws Utils.ApplicationError {
         initFriends();
         List<Friend> friends = new ArrayList<Friend>(mFriends);
@@ -499,7 +502,7 @@ public class Data {
         Friend friend = getFriendById(friendId);
         return friend.mLastSentStatusTimestamp;
     }
-    
+
     public synchronized void updateFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
@@ -510,12 +513,12 @@ public class Data {
                 new Date(),
                 friend.mLastReceivedStatusTimestamp));
     }
-    
+
     public synchronized Date getFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
         Friend friend = getFriendById(friendId);
         return friend.mLastReceivedStatusTimestamp;
     }
-    
+
     public synchronized void updateFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
         // TODO: don't write an entire file for each timestamp update!
         Friend friend = getFriendById(friendId);
@@ -526,7 +529,7 @@ public class Data {
                 friend.mLastSentStatusTimestamp,
                 new Date()));
     }
-    
+
     private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundError {
         boolean found = false;
         for (int i = 0; i < list.size(); i++) {
@@ -563,11 +566,13 @@ public class Data {
     }
 
     public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
+        // Hack: initMessages before committing new status to avoid duplicate adds in addFriendMessagesHelper
+        initMessages();
         Friend friend = getFriendById(id);
         Status previousStatus = null;
         try {
             previousStatus = getFriendStatus(id);
-            
+
             // Mitigate push/pull race condition where older status overwrites newer status
             // Only checks messages, not location
             // TODO: more robust protocol... don't rely on clocks
@@ -625,7 +630,7 @@ public class Data {
             Events.post(new Events.UpdatedAllMessages());
         }
     }
-    
+
     private void addFriendMessagesHelper(Friend friend, Status status, Status previousStatus) throws Utils.ApplicationError {
         // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
         initMessages();
@@ -639,7 +644,7 @@ public class Data {
             if (lastMessage == null ||
                     !message.mTimestamp.equals(lastMessage.mTimestamp) ||
                     !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));                
+                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));
                 // Automatically enqueue new message attachments for download
                 for (Resource resource : message.mAttachments) {
                     try {
@@ -653,7 +658,7 @@ public class Data {
             }
         }
 
-        if (newMessages.size() > 0) {            
+        if (newMessages.size() > 0) {
             mNewMessages.addAll(0, newMessages);
             Events.post(new Events.UpdatedNewMessages());
             // Hack to continue supporting self-as-friend, for now
@@ -670,12 +675,12 @@ public class Data {
         mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, null, message));
         Events.post(new Events.UpdatedAllMessages());
     }
-    
+
     public synchronized List<AnnotatedMessage> getNewMessages() throws Utils.ApplicationError {
         initMessages();
         return new ArrayList<AnnotatedMessage>(mNewMessages);
     }
-    
+
     public synchronized void resetNewMessages() throws Utils.ApplicationError {
         initMessages();
         boolean updatedNewMessages = (mNewMessages.size() > 0);
@@ -684,12 +689,12 @@ public class Data {
             Events.post(new Events.UpdatedNewMessages());
         }
     }
-    
+
     public synchronized List<AnnotatedMessage> getAllMessages() throws Utils.ApplicationError {
         initMessages();
         return new ArrayList<AnnotatedMessage>(mAllMessages);
     }
-    
+
     private void initLocalResources() throws Utils.ApplicationError {
         if (mLocalResources == null) {
             try {
@@ -699,7 +704,7 @@ public class Data {
             }
         }
     }
-    
+
     public synchronized LocalResource getLocalResource(String resourceId) throws Utils.ApplicationError, DataNotFoundError {
         initLocalResources();
         for (LocalResource localResource : mLocalResources) {
@@ -746,7 +751,7 @@ public class Data {
             getDownload(friendId, resource.mId);
             throw new DataAlreadyExistsError();
         } catch (DataNotFoundError e) {
-        }        
+        }
         Friend friend = getFriendById(friendId);
         // TODO: double check resource ID is from valid resource in friend message?
         Download download = new Download(friendId, resource.mId, resource.mMimeType, resource.mSize, Download.State.IN_PROGRESS);
@@ -757,7 +762,7 @@ public class Data {
         Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
         Events.post(new Events.AddedDownload(friendId, resource.mId));
     }
-    
+
     private void updateDownloadHelper(List<Download> list, Download download) throws DataNotFoundError {
         boolean found = false;
         for (int i = 0; i < list.size(); i++) {
@@ -816,7 +821,7 @@ public class Data {
                 } catch (IOException e) {
                 }
             }
-        }        
+        }
     }
 
     private static void writeFile(String filename, String value) throws Utils.ApplicationError {
@@ -848,7 +853,7 @@ public class Data {
             commitFile.renameTo(file);
         }
     }
-    
+
     private static void deleteFile(String filename) throws Utils.ApplicationError {
         File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
         File file = new File(directory, filename);

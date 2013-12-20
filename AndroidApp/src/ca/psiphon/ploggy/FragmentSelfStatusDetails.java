@@ -86,7 +86,7 @@ public class FragmentSelfStatusDetails extends Fragment {
         mLocationPrecisionText = (TextView)view.findViewById(R.id.self_status_details_location_precision_text);
         mLocationTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
-        
+
         // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
         // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
         mScrollView.setOnTouchListener(
@@ -164,7 +164,7 @@ public class FragmentSelfStatusDetails extends Fragment {
         Events.unregister(this);
         super.onDestroyView();
     }
-    
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -200,9 +200,6 @@ public class FragmentSelfStatusDetails extends Fragment {
             // Not using selfStatus.mLocation as it's not updated when location sharing is off
             // TODO: cleaner API
             Data.Location selfLocation = data.getCurrentSelfLocation();
-
-            // Entire view may be hidden due to DataNotFoundError below
-            view.setVisibility(View.VISIBLE);
 
             Robohash.setRobohashImage(getActivity(), mAvatarImage, true, self.mPublicIdentity);
             mNicknameText.setText(self.mPublicIdentity.mNickname);
@@ -241,12 +238,9 @@ public class FragmentSelfStatusDetails extends Fragment {
                                 selfLocation.mPrecision));
                 mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfLocation.mTimestamp, true));
             }
-        } catch (Data.DataNotFoundError e) {
-            // TODO: display "no data" prompt?
-            view.setVisibility(View.GONE);
         } catch (Utils.ApplicationError e) {
+            // TODO: hide identity/message views?
             Log.addEntry(LOG_TAG, "failed to display self status details");
-            view.setVisibility(View.GONE);
         }
     }
 }

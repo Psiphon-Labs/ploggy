@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -33,7 +33,6 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 
 import android.util.Pair;
-
 import fi.iki.elonen.NanoHTTPD;
 
 /**
@@ -55,7 +54,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             public final boolean mAvailable;
             public final String mMimeType;
             public final InputStream mData;
-            
+
             public DownloadResponse(boolean available, String mimeType, InputStream data) {
                 mAvailable = available;
                 mMimeType = mimeType;
@@ -65,14 +64,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
         public void submitWebRequestTask(Runnable task);
         public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
-        public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError;        
+        public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError;
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError;
     }
-    
-    private RequestHandler mRequestHandler;
-    private X509.KeyMaterial mX509KeyMaterial;
-    private List<String> mFriendCertificates;
-    
+
+    private final RequestHandler mRequestHandler;
+    private final X509.KeyMaterial mX509KeyMaterial;
+    private final List<String> mFriendCertificates;
+
     public WebServer(
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,
@@ -125,7 +124,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     @Override
     public Response serve(IHTTPSession session) {
         String certificate = null;
@@ -181,7 +180,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }
-    
+
     private Pair<Long, Long> readRangeHeaderHelper(IHTTPSession session) throws Utils.ApplicationError {
         // From NanoHTTP: https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
         long startFrom = 0;
@@ -213,10 +212,10 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         try {
             contentLength = Integer.parseInt(contentLengthValue);
         } catch (NumberFormatException e) {
-            throw new Utils.ApplicationError(LOG_TAG, "invalid request content length");            
+            throw new Utils.ApplicationError(LOG_TAG, "invalid request content length");
         }
         if (contentLength > Protocol.MAX_POST_REQUEST_BODY_SIZE) {
-            throw new Utils.ApplicationError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));                    
+            throw new Utils.ApplicationError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));
         }
         byte[] buffer = new byte[contentLength];
         int offset = 0;

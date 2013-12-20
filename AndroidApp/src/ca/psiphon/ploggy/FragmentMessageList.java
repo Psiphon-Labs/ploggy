@@ -61,7 +61,7 @@ public class FragmentMessageList extends Fragment {
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to initialize message adapter");
         }
-        
+
         // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(
@@ -101,7 +101,7 @@ public class FragmentMessageList extends Fragment {
         Events.unregister(this);
         super.onDestroyView();
     }
-    
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

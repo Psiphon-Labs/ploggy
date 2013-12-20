@@ -32,16 +32,16 @@ import android.widget.TextView;
 
 /**
  * List adapter which displays rows of messages.
- * 
+ *
  * Includes widgets/logic for managing downloads of message attachments.
  * When the message belongs to self, message attachments are treated as
  * local resources, not downloads.
- * 
+ *
  * This component has three modes:
  * 1. General message list, which displays nickname and avatar.
  * 2. Single friend message list, which just displays message content.
  * 3. Self message list, which just displays message content.
- * 
+ *
  */
 public class MessageAdapter extends BaseAdapter {
 
@@ -50,13 +50,13 @@ public class MessageAdapter extends BaseAdapter {
     // TODO: support multiple attachments
 
     public enum Mode {ALL_MESSAGES, FRIEND_MESSAGES, SELF_MESSAGES}
-    
-    private Context mContext;
-    private Mode mMode;
+
+    private final Context mContext;
+    private final Mode mMode;
     private List<Data.AnnotatedMessage> mAnnotatedMessages;
-    private String mFriendId;
+    private final String mFriendId;
     private List<Data.Message> mMessages;
-    
+
     public MessageAdapter(Context context, Mode mode) throws Utils.ApplicationError {
         this(context, mode, null);
     }
@@ -116,7 +116,7 @@ public class MessageAdapter extends BaseAdapter {
             friendId = mFriendId;
             break;
         }
-        
+
         if (message.mAttachments != null && message.mAttachments.size() > 0) {
             try {
                 if (friendId != null) {
@@ -124,7 +124,7 @@ public class MessageAdapter extends BaseAdapter {
                     if (download.mState == Data.Download.State.IN_PROGRESS) {
                         long downloadedSize = Downloads.getDownloadedSize(download);
                         if (download.mSize > 0) {
-                            downloadProgress = 100.0*(double)downloadedSize/(double)download.mSize;
+                            downloadProgress = 100.0*downloadedSize/download.mSize;
                         }
                     }
                 } else {
@@ -149,7 +149,7 @@ public class MessageAdapter extends BaseAdapter {
             nicknameText.setText(publicIdentity.mNickname);
         } else {
             avatarImage.setVisibility(View.GONE);
-            nicknameText.setVisibility(View.GONE);                
+            nicknameText.setVisibility(View.GONE);
         }
         contentText.setText(message.mContent);
 
@@ -177,7 +177,7 @@ public class MessageAdapter extends BaseAdapter {
             Pictures.loadThumbnailWithClickToShowPicture(mContext, new File(localResource.mFilePath), pictureThumbnailImage);
         } else {
             pictureDownloadText.setVisibility(View.GONE);
-            pictureThumbnailImage.setVisibility(View.GONE);    
+            pictureThumbnailImage.setVisibility(View.GONE);
         }
 
         timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));

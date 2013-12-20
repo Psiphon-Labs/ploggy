@@ -33,10 +33,13 @@ import java.security.Security;
  */
 public class LinuxSecureRandom extends SecureRandomSpi
 {
+    private static final long serialVersionUID = -6575880163829115605L;
     private static final FileInputStream urandom;
 
     private static class LinuxSecureRandomProvider extends Provider
     {
+        private static final long serialVersionUID = -3366530978335459636L;
+
         public LinuxSecureRandomProvider()
         {
             super("LinuxSecureRandom", 1.0, "A Linux specific random number provider that uses /dev/urandom");

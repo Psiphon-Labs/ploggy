@@ -1,11 +1,37 @@
 package fi.iki.elonen;
 
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.io.SequenceInputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.TimeZone;
 
 import ca.psiphon.ploggy.Log;
 
@@ -513,8 +539,8 @@ public abstract class NanoHTTPD {
      * the directory specified.</p>
      */
     public static class DefaultTempFile implements TempFile {
-        private File file;
-        private OutputStream fstream;
+        private final File file;
+        private final OutputStream fstream;
 
         public DefaultTempFile(String tempdir) throws IOException {
             file = File.createTempFile("NanoHTTPD-", "", new File(tempdir));
@@ -557,7 +583,7 @@ public abstract class NanoHTTPD {
         /**
          * Headers for the HTTP response. Use addHeader() to add lines.
          */
-        private Map<String, String> header = new HashMap<String, String>();
+        private final Map<String, String> header = new HashMap<String, String>();
         /**
          * The request method that spawned this response.
          */
@@ -858,8 +884,9 @@ public abstract class NanoHTTPD {
                     while (read > 0) {
                         rlen += read;
                         splitbyte = findHeaderEnd(buf, rlen);
-                        if (splitbyte > 0)
+                        if (splitbyte > 0) {
                             break;
+                        }
                         read = inputStream.read(buf, rlen, BUFSIZE - rlen);
                     }
                 }
@@ -905,7 +932,7 @@ public abstract class NanoHTTPD {
                 Response r = new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
                 r.send(outputStream);
                 safeClose(outputStream);
-            
+
                 // ==== ploggy ====
                 throw new SocketException("NanoHttpd Shutdown");
                 // ================
@@ -914,7 +941,7 @@ public abstract class NanoHTTPD {
                 Response r = new Response(re.getStatus(), MIME_PLAINTEXT, re.getMessage());
                 r.send(outputStream);
                 safeClose(outputStream);
-                
+
                 // ==== ploggy ====
                 throw new SocketException("NanoHttpd Shutdown");
                 // ================
@@ -1050,8 +1077,9 @@ public abstract class NanoHTTPD {
                     String line = in.readLine();
                     while (line != null && line.trim().length() > 0) {
                         int p = line.indexOf(':');
-                        if (p >= 0)
+                        if (p >= 0) {
                             headers.put(line.substring(0, p).trim().toLowerCase(Locale.US), line.substring(p + 1).trim());
+                        }
                         line = in.readLine();
                     }
                 }
@@ -1159,8 +1187,9 @@ public abstract class NanoHTTPD {
             List<Integer> matchbytes = new ArrayList<Integer>();
             for (int i = 0; i < b.limit(); i++) {
                 if (b.get(i) == boundary[matchcount]) {
-                    if (matchcount == 0)
+                    if (matchcount == 0) {
                         matchbyte = i;
+                    }
                     matchcount++;
                     if (matchcount == boundary.length) {
                         matchbytes.add(matchbyte);
@@ -1283,7 +1312,7 @@ public abstract class NanoHTTPD {
     }
 
     public static class Cookie {
-        private String n, v, e;
+        private final String n, v, e;
 
         public Cookie(String name, String value, String expires) {
             n = name;
@@ -1323,8 +1352,8 @@ public abstract class NanoHTTPD {
      * @author LordFokas
      */
     public class CookieHandler implements Iterable<String> {
-        private HashMap<String, String> cookies = new HashMap<String, String>();
-        private ArrayList<Cookie> queue = new ArrayList<Cookie>();
+        private final HashMap<String, String> cookies = new HashMap<String, String>();
+        private final ArrayList<Cookie> queue = new ArrayList<Cookie>();
 
         public CookieHandler(Map<String, String> httpHeaders) {
             String raw = httpHeaders.get("cookie");

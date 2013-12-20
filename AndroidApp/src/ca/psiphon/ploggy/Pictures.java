@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -33,7 +33,7 @@ import android.widget.ImageView;
 
 /**
  * Helpers for pictures.
- * 
+ *
  * - Scaled-down thumbnail display with caching.
  * - Create size-bounded scaled-down copy of a bitmap file for sharing.
  */
@@ -42,9 +42,9 @@ public class Pictures {
     private static final String LOG_TAG = "Pictures";
 
     private static final int MAX_PICTURE_SIZE_IN_PIXELS = 2097152; // approx. 8MB in ARGB_8888
-    
+
     private static BitmapCache mThumbnailCache = new BitmapCache();
-    
+
     public static boolean loadThumbnailWithClickToShowPicture(Context context, File source, ImageView target) {
         if (!loadThumbnail(context, source, target)) {
             return false;
@@ -54,6 +54,7 @@ public class Pictures {
         final String finalFilePath = source.getAbsolutePath();
         target.setOnClickListener(
                 new View.OnClickListener() {
+                    @Override
                     public void onClick(View v) {
                         Intent intent = new Intent(finalContext, ActivityShowPicture.class);
                         Bundle bundle = new Bundle();
@@ -84,7 +85,7 @@ public class Pictures {
         }
         return false;
     }
-    
+
     public static boolean loadPicture(File source, ImageView target) {
         try {
             target.setImageBitmap(loadScaledBitmap(source, MAX_PICTURE_SIZE_IN_PIXELS));
@@ -94,7 +95,7 @@ public class Pictures {
             return false;
         }
     }
-    
+
     public static void copyScaledBitmapWithoutMetadata(File source, File target) throws Utils.ApplicationError {
         FileOutputStream outputStream = null;
         try {
@@ -125,7 +126,7 @@ public class Pictures {
             inSampleSizeForDimensions(options.outWidth, options.outHeight, targetWidth, targetHeight);
         return decodeBitmap(source, options);
     }
-    
+
 
     private static Bitmap loadScaledBitmap(File source, int maxSizeInPixels)
             throws Utils.ApplicationError {
@@ -135,14 +136,14 @@ public class Pictures {
             inSampleSizeForMaximumSize(options.outWidth, options.outHeight, maxSizeInPixels);
         return decodeBitmap(source, options);
     }
-    
+
     private static void decodeBitmapBounds(File source, BitmapFactory.Options options) {
         options.inJustDecodeBounds = true;
         // TODO: returns null for inJustDecodeBounds... so how to check for error?
         BitmapFactory.decodeFile(source.getAbsolutePath(), options);
         options.inJustDecodeBounds = false;
     }
-    
+
     private static Bitmap decodeBitmap(File source, BitmapFactory.Options options)
             throws Utils.ApplicationError {
         try {
@@ -156,7 +157,7 @@ public class Pictures {
             throw new Utils.ApplicationError(LOG_TAG, "out of memory error");
         }
     }
-    
+
     private static int inSampleSizeForDimensions(int width, int height, int targetWidth, int targetHeight) {
         // Scale the picture down so both width and height fit in target
         // Scale should be power of 2: http://developer.android.com/reference/android/graphics/BitmapFactory.Options.html#inSampleSize
@@ -168,7 +169,7 @@ public class Pictures {
         }
         return inSampleSize;
     }
-    
+
     private static int inSampleSizeForMaximumSize(int width, int height, int maxSizeInPixels) {
         // Scale the picture down so that it's total size in pixels <= MAX_PICTURE_SIZE_IN_PIXELS
         // Scale should be power of 2: http://developer.android.com/reference/android/graphics/BitmapFactory.Options.html#inSampleSize

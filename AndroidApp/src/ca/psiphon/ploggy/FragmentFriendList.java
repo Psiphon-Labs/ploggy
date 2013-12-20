@@ -26,7 +26,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.app.ListFragment;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
@@ -101,7 +100,7 @@ public class FragmentFriendList extends ListFragment {
         Events.unregister(this);
         super.onDestroyView();
     }
-    
+
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
@@ -234,7 +233,7 @@ public class FragmentFriendList extends ListFragment {
                     }
 
                     Data.Status friendStatus = data.getFriendStatus(friend.mId);
-                    
+
                     // Display most recent successful communication timestamp
                     String lastTimestamp = "";
                     if (friend.mLastReceivedStatusTimestamp != null &&
@@ -249,6 +248,7 @@ public class FragmentFriendList extends ListFragment {
                         // On touch, show log entries
                         lastTimestampText.setOnClickListener(
                             new View.OnClickListener() {
+                                @Override
                                 public void onClick(View v) {
                                     mContext.startActivity(new Intent(mContext, ActivityLogEntries.class));
                                 }
