@@ -86,7 +86,7 @@ public class FragmentSelfStatusDetails extends Fragment {
         mLocationPrecisionText = (TextView)view.findViewById(R.id.self_status_details_location_precision_text);
         mLocationTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
-        
+
         // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
         // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
         mScrollView.setOnTouchListener(
@@ -164,7 +164,7 @@ public class FragmentSelfStatusDetails extends Fragment {
         Events.unregister(this);
         super.onDestroyView();
     }
-    
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);

@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -38,7 +38,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
-import java.security.spec.ECGenParameterSpec;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAKeyGenParameterSpec;
@@ -61,8 +60,8 @@ public class X509 {
     public static class KeyMaterial {
         public final String mCertificate;
         public final String mPrivateKey;
-        
-        public KeyMaterial(String certificate, String privateKey) {        
+
+        public KeyMaterial(String certificate, String privateKey) {
             mCertificate = certificate;
             mPrivateKey = privateKey;
         }
@@ -77,7 +76,7 @@ public class X509 {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KEY_TYPE, "SC");
             keyPairGenerator.initialize(KEY_SPEC, new SecureRandom());
             KeyPair keyPair = keyPairGenerator.generateKeyPair();
-    
+
             // TODO: use http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs
             X509V3CertificateGenerator certificateGenerator = new X509V3CertificateGenerator();
 
@@ -85,9 +84,9 @@ public class X509 {
             Calendar calendar = Calendar.getInstance();
             int currentYear = calendar.get(Calendar.YEAR);
             calendar.set(currentYear, Calendar.JANUARY, 1);
-            Date validityBeginDate = calendar.getTime(); 
+            Date validityBeginDate = calendar.getTime();
             calendar.add(Calendar.YEAR, 30);
-            Date validityEndDate = calendar.getTime();        
+            Date validityEndDate = calendar.getTime();
             X500Principal subjectDN = new X500Principal("CN="+commonName);
             certificateGenerator.setSerialNumber(BigInteger.valueOf(1));
             certificateGenerator.setSubjectDN(subjectDN);
@@ -111,7 +110,7 @@ public class X509 {
     public static String sign(KeyMaterial keyMaterial, byte[] data) throws Utils.ApplicationError {
         return sign(keyMaterial.mPrivateKey, data);
     }
-    
+
     public static String sign(String privateKey, byte[] data) throws Utils.ApplicationError {
         try {
             Signature signer = java.security.Signature.getInstance(SIGNATURE_TYPE);
@@ -122,7 +121,7 @@ public class X509 {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     public static boolean verify(String certificate, byte[] data, String signature) throws Utils.ApplicationError {
         try {
             Signature verifier = java.security.Signature.getInstance(SIGNATURE_TYPE);
@@ -133,7 +132,7 @@ public class X509 {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     public static byte[] getFingerprint(String ...params) throws Utils.ApplicationError {
         try {
             MessageDigest hash = MessageDigest.getInstance(FINGERPRINT_ALGORITHM);
@@ -160,7 +159,7 @@ public class X509 {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     public static void loadKeyMaterial(
             KeyStore keyStore, KeyMaterial keyMaterial) throws Utils.ApplicationError {
         loadKeyMaterial(keyStore, keyMaterial.mCertificate, keyMaterial.mPrivateKey);
@@ -171,9 +170,9 @@ public class X509 {
         try {
             X509Certificate x509certificate = decodeCertificate(certificate);
             String alias = x509certificate.getSubjectDN().getName();
-            keyStore.setCertificateEntry(alias, x509certificate);    
+            keyStore.setCertificateEntry(alias, x509certificate);
             if (privateKey != null) {
-                PrivateKey decodedPrivateKey = decodePrivateKey(privateKey); 
+                PrivateKey decodedPrivateKey = decodePrivateKey(privateKey);
                 keyStore.setKeyEntry(alias, decodedPrivateKey, null, new X509Certificate[] {x509certificate});
             }
         } catch (IllegalArgumentException e) {
@@ -186,7 +185,7 @@ public class X509 {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
-    
+
     private static X509Certificate decodeCertificate(String certificate)
             throws Utils.ApplicationError, CertificateException {
         CertificateFactory certificateFactory = CertificateFactory.getInstance(CERTIFICATE_TYPE);
@@ -196,11 +195,11 @@ public class X509 {
     private static PrivateKey decodePrivateKey(String privateKey)
             throws Utils.ApplicationError, NoSuchAlgorithmException, InvalidKeySpecException {
         KeyFactory privateKeyFactory = KeyFactory.getInstance(KEY_TYPE);
-        return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));        
+        return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));
     }
-    
+
     // Crypto algorithm specifications
-    
+
     private static final String FINGERPRINT_ALGORITHM = "SHA-256";
     private static final String CERTIFICATE_TYPE = "X.509";
 

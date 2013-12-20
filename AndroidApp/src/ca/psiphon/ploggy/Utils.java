@@ -36,7 +36,6 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -51,13 +50,8 @@ import android.net.NetworkInfo;
 import android.os.FileObserver;
 import android.os.Handler;
 import android.util.Base64;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.ArrayAdapter;
-import android.widget.ImageView;
-import android.widget.TextView;
 import de.schildbach.wallet.util.LinuxSecureRandom;
 
 /**
@@ -152,7 +146,7 @@ public class Utils {
             outputStream.close();
         }
     }
-    
+
     public static class NullOutputStream extends OutputStream {
         @Override
         public void write(int arg0) throws IOException {
@@ -215,7 +209,7 @@ public class Utils {
         new SecureRandom().nextBytes(buffer);
         return buffer;
     }
-    
+
     public static String encodeBase64(byte[] data) {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
@@ -251,20 +245,20 @@ public class Utils {
         Location.distanceBetween(latitudeA, longitudeA, latitudeB, longitudeB, results);
         return Math.round(results[0]);
     }
-    
+
     public static String formatDistance(Context context, int distanceInMeters) {
         if (distanceInMeters < 1000) {
             return context.getString(
                     R.string.format_distance_meters,
                     NumberFormat.getInstance().format(distanceInMeters));
         } else {
-            double distanceInKilometers = (double)distanceInMeters/1000.0;
+            double distanceInKilometers = distanceInMeters/1000.0;
             return context.getString(
                     R.string.format_distance_kilometers,
                     NumberFormat.getInstance().format(distanceInKilometers));
         }
     }
-    
+
     public static class DateFormatter {
 
         private static DateFormat mShortTimeFormat = DateFormat.getTimeInstance(DateFormat.SHORT);
@@ -376,17 +370,17 @@ public class Utils {
     }
 
     public static class FixedDelayExecutor {
-        private Handler mHandler;
+        private final Handler mHandler;
         private Runnable mExecutorTask;
-        private Runnable mTask;
-        private int mDelayInMilliseconds;
+        private final Runnable mTask;
+        private final int mDelayInMilliseconds;
 
         public FixedDelayExecutor(Runnable task, int delayInMilliseconds) {
             mHandler = new Handler();
             mTask = task;
             mDelayInMilliseconds = delayInMilliseconds;
         }
-        
+
         public void start() {
             stop();
             mExecutorTask = new Runnable() {
@@ -398,7 +392,7 @@ public class Utils {
             };
             mHandler.postDelayed(mExecutorTask, mDelayInMilliseconds);
         }
-        
+
         public void stop() {
             if (mExecutorTask != null) {
                 mHandler.removeCallbacks(mExecutorTask);
@@ -406,7 +400,7 @@ public class Utils {
             }
         }
     }
-    
+
     private static Context mApplicationContext;
 
     public static void setApplicationContext(Context context) {

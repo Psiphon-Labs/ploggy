@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -72,12 +72,12 @@ import android.graphics.Rect;
 import android.widget.ImageView;
 
 /**
- * Unique avatars derived from identity fingerprints - to aid visual verification. 
- * 
+ * Unique avatars derived from identity fingerprints - to aid visual verification.
+ *
  * Port of Robohash (http://robohash.org) to Java.
  */
 public class Robohash {
-    
+
     private static final String LOG_TAG = "Robohash";
 
     private static final String ASSETS_SUBDIRECTORY = "robohash";
@@ -101,9 +101,9 @@ public class Robohash {
                 Log.addEntry(LOG_TAG, "failed to create image");
             }
         }
-        imageView.setImageResource(R.drawable.ic_unknown_avatar); 
+        imageView.setImageResource(R.drawable.ic_unknown_avatar);
     }
-    
+
     public static Bitmap getRobohash(
             Context context,
             boolean cacheCandidate,
@@ -122,7 +122,7 @@ public class Robohash {
             byteBuffer.order(ByteOrder.BIG_ENDIAN);
             // TODO: SecureRandom SHA1PRNG (but not LinuxSecureRandom)
             Random random = new Random(byteBuffer.getLong());
-            
+
             AssetManager assetManager = context.getAssets();
 
             if (mConfig == null) {
@@ -137,7 +137,7 @@ public class Robohash {
 
             Bitmap robotBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas robotCanvas = new Canvas(robotBitmap);
-            
+
             for (int i = 0; i < parts.length(); i++) {
                 JSONArray partChoices = parts.getJSONArray(i);
                 String selection = partChoices.getString(random.nextInt(partChoices.length()));
@@ -148,13 +148,13 @@ public class Robohash {
                 robotCanvas.drawBitmap(partBitmap, rect, rect, paint);
                 partBitmap.recycle();
             }
-            
+
             if (cacheCandidate) {
                 mCache.set(key, robotBitmap);
             }
-            
+
             return robotBitmap;
-            
+
         } catch (IOException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (JSONException e) {
@@ -167,7 +167,7 @@ public class Robohash {
     private static String loadAssetToString(AssetManager assetManager, String assetName) throws IOException {
         InputStream inputStream = null;
         try {
-            inputStream = assetManager.open(new File(ASSETS_SUBDIRECTORY, assetName).getPath());            
+            inputStream = assetManager.open(new File(ASSETS_SUBDIRECTORY, assetName).getPath());
             return Utils.readInputStreamToString(inputStream);
         } finally {
             if (inputStream != null) {
@@ -179,7 +179,7 @@ public class Robohash {
     private static Bitmap loadAssetToBitmap(AssetManager assetManager, String assetName) throws IOException {
         InputStream inputStream = null;
         try {
-            inputStream = assetManager.open(new File(ASSETS_SUBDIRECTORY, assetName).getPath());            
+            inputStream = assetManager.open(new File(ASSETS_SUBDIRECTORY, assetName).getPath());
             return BitmapFactory.decodeStream(inputStream);
         } finally {
             if (inputStream != null) {

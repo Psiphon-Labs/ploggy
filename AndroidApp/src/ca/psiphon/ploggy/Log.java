@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -31,12 +31,12 @@ import android.os.Handler;
  * Logging facility.
  *
  * TODO: consider using Log4J or Logback (http://tony19.github.io/logback-android/)
- * 
+ *
  * Maintains a fixed-size queue of recent log entries. Posts events to observers of
  * recent entries using the main UI thread for compatibility with ListView Adapters.
  */
 public class Log {
-    
+
     private static final String LOG_TAG = "Log";
 
     public static class Entry {
@@ -50,7 +50,7 @@ public class Log {
             mMessage = message;
         }
     }
-    
+
     public interface Observer {
         void onUpdatedRecentEntries();
     }
@@ -60,9 +60,9 @@ public class Log {
     private static ArrayList<Entry> mRecentEntries;
     private static ArrayList<Observer> mObservers;
     private static Handler mHandler;
-    
+
     // TODO: explicit singleton?
-    
+
     public synchronized static void initialize() {
         mRecentEntries = new ArrayList<Entry>();
         mObservers = new ArrayList<Observer>();
@@ -73,17 +73,17 @@ public class Log {
         if (message == null) {
             message = "(null)";
         }
-        
+
         Entry entry = new Entry(tag, message);
 
         // Update the in-memory entry list on the UI thread (also
         // notifies any ListView adapters subscribed to that list)
         postAddEntry(entry);
-        
+
         // Temporary
         android.util.Log.e("Ploggy", tag + " " + message);
     }
-   
+
     public synchronized static int getRecentEntryCount() {
         return mRecentEntries.size();
     }
@@ -91,13 +91,13 @@ public class Log {
     public synchronized static Entry getRecentEntry(int index) {
         return mRecentEntries.get(index);
     }
-    
+
     public synchronized static void registerObserver(Observer observer) {
         if (!mObservers.contains(observer)) {
             mObservers.add(observer);
         }
     }
-    
+
     public synchronized static void unregisterObserver(Observer observer) {
         mObservers.remove(observer);
     }
@@ -114,7 +114,7 @@ public class Log {
                 body.append(entry.mMessage);
                 body.append("\n");
             }
-            
+
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("message/rfc822");
             intent.putExtra(Intent.EXTRA_EMAIL, new String[]{"feedback+ploggy@psiphon.ca"});

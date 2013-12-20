@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -23,6 +23,9 @@ import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
@@ -33,20 +36,17 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.app.ProgressDialog;
-import android.content.Context;
-import android.content.Intent;
 
 /**
  * User interface for (re-)generating self identity.
- * 
+ *
  * An AsyncTask is used to generate TLS and Hidden Service key material. A progress
  * spinner is displayed while generation occurs, then the user may type their
  * nickname. The resulting identity fingerprint and Robohash avatar is updated
  * after brief pauses in typing.
  */
 public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements View.OnClickListener {
-    
+
     private static final String LOG_TAG = "Generate Self";
 
     private ImageView mAvatarImage;
@@ -97,11 +97,11 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             Log.addEntry(LOG_TAG, "failed to show self");
         }
     }
-    
+
     @Override
     public void onResume() {
         super.onResume();
-        
+
         Data.Self self = getSelf();
         if (self == null) {
             startGenerating();
@@ -118,7 +118,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
-    
+
     private void startGenerating() {
         Robohash.setRobohashImage(this, mAvatarImage, false, null);
         mNicknameEdit.setText("");
@@ -126,7 +126,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         mRegenerateButton.setEnabled(false);
         mRegenerateButton.setVisibility(View.GONE);
         mSaveButton.setEnabled(false);
-        mSaveButton.setVisibility(View.VISIBLE);        
+        mSaveButton.setVisibility(View.VISIBLE);
         mGenerateTask = new GenerateTask();
         mGenerateTask.execute();
     }
@@ -147,16 +147,16 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             super.onBackPressed();
         }
     }
-    
+
     @Override
     public void onClick(View view) {
         if (view.equals(mRegenerateButton)) {
-            startGenerating();            
+            startGenerating();
         } else if (view.equals(mSaveButton)) {
             String nickname = mNicknameEdit.getText().toString();
             if (mGenerateResult == null || !Protocol.isValidNickname(nickname)) {
                 return;
-            }            
+            }
             try {
                 Data.getInstance().updateSelf(
                         new Data.Self(
@@ -174,7 +174,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 finish();
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to update self");
-            }            
+            }
         }
     }
 
@@ -189,7 +189,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             mHiddenServiceKeyMaterial = hiddenServiceKeyMaterial;
         }
     }
-    
+
     private class GenerateTask extends AsyncTask<Void, Void, GenerateResult> {
         @Override
         protected GenerateResult doInBackground(Void... params) {
@@ -207,7 +207,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 Log.addEntry(LOG_TAG, "failed to generate key material");
                 return null;
             }
-        }        
+        }
 
         @Override
         protected void onPreExecute() {
@@ -252,20 +252,20 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             @Override
             public void afterTextChanged(Editable s) {
                 final String nickname = s.toString();
-                
+
                 mSaveButton.setEnabled(mGenerateResult != null && Protocol.isValidNickname(nickname));
 
                 // TODO: use Handler instead of Timer
                 if (mAvatarTimerTask != null) {
                     mAvatarTimerTask.cancel();
                 }
-                mAvatarTimerTask = new TimerTask() {          
+                mAvatarTimerTask = new TimerTask() {
                     @Override
                     public void run() {
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                if (mGenerateResult != null) {                                    
+                                if (mGenerateResult != null) {
                                     // Display fingerprint/avatar for updated nickname
                                     showAvatarAndFingerprint(
                                             new Identity.PublicIdentity(
@@ -293,7 +293,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         }
         return self;
     }
-    
+
     static public void checkLaunchGenerateSelf(Context context) {
         // Helper to ensure Self is generated. Called from other Activities to jump to this one first.
         // When Self is generated, ensure the background Service is started.
@@ -302,5 +302,5 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         } else {
             context.startService(new Intent(context, PloggyService.class));
         }
-    }        
+    }
 }

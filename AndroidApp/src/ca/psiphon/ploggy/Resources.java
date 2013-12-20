@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -31,17 +31,17 @@ import android.util.Pair;
 
 /**
  * Helpers for managing local resource files
- * 
+ *
  * Supports two publishing modes:
  * 1. Picture, in which metadata is omitted from the shared copy, which is also automatically scaled down in data size
- * 2. Raw, in which the exact local file is shared (no metadata stripped, no scaling) 
- * 
+ * 2. Raw, in which the exact local file is shared (no metadata stripped, no scaling)
+ *
  */
 public class Resources {
 
     private static final String LOG_TAG = "Resources";
 
-    private static final String LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING = "%s.ploggyLocalResource"; 
+    private static final String LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING = "%s.ploggyLocalResource";
 
     public static class MessageWithAttachments {
         public final Data.Message mMessage;
@@ -54,7 +54,7 @@ public class Resources {
             mLocalResources = localResources;
         }
     }
-    
+
     public static MessageWithAttachments createMessageWithAttachment(
             Date messageTimestamp,
             String messageContent,
@@ -103,14 +103,14 @@ public class Resources {
             }
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
-    }    
-    
+    }
+
     private static File getTemporaryCopyFile(String resourceId) {
         File directory = Utils.getApplicationContext().getCacheDir();
         directory.mkdirs();
         return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, resourceId));
     }
-    
+
     private static File makeScaledDownPictureFileCopy(String sourceFilePath, String resourceId) throws Utils.ApplicationError {
         File file = new File(sourceFilePath);
         File temporaryCopyFile = getTemporaryCopyFile(resourceId);

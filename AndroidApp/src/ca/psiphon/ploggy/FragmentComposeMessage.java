@@ -57,7 +57,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
     private String mPicturePath;
     private EditText mContentEdit;
     private ImageButton mSendButton;
-    
+
     private static final int REQUEST_CODE_SELECT_IMAGE = 1;
 
     @Override
@@ -68,9 +68,9 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
         mPictureThumbnail = (ImageView)view.findViewById(R.id.compose_message_picture_thumbnail);
         mContentEdit = (EditText)view.findViewById(R.id.compose_message_content_edit);
         mSendButton = (ImageButton)view.findViewById(R.id.compose_message_send_button);
-        
+
         mSetPictureButton.setOnClickListener(this);
-        
+
         mPictureThumbnail.setVisibility(View.GONE);
         mPictureThumbnail.setOnClickListener(this);
         registerForContextMenu(mPictureThumbnail);
@@ -173,7 +173,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
                         getText(R.string.prompt_compose_message_select_picture)),
                         REQUEST_CODE_SELECT_IMAGE);
     }
-    
+
     private void resetPicture() {
         mSetPictureButton.setVisibility(View.VISIBLE);
         mPictureThumbnail.setVisibility(View.GONE);

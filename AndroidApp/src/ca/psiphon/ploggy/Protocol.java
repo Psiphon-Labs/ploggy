@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -23,16 +23,16 @@ package ca.psiphon.ploggy;
  * Helpers and defined values for verifying/enforcing Ploggy protocol.
  */
 public class Protocol {
-    
+
     public static final String WEB_SERVER_PROTOCOL = "https";
-    
+
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
-    
+
     public static final String PUSH_STATUS_REQUEST_PATH = "/pushStatus";
 
     public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
     public static final String PULL_STATUS_RESPONSE_MIME_TYPE = "application/json";
-    
+
     public static final String DOWNLOAD_REQUEST_PATH = "/download";
     public static final String DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
 
@@ -43,7 +43,7 @@ public class Protocol {
     public static int MAX_MESSAGE_COUNT = 50;
 
     public static int RESOURCE_ID_LENGTH = 32;
-    
+
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?
         return nickname.length() > 0;
