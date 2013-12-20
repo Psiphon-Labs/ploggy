@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -40,14 +40,13 @@ import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.util.Pair;
-
 import ca.psiphon.ploggy.widgets.TimePickerPreference;
 
 import com.squareup.otto.Subscribe;
 
 /**
  * Coordinator for background Ploggy work.
- * 
+ *
  * The Engine:
  * - schedules friend status push/pulls
  * - schedules friend resource downloads
@@ -56,17 +55,17 @@ import com.squareup.otto.Subscribe;
  * - runs the local location monitor
  * - (re)-starts and stops the local web server and Tor Hidden Service to
  *   handle requests from friends
- *   
+ *
  * An Engine instance is intended to be run via an Android Service set to
  * foreground mode (i.e., long running).
  */
 public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
-    
+
     private static final String LOG_TAG = "Engine";
-    
-    private Context mContext;
-    private SharedPreferences mSharedPreferences;
-    private Handler mHandler;
+
+    private final Context mContext;
+    private final SharedPreferences mSharedPreferences;
+    private final Handler mHandler;
     private Runnable mRestartTask;
     private Runnable mPollFriendsTask;
     private ExecutorService mTaskThreadPool;
@@ -77,7 +76,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
-    
+
     private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000;
 
     private static final int THREAD_POOL_SIZE = 30;
@@ -171,14 +170,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
         return null;
     }
-    
+
     @Override
     public synchronized void submitWebRequestTask(Runnable task) {
         if (mPeerRequestThreadPool != null) {
             mPeerRequestThreadPool.submit(task);
         }
     }
-    
+
     private void startHiddenService() throws Utils.ApplicationError {
         stopHiddenService();
 
@@ -212,11 +211,11 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         self.mPublicIdentity.mHiddenServiceAuthCookie,
                         self.mPrivateIdentity.mHiddenServicePrivateKey),
                 mWebServer.getListeningPort());
-        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry... 
+        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry...
         mTorWrapper.start();
         // Note: startFriendPoll is deferred until onTorCircuitEstablished
     }
-    
+
     private void stopHiddenService() {
         // Friend poll depends on Tor wrapper, so stop it first
         stopFriendPoll();
@@ -227,14 +226,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             mWebServer.stop();
         }
     }
-    
+
     public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
         if (mTorWrapper != null) {
             return mTorWrapper.getSocksProxyPort();
         }
         throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
     }
-    
+
     private void startFriendPoll() throws Utils.ApplicationError {
         stopFriendPoll();
         // Start a recurring timer with initial delay
@@ -260,13 +259,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
         mHandler.postDelayed(mPollFriendsTask, FRIEND_REQUEST_DELAY_IN_MILLISECONDS);
     }
-    
+
     private void stopFriendPoll() {
         if (mPollFriendsTask != null) {
             mHandler.removeCallbacks(mPollFriendsTask);
         }
     }
-    
+
     private void pollFriends() throws Utils.ApplicationError {
         // Reuses pull frequency as a retry frequency for downloads in case of failure
         for (Data.Friend friend : Data.getInstance().getFriends()) {
@@ -274,13 +273,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             submitFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
         }
     }
-    
+
     private void pushToFriends() throws Utils.ApplicationError {
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             submitFriendTask(FriendTaskType.PUSH_TO, friend.mId);
         }
     }
-    
+
     private synchronized void submitFriendTask(FriendTaskType taskType, String friendId) {
         // Schedules one push/pull/download per friend at a time.
         if (mFriendTasks.get(taskType) == null) {
@@ -312,7 +311,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Future<?> future = submitTask(task);
         mFriendTaskFutures.get(taskType).put(friendId, future);
     }
-    
+
     private synchronized void cancelPendingFriendTask(FriendTaskType taskType, String friendId) {
         // Remove pending (not running) task, if present in queue
         Future<?> future = mFriendTaskFutures.get(taskType).get(friendId);
@@ -330,6 +329,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private Runnable makePushToFriendTask(String friendId) {
         final String finalFriendId = friendId;
         return new Runnable() {
+            @Override
             public void run() {
                 Data data = Data.getInstance();
                 try {
@@ -367,6 +367,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private Runnable makePullFromFriendTask(String friendId) {
         final String finalFriendId = friendId;
         return new Runnable() {
+            @Override
             public void run() {
                 Data data = Data.getInstance();
                 try {
@@ -405,6 +406,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private Runnable makeDownloadFromFriendTask(String friendId) {
         final String finalFriendId = friendId;
         return new Runnable() {
+            @Override
             public void run() {
                 Data data = Data.getInstance();
                 try {
@@ -466,7 +468,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         };
     }
-    
+
     @Subscribe
     public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
         try {
@@ -492,29 +494,19 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: apply precision factor to long/lat/address
         // TODO: factor Location.getAccuracy() into precision?
         try {
-            StringBuilder address = new StringBuilder();
-            if (newSelfLocation.mAddress != null) {
-                for (int i = 0; i < newSelfLocation.mAddress.getMaxAddressLineIndex(); i++) {
-                    // TODO: internationalization
-                    if (i > 0) {
-                        address.append(", ");
-                    }
-                    address.append(newSelfLocation.mAddress.getAddressLine(i));
-                }
-            }
             Data.getInstance().updateSelfStatusLocation(
                     new Data.Location(
                             new Date(),
                             newSelfLocation.mLocation.getLatitude(),
                             newSelfLocation.mLocation.getLongitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            address.toString()),
+                            newSelfLocation.mAddress.toString()),
                     currentlySharingLocation());
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update self status with new location");
         }
     }
-    
+
     @Subscribe
     public synchronized void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
         try {
@@ -525,7 +517,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Log.addEntry(LOG_TAG, "failed push to friends after self status updated");
         }
     }
-    
+
     @Subscribe
     public synchronized void onAddedFriend(Events.AddedFriend addedFriend) {
         // Apply new set of friends to web server and pull schedule.
@@ -538,7 +530,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
         }
     }
-    
+
     @Subscribe
     public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
         try {
@@ -562,8 +554,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // Schedule immediate download, if not already downloading from friend
         submitFriendTask(FriendTaskType.DOWNLOAD_FROM, addedDownload.mFriendId);
     }
-    
+
     // Note: not synchronized
+    @Override
     public Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
         // Friend is requesting (pulling) self status
         // TODO: cancel any pending push to this friend?
@@ -579,8 +572,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle pull status request: friend not found");
         }
     }
-    
+
     // Note: not synchronized
+    @Override
     public void handlePushStatusRequest(String friendCertificate, Data.Status status) throws Utils.ApplicationError  {
         // Friend is pushing their own status
         try {
@@ -596,8 +590,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");
         }
     }
-    
+
     // Note: not synchronized
+    @Override
     public WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
             String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
         try {
@@ -618,38 +613,38 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
         }
     }
-    
+
     public synchronized Context getContext() {
         return mContext;
     }
-    
+
     public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         // Defaults which are "false" are not present in the preferences file
         // if (!mSharedPreferences.contains(key)) {...}
         // TODO: this is ambiguous: there's now no test for failure to initialize defaults
-        return mSharedPreferences.getBoolean(key, false);        
+        return mSharedPreferences.getBoolean(key, false);
     }
-    
+
     public synchronized int getIntPreference(int keyResID) throws Utils.ApplicationError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
             throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
         }
-        return mSharedPreferences.getInt(key, 0);        
+        return mSharedPreferences.getInt(key, 0);
     }
 
     public synchronized boolean currentlySharingLocation() throws Utils.ApplicationError {
         if (!getBooleanPreference(R.string.preferenceAutomaticLocationSharing)) {
             return false;
         }
-        
+
         Calendar now = Calendar.getInstance();
-        
+
         if (getBooleanPreference(R.string.preferenceLimitLocationSharingTime)) {
             int currentHour = now.get(Calendar.HOUR_OF_DAY);
             int currentMinute = now.get(Calendar.MINUTE);
-            
+
             String sharingTimeNotBefore = mSharedPreferences.getString(
                     mContext.getString(R.string.preferenceLimitLocationSharingTimeNotBefore), "");
             int notBeforeHour = TimePickerPreference.getHour(sharingTimeNotBefore);
@@ -675,7 +670,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Set<String> sharingDays = mSharedPreferences.getStringSet(
                 mContext.getString(R.string.preferenceLimitLocationSharingDay),
                 new HashSet<String>());
-    
+
         if (!sharingDays.contains(currentWeekday)) {
             return false;
         }

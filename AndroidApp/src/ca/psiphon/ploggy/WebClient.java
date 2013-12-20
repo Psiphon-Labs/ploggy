@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -39,7 +39,6 @@ import java.util.List;
 import javax.net.ssl.SSLContext;
 
 import android.util.Pair;
-
 import ch.boye.httpclientandroidlib.HttpEntity;
 import ch.boye.httpclientandroidlib.HttpHost;
 import ch.boye.httpclientandroidlib.HttpResponse;
@@ -55,19 +54,17 @@ import ch.boye.httpclientandroidlib.conn.scheme.Scheme;
 import ch.boye.httpclientandroidlib.conn.scheme.SchemeRegistry;
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 import ch.boye.httpclientandroidlib.entity.InputStreamEntity;
-import ch.boye.httpclientandroidlib.entity.StringEntity;
 import ch.boye.httpclientandroidlib.impl.client.DefaultHttpClient;
 import ch.boye.httpclientandroidlib.impl.conn.DefaultClientConnectionOperator;
 import ch.boye.httpclientandroidlib.impl.conn.PoolingClientConnectionManager;
 import ch.boye.httpclientandroidlib.params.BasicHttpParams;
 import ch.boye.httpclientandroidlib.params.HttpConnectionParams;
 import ch.boye.httpclientandroidlib.params.HttpParams;
-import ch.boye.httpclientandroidlib.protocol.HTTP;
 import ch.boye.httpclientandroidlib.protocol.HttpContext;
 
 /**
  * Client-side for Ploggy friend-to-friend requests.
- * 
+ *
  * Implements HTTP requests through Tor with TLS configured with TransportSecurity specs and mutual
  * authentication.
  */
@@ -76,11 +73,11 @@ public class WebClient {
     private static final String LOG_TAG = "Web Client";
 
     public static final int UNTUNNELED_REQUEST = -1;
-    
+
     private static final String LOCAL_SOCKS_PROXY_PORT_PARAM_NAME = "localSocksProxyPort";
     private static final int CONNECT_TIMEOUT_MILLISECONDS = 60000;
     private static final int READ_TIMEOUT_MILLISECONDS = 60000;
-    
+
     // TODO: fluent interface for makeRequest
 
     public static String makeGetRequest(
@@ -99,6 +96,35 @@ public class WebClient {
                 port,
                 requestPath,
                 null,  // requestParameters
+                null,  // requestBodyMimeType
+                -1,    // requestBodyLength
+                null,  // requestBodyStream
+                null,  // rangeHeader
+                responseBodyStream);
+        try {
+            return new String(responseBodyStream.toByteArray(), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    public static String makeGetRequest(
+            X509.KeyMaterial x509KeyMaterial,
+            String peerCertificate,
+            int localSocksProxyPort,
+            String hostname,
+            int port,
+            String requestPath,
+            List<Pair<String,String>> requestParameters) throws Utils.ApplicationError {
+        ByteArrayOutputStream responseBodyStream = new ByteArrayOutputStream();
+        makeRequest(
+                x509KeyMaterial,
+                peerCertificate,
+                localSocksProxyPort,
+                hostname,
+                port,
+                requestPath,
+                requestParameters,  // requestParameters
                 null,  // requestBodyMimeType
                 -1,    // requestBodyLength
                 null,  // requestBodyStream
@@ -202,7 +228,7 @@ public class WebClient {
             if (localSocksProxyPort == UNTUNNELED_REQUEST) {
                 connectionManager = new PoolingClientConnectionManager(registry);
             } else {
-                connectionManager = new SocksProxyPoolingClientConnectionManager(registry);                
+                connectionManager = new SocksProxyPoolingClientConnectionManager(registry);
             }
             HttpParams params = new BasicHttpParams();
             HttpConnectionParams.setConnectionTimeout(params, CONNECT_TIMEOUT_MILLISECONDS);
@@ -295,21 +321,21 @@ public class WebClient {
                 if (conn.isOpen()) {
                     throw new IllegalStateException("Connection must not be open");
                 }
-    
+
                 Scheme scheme = schemeRegistry.getScheme(target.getSchemeName());
                 SSLSocketFactory sslSocketFactory = (SSLSocketFactory)scheme.getSchemeSocketFactory();
-    
+
                 int port = scheme.resolvePort(target.getPort());
                 String host = target.getHostName();
-    
+
                 // Perform explicit SOCKS4a connection request. SOCKS4a supports remote host name resolution
                 // (i.e., Tor resolves the hostname, which may be an onion address).
                 // The Android (Apache Harmony) Socket class appears to support only SOCKS4 and throws an
                 // exception on an address created using INetAddress.createUnresolved() -- so the typical
                 // technique for using Java SOCKS4a/5 doesn't appear to work on Android:
-                // https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/java/net/PlainSocketImpl.java            
+                // https://android.googlesource.com/platform/libcore/+/master/luni/src/main/java/java/net/PlainSocketImpl.java
                 // See also: http://www.mit.edu/~foley/TinFoil/src/tinfoil/TorLib.java, for a similar implementation
-    
+
                 // From http://en.wikipedia.org/wiki/SOCKS#SOCKS4a:
                 //
                 // field 1: SOCKS version number, 1 byte, must be 0x04 for this version
@@ -320,14 +346,14 @@ public class WebClient {
                 // field 4: deliberate invalid IP address, 4 bytes, first three must be 0x00 and the last one must not be 0x00
                 // field 5: the user ID string, variable length, terminated with a null (0x00)
                 // field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
-                
+
                 int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
-    
+
                 socket = new Socket();
                 conn.opening(socket, target);
                 socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
                 socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
-                
+
                 DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
                 outputStream.write((byte)0x04);
                 outputStream.write((byte)0x01);
@@ -336,14 +362,14 @@ public class WebClient {
                 outputStream.write((byte)0x00);
                 outputStream.write(host.getBytes());
                 outputStream.write((byte)0x00);
-                
+
                 DataInputStream inputStream = new DataInputStream(socket.getInputStream());
                 if (inputStream.readByte() != (byte)0x00 || inputStream.readByte() != (byte)0x5a) {
                     throw new IOException("SOCKS4a connect failed");
                 }
                 inputStream.readShort();
                 inputStream.readInt();
-    
+
                 sslSocket = sslSocketFactory.createLayeredSocket(socket, host, port, params);
                 conn.opening(sslSocket, target);
                 sslSocket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
