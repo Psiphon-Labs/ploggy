@@ -1,4 +1,7 @@
-* text=auto
+# The lines below don't seem to override this on Windows+Cygwin+git-1.8.3.4. 
+# The lines below should be enough to achieve the line endings we want without
+# this catch-all.
+#* text=auto
 
 *.java text
 *.xml text
