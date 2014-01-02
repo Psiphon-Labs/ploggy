@@ -493,11 +493,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: location fix timestamp vs. status update timestamp?
         // TODO: apply precision factor to long/lat/address
         // TODO: factor Location.getAccuracy() into precision?
-
-        assert(newSelfLocation != null);
-        assert(newSelfLocation.mLocation != null);
-        // newSelfLocation.mAddress may be null
-
         try {
             Data.getInstance().updateSelfStatusLocation(
                     new Data.Location(
@@ -505,7 +500,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             newSelfLocation.mLocation.getLatitude(),
                             newSelfLocation.mLocation.getLongitude(),
                             getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            newSelfLocation.mAddress != null ? newSelfLocation.mAddress.toString() : ""),
+                            newSelfLocation.mAddress.toString()),
                     currentlySharingLocation());
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed to update self status with new location");
