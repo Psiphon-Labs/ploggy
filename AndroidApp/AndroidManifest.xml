@@ -99,7 +99,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityShowPicture" >
+            android:name="ca.psiphon.ploggy.ActivityShowPicture" 
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
