@@ -76,7 +76,7 @@ Performance considerations:
 Current Status
 --------------------------------------------------------------------------------
 
-Currently progressing towards an alpha version featuring location sharing.
+Currently progressing towards an alpha version featuring location sharing, messaging and photo sharing.
 
 Implemented:
 
@@ -90,11 +90,25 @@ Implemented:
 * Logging with persistence
 * Unit tests (covering primarily Tor client/Hidden Service and web client/server)
 * Location manager (implemented using Android open source API, not new closed-source Play Service API)
+* Reverse geocoding using Open Street Map data
+* Messaging
+* Photo/image sharing
 
 Missing:
 * Coarse location service design and implementation
 * Map sharing
-* Other social network features: blog, photo sharing
+* private groups
+
+Android App Screenshots
+--------------------------------------------------------------------------------
+
+![Messages](AndroidApp/screenshots/messages.png?raw=true "Messages")
+
+![Friends](AndroidApp/screenshots/friends.png?raw=true "Friends")
+
+![Your Status](AndroidApp/screenshots/your-status.png?raw=true "Your Status")
+
+![Add Friend](AndroidApp/screenshots/add-friend.png?raw=true "Add Friend")
 
 3rd Party Components
 --------------------------------------------------------------------------------
