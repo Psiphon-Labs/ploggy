@@ -101,7 +101,7 @@
     <string name="preference_enable_battery_saver_summary">Stop sending your location and receiving friend locations when battery level is below threshold</string>
     <string name="preference_battery_saver_level_title">Battery Saver Level</string>
     <string name="preference_battery_saver_level_summary"></string>
-    <string name="preferences_battery_saver_level_units">%%</string>
+    <string name="preferences_battery_saver_level_units">%</string>
     <string name="preference_location_fix_frequency_title">Location Fix Frequency</string>
     <string name="preference_location_fix_frequency_summary">How often your current location is updated</string>
     <string name="preference_location_fix_frequency_units">minutes</string>
