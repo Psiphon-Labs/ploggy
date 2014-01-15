@@ -151,7 +151,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mRootDirectory = context.getDir(rootDirectory, Context.MODE_PRIVATE);
         mDataDirectory = new File(mRootDirectory, "data");
         mHiddenServiceDirectory = new File(mRootDirectory, "hidden_service");
-        mExecutableFile = new File(mRootDirectory, "tor");
+        // Note: calling the executable/process "ploggy-tor" instead of "tor" to avoid conflict
+        // with Orbot, which in some cases appears to want to adopt any process named "tor"
+        // as its own -- which causes Orbot to fail because our control interface is not
+        // running on the expected port and Orbot can't get our control auth cookie.
+        // (this appears to only occur in Orbot's root mode; tested with Orbot 12.x and 13.1)
+        mExecutableFile = new File(mRootDirectory, "ploggy-tor");
         mConfigFile = new File(mRootDirectory, "config");
         mControlPortFile = new File(mDataDirectory, "control_port_file");
         mControlAuthCookieFile = new File(mDataDirectory, "control_auth_cookie");

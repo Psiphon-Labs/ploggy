@@ -115,6 +115,7 @@ Android App Screenshots
 
 * Tor - https://www.torproject.org
 * Briar Project (jtorctl, TorPlugin components) - http://briar.sourceforge.net
+* Orbot (Tor binary for Android) - https://guardianproject.info/apps/orbot/
 * NanoHTTPD - https://github.com/NanoHttpd/nanohttpd
 * httpclientandroidlib - https://code.google.com/p/httpclientandroidlib
 * GSON - http://code.google.com/p/google-gson
