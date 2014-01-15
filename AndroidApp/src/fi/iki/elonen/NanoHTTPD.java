@@ -18,6 +18,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -26,10 +27,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
 
@@ -101,6 +104,7 @@ public abstract class NanoHTTPD {
     private final String hostname;
     private final int myPort;
     private ServerSocket myServerSocket;
+    private final Set<Socket> openConnections = new HashSet<Socket>();
     private Thread myThread;
     /**
      * Pluggable strategy for asynchronously executing requests.
@@ -186,10 +190,12 @@ public abstract class NanoHTTPD {
                 do {
                     try {
                         final Socket finalAccept = myServerSocket.accept();
+                        registerConnection(finalAccept);
                         finalAccept.setSoTimeout(getReadTimeout());
                         final InputStream inputStream = finalAccept.getInputStream();
                         if (inputStream == null) {
                             safeClose(finalAccept);
+                            unRegisterConnection(finalAccept);
                         } else {
                             asyncRunner.exec(new Runnable() {
                                 @Override
@@ -217,6 +223,7 @@ public abstract class NanoHTTPD {
                                         safeClose(outputStream);
                                         safeClose(inputStream);
                                         safeClose(finalAccept);
+                                        unRegisterConnection(finalAccept);
                                     }
                                 }
                             });
@@ -243,6 +250,7 @@ public abstract class NanoHTTPD {
     public void stop() {
         try {
             safeClose(myServerSocket);
+            closeAllConnections();
             // ==== ploggy ====
             if (myThread != null) {
                 myThread.join();
@@ -251,6 +259,35 @@ public abstract class NanoHTTPD {
             // ================
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Registers that a new connection has been set up.
+     *
+     * @param socket
+     *            the {@link Socket} for the connection.
+     */
+    public synchronized void registerConnection(Socket socket) {
+        openConnections.add(socket);
+    }
+
+    /**
+     * Registers that a connection has been closed
+     *
+     * @param socket
+     *            the {@link Socket} for the connection.
+     */
+    public synchronized void unRegisterConnection(Socket socket) {
+        openConnections.remove(socket);
+    }
+
+    /**
+     * Forcibly closes all connections that are open.
+     */
+    public synchronized void closeAllConnections() {
+        for (Socket socket : openConnections) {
+            safeClose(socket);
         }
     }
 
@@ -777,6 +814,8 @@ public abstract class NanoHTTPD {
 
     public static final class ResponseException extends Exception {
 
+        private static final long serialVersionUID = 6569838532917408380L;
+
         private final Response.Status status;
 
         public ResponseException(Response.Status status, String message) {
@@ -927,6 +966,8 @@ public abstract class NanoHTTPD {
                 }
             } catch (SocketException e) {
                 // throw it out to close socket object (finalAccept)
+                throw e;
+            } catch (SocketTimeoutException e) {
                 throw e;
             } catch (IOException ioe) {
                 Response r = new Response(Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "SERVER INTERNAL ERROR: IOException: " + ioe.getMessage());
