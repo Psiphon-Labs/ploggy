@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -58,6 +58,10 @@ public class Identity {
             mHiddenServiceHostname = hiddenServiceHostname;
             mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
+        }
+        
+        public String getId() throws Utils.ApplicationError {
+            return Utils.formatFingerprint(getFingerprint());
         }
 
         public byte[] getFingerprint() throws Utils.ApplicationError {

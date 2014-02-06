@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,15 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
 /**
+ * Ploggy protocol
+ *
+ * On disk and within the protocol, data is represented as JSON. In memory, data
+ * is represented as immutable POJOs which are thread-safe and easily serializable.
  * Helpers and defined values for verifying/enforcing Ploggy protocol.
  */
 public class Protocol {
@@ -28,21 +36,153 @@ public class Protocol {
 
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
 
-    public static final String PUSH_STATUS_REQUEST_PATH = "/pushStatus";
+    // *TODO* GET vs. PUT for PULL request
+    public static final String PULL_PUT_REQUEST_PATH = "/pull";
+    public static final String PULL_PUT_REQUEST_MIME_TYPE = "application/json";
+    public static final String PULL_PUT_RESPONSE_MIME_TYPE = "application/json";
 
-    public static final String PULL_STATUS_REQUEST_PATH = "/pullStatus";
-    public static final String PULL_STATUS_RESPONSE_MIME_TYPE = "application/json";
+    public static final String PUSH_PUT_REQUEST_PATH = "/push";
+    public static final String PUSH_PUT_REQUEST_MIME_TYPE = "application/json";
+    public static final String PUSH_PUT_RESPONSE_MIME_TYPE = "application/json";
 
-    public static final String DOWNLOAD_REQUEST_PATH = "/download";
-    public static final String DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
+    public static final String DOWNLOAD_GET_REQUEST_PATH = "/download";
+    public static final String DOWNLOAD_GET_REQUEST_RESOURCE_TYPE_PARAMETER = "resourceType";
+    public static final String DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
+    public static final String RESOURCE_TYPE_RESOURCE = "Resource";
+    public static final String RESOURCE_TYPE_LOCATION = "Location";
 
-    public static int MAX_POST_REQUEST_BODY_SIZE = 1000000;
-
-    // TODO: limits in place for prototype, which is currently sending all messages in one blob
-    public static int MAX_MESSAGE_LENGTH = 200;
-    public static int MAX_MESSAGE_COUNT = 50;
+    public static final String POST_CONTENT_TYPE_DEFAULT = "text/plain";
 
     public static int RESOURCE_ID_LENGTH = 32;
+
+    public static int MAX_MESSAGE_SIZE = 1000000;
+
+    public static class SequenceNumbers {
+        public final long mGroupSequenceNumber;
+        public final long mPostSequenceNumber;
+
+        public SequenceNumbers(
+                long groupSequenceNumber,
+                long postSequenceNumber) {
+            mGroupSequenceNumber = groupSequenceNumber;
+            mPostSequenceNumber = postSequenceNumber;
+        }
+    }
+
+    public static class PullRequest {
+        public final Map<String, SequenceNumbers> mGroupLastReceivedSequenceNumbers;
+        public final List<String> mGroupsToResignMembership;
+        public final boolean mRequestPullBack;
+
+        public PullRequest(
+                Map<String, SequenceNumbers> groupLastReceivedSequenceNumbers,
+                List<String> groupsToResignMembership,
+                boolean requestPullBack) {
+            mGroupLastReceivedSequenceNumbers = groupLastReceivedSequenceNumbers;
+            mGroupsToResignMembership = groupsToResignMembership;
+            mRequestPullBack = requestPullBack;
+        }
+    }
+
+    public static class Group {
+        public final String mId;
+        public final String mName;
+        public final String mPublisherId;
+        //public final Identity.PublicIdentity mPublisher; // ...TODO: redundant?
+        public final List<Identity.PublicIdentity> mMembers; //...TODO: need to include this for case where member isn't a friend...
+        public final Date mCreatedTimestamp;
+        public final Date mModifiedTimestamp;
+        public final long mSequenceNumber;
+        public final boolean mIsTombstone;
+
+        public Group(
+                String id,
+                String name,
+                String publisherId,
+                List<Identity.PublicIdentity> members,
+                Date createdTimestamp,
+                Date modifiedTimestamp,
+                long sequenceNumber,
+                boolean isTombstone) {
+            mId = id;
+            mName = name;
+            mPublisherId = publisherId;
+            mMembers = members;
+            mCreatedTimestamp = createdTimestamp;
+            mModifiedTimestamp = modifiedTimestamp;
+            mSequenceNumber = sequenceNumber;
+            mIsTombstone = isTombstone;
+        }
+    }
+    
+    public static class Location {
+        public final Date mTimestamp;
+        public final double mLatitude;
+        public final double mLongitude;
+        public final String mStreetAddress;
+
+        public Location(
+                Date timestamp,
+                double latitude,
+                double longitude,
+                String streetAddress) {
+            mTimestamp = timestamp;
+            mLatitude = latitude;
+            mLongitude = longitude;
+            mStreetAddress = streetAddress;
+        }
+    }
+
+    public static class Post {
+        public final String mId;
+        public final String mPublisherId;
+        public final String mGroupId;
+        public final String mContentType;
+        public final String mContent;
+        public final List<Resource> mAttachments;
+        public final Date mCreatedTimestamp;
+        public final Date mModifiedTimestamp;
+        public final long mSequenceNumber;
+        public final boolean mIsTombstone;
+
+        public Post(
+                String id,
+                String groupId,
+                String publisherId,
+                String contentType,
+                String content,
+                List<Resource> attachments,
+                Date createdTimestamp,
+                Date modifiedTimestamp,
+                long sequenceNumber,
+                boolean isTombstone) {
+            mId = id;
+            mGroupId = groupId;
+            mPublisherId = publisherId;
+            mContentType = contentType;
+            mContent = content;
+            mAttachments = attachments;
+            mCreatedTimestamp = createdTimestamp;
+            mModifiedTimestamp = modifiedTimestamp;
+            mSequenceNumber = sequenceNumber;
+            mIsTombstone = isTombstone;
+        }
+    }
+
+    public static class Resource {
+        public final String mId;
+        public final String mMimeType;
+        public final long mSize;
+
+        public Resource(
+                String id,
+                String mimeType,
+                long size) {
+            mId = id;
+            mMimeType = mimeType;
+            mSize = size;
+        }
+    }
 
     public static boolean isValidNickname(String nickname) {
         // TODO: valid characters?
@@ -54,7 +194,19 @@ public class Protocol {
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
     }
 
-    public static void validateStatus(Data.Status status) throws Utils.ApplicationError {
-        // TODO: timestamp, long, lat, street address
+    public static void validatePullRequest(PullRequest pullRequest) throws Utils.ApplicationError {
+        // TODO: ...
+    }
+
+    public static void validateGroup(Group group) throws Utils.ApplicationError {
+        // TODO: ...
+    }
+
+    public static void validateLocation(Location location) throws Utils.ApplicationError {
+        // TODO: ...
+    }
+
+    public static void validatePost(Post post) throws Utils.ApplicationError {
+        // TODO: ...
     }
 }

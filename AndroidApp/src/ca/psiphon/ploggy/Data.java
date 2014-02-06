@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,48 +19,75 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
-import android.content.Context;
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
+import android.database.sqlite.SQLiteOpenHelper;
 
 /**
- * Data persistence for self, friends, and status.
+ * Manages local, persistent Ploggy data. Implementation of sync protocol
+ * and other data-related "business logic".
  *
- * On disk, data is represented as JSON stored in individual files. In memory, data is represented
- * as immutable POJOs which are thread-safe and easily serializable. Self and friend metadata, including
- * identity, and recent status data are kept in-memory. Large data such as map tiles will be left on
- * disk with perhaps an in-memory cache.
+ * Data persistence implemented using Sqlite/Sqlcipher. Code is written assuming
+ * SQLite WAL-mode concurrency and transaction isolation. BEGIN IMMEDIATE is the
+ * preferred behavior for write transactions. Long running read transactions will
+ * block the WAL checkpointer and are to be avoided. Multiple readers are 
+ * supported and expected (no "synchronized" mutex on Data object).
+ * See: http://www.sqlite.org/wal.html and http://www.sqlite.org/isolation.html.
+ * Also see: http://developer.android.com/reference/android/database/sqlite/SQLiteDatabase.html#enableWriteAheadLogging%28%29
+ * regarding SQLiteDatabase thread-safety and WAL-mode.
+ * 
+ * Use of SQL is encapsulated: API exposes Java POJOs and iterators.
  *
- * Simple consistency is provided: data changes are first written to a commit file, then the commit
- * file replaces the data file. In memory structures are replaced only after the file write succeeds.
- *
- * If local security is added to the scope of Ploggy, here's where we'd interface with SQLCipher and/or
- * KeyChain, etc.
- *
- * ==== PROTOTYPE NOTE ====
- * This module is performant for the prototype only. Missing are:
- * - incremental synchronization
- * - synchronization based on logical timestamp
- * - efficient data storage and viewing
- * ========================
- *
+ * Use getInstance() to get the singleton Data instance. Use the version that takes
+ * a name parameter to get an independent Data instance for testing.
  */
-public class Data {
+
+/*
+
+*IN PROGRESS*
+
+- Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
+- Friend: add column(s) to store data transfer per friend
+- Friend lastSentSequenceNumber: needs to be per Group
+- Support per-group privacy settings
+- Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
+- Group order in pull requests: using LinkedHashMap but order is lost in JSON: http://stackoverflow.com/questions/5396680/whats-the-proper-represantation-of-linkedhashmap-in-json
+- Create indexes for queries (see http://www.sqlite.org/optoverview.html)
+- Should we have explicit transactions for returned cursors (and have CursorIterator track a transaction)?
+- Cache POJOs (especially for getFriend and getGroup)
+- Post to event bus; e.g. to trigger UI updates due to cascading deletes
+- Prepared statements?
+- Review all "*TODO*" comments
+- Switch to SQLCipher
+- Unit tests (or coverage in Tests module)
+
+*/
+
+public class Data extends SQLiteOpenHelper {
 
     private static final String LOG_TAG = "Data";
 
+    public static class NotFoundError extends Exception {
+        private static final long serialVersionUID = -8736069103392081076L;
+
+        public NotFoundError() {
+        }
+    }
+
     public static class Self {
+        public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
         public final Identity.PrivateIdentity mPrivateIdentity;
         public final Date mCreatedTimestamp;
@@ -68,10 +95,25 @@ public class Data {
         public Self(
                 Identity.PublicIdentity publicIdentity,
                 Identity.PrivateIdentity privateIdentity,
-                Date createdTimestamp) {
+                Date createdTimestamp) throws Utils.ApplicationError {
+            mId = publicIdentity.getId();
             mPublicIdentity = publicIdentity;
             mPrivateIdentity = privateIdentity;
             mCreatedTimestamp = createdTimestamp;
+        }
+    }
+
+    public static class CandidateFriend {
+        public final String mId;
+        public final Identity.PublicIdentity mPublicIdentity;
+        public final List<String> mGroupIds;
+
+        public CandidateFriend(
+                Identity.PublicIdentity publicIdentity,
+                List<String> groupIds) throws Utils.ApplicationError {
+            mId = publicIdentity.getId();
+            mPublicIdentity = publicIdentity;
+            mGroupIds = groupIds;
         }
     }
 
@@ -79,140 +121,104 @@ public class Data {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
         public final Date mAddedTimestamp;
-        public final Date mLastSentStatusTimestamp;
-        public final Date mLastReceivedStatusTimestamp;
+        public final Date mLastSentTimestamp;
+        public final long mLastSentSequenceNumber;
+        public final Date mLastReceivedTimestamp;
+        public final long mLastReceivedSequenceNumber;
 
-        public Friend(
-                Identity.PublicIdentity publicIdentity,
-                Date addedTimestamp) throws Utils.ApplicationError {
-            this(publicIdentity, addedTimestamp, null, null);
-        }
         public Friend(
                 Identity.PublicIdentity publicIdentity,
                 Date addedTimestamp,
-                Date lastSentStatusTimestamp,
-                Date lastReceivedStatusTimestamp) throws Utils.ApplicationError {
-            mId = Utils.formatFingerprint(publicIdentity.getFingerprint());
+                Date lastSentTimestamp,
+                long lastSentSequenceNumber,
+                Date lastReceivedTimestamp,
+                long lastReceivedSequenceNumber) throws Utils.ApplicationError {
+            mId = publicIdentity.getId();
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
-            mLastSentStatusTimestamp = lastSentStatusTimestamp;
-            mLastReceivedStatusTimestamp = lastReceivedStatusTimestamp;
+            mLastSentSequenceNumber = lastSentSequenceNumber;
+            mLastSentTimestamp = lastSentTimestamp;
+            mLastReceivedTimestamp = lastReceivedTimestamp;
+            mLastReceivedSequenceNumber = lastReceivedSequenceNumber;
         }
     }
 
-    public class FriendComparator implements Comparator<Friend> {
-        @Override
-        public int compare(Friend a, Friend b) {
-            return a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
+    public static class Group {
+        public final Protocol.Group mGroup;
+        public enum State {
+            // Self is publisher and group is active (not deleted, posts being added).
+            PUBLISHING,
+
+            // Self is not a publisher, and as last received group is active.
+            SUBSCRIBING,
+
+            // Self is not publisher but wants to leave group; group is not displayed in
+            // UI and post updates are discarded; will notify friends and group publisher
+            // of this state, publisher will update group to remove self as member, and
+            // then this group's data will be completely deleted.
+            RESIGNING,
+
+            // Self is publisher and group is deleted. Will send tombstone to all members.
+            // All group posts are deleted; only group tombstone is retained.
+            TOMBSTONE,
+
+            // Self is not publisher and received TOMBSTONE from publisher. Group and
+            // content still visible locally until local user deletes, after which this
+            // group's data will be completely deleted.
+            DEAD,
+
+            // Self is not published and removed publisher as friend. Same treatment as
+            // DEAD state, except that publisher will not be in TOMBSTONE state and not
+            // receive notification to remove self as a member.
+            // TODO: what happens when re-add friend?
+            ORPHANED
+        }
+        public final State mState;
+
+        public Group(
+                Protocol.Group group,
+                State state) {
+            mGroup = group;
+            mState = state;
         }
     }
 
-    public static class Message {
-        public final Date mTimestamp;
-        public final String mContent;
-        public final List<Resource> mAttachments;
-
-        public Message(
-                Date timestamp,
-                String content,
-                List<Resource> attachments) {
-            mTimestamp = timestamp;
-            mContent = content;
-            mAttachments = attachments;
+    public static class Post {
+        public final Protocol.Post mPost;
+        public enum State {
+            UNREAD,
+            READ,
+            TOMBSTONE
         }
-    }
+        public final State mState;
 
-    public static class AnnotatedMessage {
-        public final Identity.PublicIdentity mPublicIdentity;
-        public final String mFriendId;
-        public final Data.Message mMessage;
-
-        public AnnotatedMessage(
-                Identity.PublicIdentity publicIdentity,
-                String friendId,
-                Data.Message message) {
-            mPublicIdentity = publicIdentity;
-            mFriendId = friendId;
-            mMessage = message;
-        }
-    }
-
-    public class AnnotatedMessageComparator implements Comparator<AnnotatedMessage> {
-        @Override
-        public int compare(AnnotatedMessage a, AnnotatedMessage b) {
-            // Descending time order
-            int result = b.mMessage.mTimestamp.compareTo(a.mMessage.mTimestamp);
-            if (result == 0) {
-                result = a.mPublicIdentity.mNickname.compareToIgnoreCase(b.mPublicIdentity.mNickname);
-            }
-            return result;
-        }
-    }
-
-    public static class Location {
-        public final Date mTimestamp;
-        public final double mLatitude;
-        public final double mLongitude;
-        public final int mPrecision;
-        public final String mStreetAddress;
-
-        public Location(
-                Date timestamp,
-                double latitude,
-                double longitude,
-                int precision,
-                String streetAddress) {
-            mTimestamp = timestamp;
-            mLatitude = latitude;
-            mLongitude = longitude;
-            mPrecision = precision;
-            mStreetAddress = streetAddress;
-        }
-    }
-
-    public static class Status {
-        final List<Message> mMessages;
-        public final Location mLocation;
-
-        public Status(
-                List<Message> messages,
-                Location location) {
-            mMessages = messages;
-            mLocation = location;
-        }
-    }
-
-    public static class Resource {
-        public final String mId;
-        public final String mMimeType;
-        public final long mSize;
-
-        public Resource(
-                String id,
-                String mimeType,
-                long size) {
-            mId = id;
-            mMimeType = mimeType;
-            mSize = size;
+        public Post(
+                Protocol.Post post,
+                State state) {
+            mPost = post;
+            mState = state;
         }
     }
 
     public static class LocalResource {
+        public final String mResourceId;
+        public final String mGroupId;
         public enum Type {PICTURE, RAW}
         public final Type mType;
-        public final String mResourceId;
         public final String mMimeType;
         public final String mFilePath;
         public final String mTempFilePath;
 
         public LocalResource(
-                Type type,
                 String resourceId,
+                String groupId,
+                Type type,
                 String mimeType,
                 String filePath,
                 String tempFilePath) {
-            mType = type;
             mResourceId = resourceId;
+            mGroupId = groupId;
+            mType = type;
             mMimeType = mimeType;
             mFilePath = filePath;
             mTempFilePath = tempFilePath;
@@ -220,7 +226,7 @@ public class Data {
     }
 
     public static class Download {
-        public final String mFriendId;
+        public final String mPublisherId;
         public final String mResourceId;
         public final String mMimeType;
         public final long mSize;
@@ -228,12 +234,12 @@ public class Data {
         public final State mState;
 
         public Download(
-                String friendId,
+                String publisherId,
                 String resourceId,
                 String mimeType,
                 long size,
                 State state) {
-            mFriendId = friendId;
+            mPublisherId = publisherId;
             mResourceId = resourceId;
             mMimeType = mimeType;
             mSize = size;
@@ -241,626 +247,1449 @@ public class Data {
         }
     }
 
-    // TODO: fix -- having these errors as subclasses of Utils.ApplicationError with
-    // no log can result in silent failures when functions only handle the base class
+    private static final int DATABASE_VERSION = 1;
 
-    public static class DataNotFoundError extends Utils.ApplicationError {
-        private static final long serialVersionUID = -8736069103392081076L;
+    private static final String DEFAULT_DATABASE_NAME = "ploggy.db";
 
-        public DataNotFoundError() {
-            // No log for this expected condition
-            super(null, "");
-        }
-    }
+    private static final String[] DATABASE_SCHEMA = {
 
-    public static class DataAlreadyExistsError extends Utils.ApplicationError {
-        private static final long serialVersionUID = 6287628326991088141L;
+            "CREATE TABLE Self (" +
+                "id TEXT PRIMARY KEY," +
+                "publicIdentity TEXT NOT NULL, " +
+                "privateIdentity TEXT NOT NULL, " +
+                "createdTimestamp TEXT NOT NULL)",
 
-        public DataAlreadyExistsError() {
-            // No log for this expected condition
-            super(null, "");
-        }
-    }
+            "CREATE TABLE Friend (" +
+                "id TEXT PRIMARY KEY," +
+                "publicIdentity TEXT NOT NULL, " +
+                "nickname TEXT UNIQUE NOT NULL, " +
+                "certificate TEXT UNIQUE NOT NULL," +
+                "addedTimestamp TEXT NOT NULL," +
+                "lastSentTimestamp TEXT NOT NULL," +
+                "lastSentSequenceNumber INTEGER NOT NULL," +
+                "lastReceivedTimestamp TEXT NOT NULL," +
+                "lastReceivedSequenceNumber INTEGER NOT NULL)",
+            "CREATE INDEX FriendNickname ON Friend (nickname)",
+            "CREATE INDEX FriendCertificate ON Friend (certificate)",
 
-    // ---- Singleton ----
-    private static Data instance = null;
+            "CREATE TABLE Group (" +
+                "id TEXT PRIMARY KEY," +
+                "name TEXT NOT NULL," +
+                "publisherId TEXT NOT NULL," +
+                "createdTimestamp TEXT NOT NULL," +
+                "modifiedTimestamp TEXT NOT NULL," +
+                "sequenceNumber INTEGER NOT NULL," +
+                "state Text NOT NULL," +
+                "UNIQUE(name, publisherId))",
+            // *TODO* create indexes for Group queries
+
+            "CREATE TABLE GroupMember (" +
+                "groupId TEXT NOT NULL," +
+                "memberId TEXT NOT NULL," +
+                "memberNickname TEXT NOT NULL," +
+                "memberPublicIdentity TEXT NOT NULL," +
+                "PRIMARY KEY (groupId, memberId))",
+
+            "CREATE TABLE Location (" +
+                "publisherId TEXT PRIMARY KEY," +
+                "timestamp TEXT NOT NULL," +
+                "latitude REAL NOT NULL," +
+                "longitude REAL NOT NULL," +
+                "streetAddress TEXT NOT NULL)",
+
+            "CREATE TABLE Post (" +
+                "id TEXT PRIMARY KEY," +
+                "publisherId TEXT NOT NULL," +
+                "groupId TEXT NOT NULL," +
+                "contentType TEXT NOT NULL," +
+                "content TEXT NOT NULL," +
+                "attachments TEXT NOT NULL," +
+                "createdTimestamp TEXT NOT NULL," +
+                "modifiedTimestamp TEXT NOT NULL," +
+                "sequenceNumber INTEGER NOT NULL," +
+                "state TEXT NOT NULL)",
+            // *TODO* create indexes for Post queries (see http://www.sqlite.org/optoverview.html)
+
+            "CREATE TABLE LocalResource (" +
+                "resourceId TEXT PRIMARY KEY," +
+                "groupId TEXT NOT NULL," +
+                "type INTEGER NOT NULL," +
+                "mimeType TEXT NOT NULL," +
+                "filePath TEXT NOT NULL," +
+                "tempFilePath TEXT NOT NULL)",
+
+            "CREATE TABLE Download (" +
+                "publisherId TEXT," +
+                "resourceId TEXT," +
+                "mimeType TEXT NOT NULL," +
+                "size INTEGER NOT NULL," +
+                "state INTEGER NOT NULL," +
+                "PRIMARY KEY (friendId, resourceId))",
+    };
+
+    private static Map<String, Data> instances = new HashMap<String, Data>();
+
     public static synchronized Data getInstance() {
-       if(instance == null) {
-          instance = new Data();
-       }
-       return instance;
+        return getInstance(null);
     }
+
+    public static synchronized Data getInstance(String name) {
+        if (name == null) {
+            name = DEFAULT_DATABASE_NAME;
+        }
+        if (!instances.containsKey(name)) {
+            instances.put(name, new Data(name));
+        }
+        return instances.get(name);
+    }
+
     @Override
     public Object clone() throws CloneNotSupportedException {
         throw new CloneNotSupportedException();
     }
-    // -------------------
 
-    // TODO: SQLCipher/IOCipher storage? key/value store?
-    // TODO: use http://nelenkov.blogspot.ca/2011/11/using-ics-keychain-api.html?
-    // ...consistency: write file, then update in-memory; 2pc; only for short lists of friends
-    // ...eventually use file system for map tiles etc.
+    private final SQLiteDatabase mDatabase;
 
-    private static final String DATA_DIRECTORY = "ploggyData";
-    private static final String SELF_FILENAME = "self.json";
-    private static final String SELF_STATUS_FILENAME = "selfStatus.json";
-    private static final String FRIENDS_FILENAME = "friends.json";
-    private static final String FRIEND_STATUS_FILENAME_FORMAT_STRING = "%s-friendStatus.json";
-    private static final String LOCAL_RESOURCES_FILENAME = "localResources.json";
-    private static final String DOWNLOADS_FILENAME = "downloads.json";
-    private static final String COMMIT_FILENAME_SUFFIX = ".commit";
+    private Data(String name) {
+        super(Utils.getApplicationContext(), name, null, DATABASE_VERSION);
+        mDatabase = getWritableDatabase();
+    }
 
-    Self mSelf;
-    Status mSelfStatus;
-    Location mPrivateSelfLocation;
-    List<Friend> mFriends;
-    HashMap<String, Status> mFriendStatuses;
-    List<AnnotatedMessage> mNewMessages;
-    List<AnnotatedMessage> mAllMessages;
-    List<LocalResource> mLocalResources;
-    List<Download> mDownloads;
+    // *TODO* who calls SQLiteOpenHelper.close()?
 
-    public synchronized void reset() throws Utils.ApplicationError {
-        // Warning: deletes all files in DATA_DIRECTORY (not recursively)
-        File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-        directory.mkdirs();
-        boolean deleteFailed = false;
-        for (String child : directory.list()) {
-            File file = new File(directory, child);
-            if (file.isFile()) {
-                if (!file.delete()) {
-                    deleteFailed = true;
-                    // Keep attempting to delete remaining files...
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        db.beginTransaction();
+        try {
+            for (String statement : DATABASE_SCHEMA) {
+                db.execSQL(statement);
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+    }
+
+    @Override
+    public void onConfigure (SQLiteDatabase db) {
+        // Enable parallel execution of queries from multiple threads on the same database
+        // see: http://developer.android.com/reference/android/database/sqlite/SQLiteDatabase.html#enableWriteAheadLogging%28%29
+        db.enableWriteAheadLogging();
+    }
+
+    public void putSelf(Self self) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            // Only one Self row
+            // *TODO* should delete all groups/posts on change self identity?
+            mDatabase.delete("Self", null, null);
+            ContentValues values = new ContentValues();
+            values.put("id", self.mId);
+            values.put("publicIdentity", Json.toJson(self.mPublicIdentity));
+            values.put("privateIdentity", Json.toJson(self.mPublicIdentity));
+            values.put("createdTimestamp", dateToString(self.mCreatedTimestamp));
+            mDatabase.insertOrThrow("Self", null, values);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public Self getSelf() throws Utils.ApplicationError, NotFoundError {
+        return getObject(
+            "SELECT publicIdentity, privateIdentity, createdTimestamp FROM Self",
+            null,
+            new IRowToObject<Self>() {
+                @Override
+                public Self rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                    return new Self(
+                            Json.fromJson(cursor.getString(0), Identity.PublicIdentity.class),
+                            Json.fromJson(cursor.getString(1), Identity.PrivateIdentity.class),
+                            stringToDate(cursor.getString(2)));
                 }
+            });
+    }
+
+    private String getSelfId() throws Utils.ApplicationError {
+        try {
+            return getStringColumn("SELECT id FROM Self", null);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    public void putFriend(Friend friend) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("id", friend.mId);
+            values.put("publicIdentity", Json.toJson(friend.mPublicIdentity));
+            values.put("nickname", friend.mPublicIdentity.mNickname);
+            values.put("certificate", friend.mPublicIdentity.mX509Certificate);
+            values.put("addedTimestamp", dateToString(friend.mAddedTimestamp));
+            values.put("lastSentTimestamp", dateToString(friend.mLastSentTimestamp));
+            values.put("lastSentSequenceNumber", friend.mLastSentSequenceNumber);
+            values.put("lastReceivedTimestamp", dateToString(friend.mLastReceivedTimestamp));
+            values.put("lastReceivedSequenceNumber", friend.mLastReceivedSequenceNumber);
+            mDatabase.replaceOrThrow("Friend", null, values);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void updateFriendSentState(String friendId, Date lastSentTimestamp, long lastSentSequenceNumber)
+            throws Utils.ApplicationError, NotFoundError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("lastSentTimestamp", dateToString(lastSentTimestamp));
+            values.put("lastSentSequenceNumber", lastSentSequenceNumber);
+            if (1 != mDatabase.update("Friend", values, "id = ?", new String[]{friendId})) {
+                throw new Utils.ApplicationError(LOG_TAG, "update friend failed");
             }
-        }
-        if (deleteFailed) {
-            throw new Utils.ApplicationError(LOG_TAG, "delete data file failed");
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
     }
 
-    public synchronized Self getSelf() throws Utils.ApplicationError, DataNotFoundError {
-        if (mSelf == null) {
-            mSelf = Json.fromJson(readFile(SELF_FILENAME), Self.class);
+    public void removeFriend(String friendId) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            mDatabase.delete("Friend", "id = ?", new String[]{friendId});
+            mDatabase.delete("Location", "publisherId = ?", new String[]{friendId});
+
+            // Note: keeping all friend's posts
+
+            // Treat friend's groups as ORPHANED
+            ContentValues values = new ContentValues();
+            values.put("state", Group.State.ORPHANED.name());
+            mDatabase.update("Group", values, "publisherId = ?", new String[]{friendId});
+
+            // Remove friend as member from published groups
+            // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
+            String modifiedTimestamp = dateToString(new Date());
+            mDatabase.execSQL(
+                    "UPDATE Group " +
+                        "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
+                        "WHERE publisherId = (SELECT id FROM Self) AND " + 
+                            "Group.id IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
+                     new String[]{modifiedTimestamp, friendId});
+            mDatabase.delete(
+                    "GroupMember",
+                    "id IN (SELECT id FROM Group WHERE publisherId IN (SELECT id FROM Self)) AND memberId = ?",
+                    new String[]{friendId});
+
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
-        return mSelf;
     }
 
-    public synchronized void updateSelf(Self self) throws Utils.ApplicationError {
-        // When creating a new identity, remove status from previous identity
-        deleteFile(String.format(SELF_STATUS_FILENAME));
-        writeFile(SELF_FILENAME, Json.toJson(self));
-        mSelf = self;
-        Log.addEntry(LOG_TAG, "updated your identity");
-        Events.post(new Events.UpdatedSelf());
+    private static final String SELECT_FRIEND =
+            "SELECT publicIdentity, addedTimestamp, lastSentTimestamp, lastSentSequenceNumber, " +
+                    "lastReceivedTimestamp, lastReceivedSequenceNumber FROM Friend";
+
+    private static final IRowToObject<Friend> mRowToFriend =
+        new IRowToObject<Friend>() {
+            @Override
+            public Friend rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                return new Friend(
+                        Json.fromJson(cursor.getString(0), Identity.PublicIdentity.class), stringToDate(cursor.getString(1)),
+                        stringToDate(cursor.getString(2)), cursor.getLong(3), stringToDate(cursor.getString(4)), cursor.getLong(5));
+            }
+        };
+
+    public Friend getFriendById(String friendId) throws Utils.ApplicationError, NotFoundError {
+        return getObject(SELECT_FRIEND + " WHERE id = ?", new String[]{friendId}, mRowToFriend);
     }
 
-    public synchronized Status getSelfStatus() throws Utils.ApplicationError {
-        if (mSelfStatus == null) {
+    public Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, NotFoundError {
+        return getObject(SELECT_FRIEND + " WHERE nickname = ?", new String[]{nickname}, mRowToFriend);
+    }
+
+    public Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, NotFoundError {
+        return getObject(SELECT_FRIEND + " WHERE certificate = ?", new String[]{certificate}, mRowToFriend);
+    }
+
+    public CursorIterator<Friend> getFriends() throws Utils.ApplicationError {
+        return getObjectCursor(SELECT_FRIEND, null, mRowToFriend);
+    }
+
+    private static final IRowToObject<CandidateFriend> mRowToCandidateFriend =
+        new IRowToObject<CandidateFriend>() {
+            @Override
+            public CandidateFriend rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                String memberId = cursor.getString(0);
+                Identity.PublicIdentity memberPublicIdentity = Json.fromJson(cursor.getString(1), Identity.PublicIdentity.class);
+                List<String> groupIds = new ArrayList<String>();
+                Cursor groupCursor = null;
+                // TODO: can we avoid this additional-query-per-row "anti-pattern"?
+                try {
+                    String query =
+                        "SELECT groupId FROM GroupMember WHERE memberId = ?";
+                    groupCursor = database.rawQuery(query, new String[]{memberId});
+                    groupCursor.moveToFirst();
+                    while (!groupCursor.isAfterLast()) {
+                        groupIds.add(groupCursor.getString(0));
+                        groupCursor.moveToNext();
+                    }
+                } catch (SQLiteException e) {
+                    throw new Utils.ApplicationError(LOG_TAG, e);
+                } finally {
+                    if (groupCursor != null) {
+                        groupCursor.close();
+                    }
+                }
+                return new CandidateFriend(memberPublicIdentity, groupIds);
+            }
+        };
+
+    public CursorIterator<CandidateFriend> getCandidateFriends() throws Utils.ApplicationError {
+        return getObjectCursor(
+                "SELECT DISTINCT memberId, memberPublicIdentity FROM GroupMember " +
+                    "WHERE memberId NOT IN (SELECT id FROM Friend) " +
+                    "ORDER BY memberNickname ASC, memberId ASC",
+                null,
+                mRowToCandidateFriend);
+    }
+
+    public void putGroup(Protocol.Group group) throws Utils.ApplicationError {
+        // *TODO* where is best to generate IDs and set timestamps for groups? caller?
+        // *TODO* where validate group: no duplicate members, etc.?
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            if (!group.mPublisherId.equals(getSelfId())) {
+                throw new Utils.ApplicationError(LOG_TAG, "overwriting group not published by self");
+            }
             try {
-                mSelfStatus = Json.fromJson(readFile(SELF_STATUS_FILENAME), Status.class);
-            } catch (DataNotFoundError e) {
-                // If there's no previous status, return a blank one
-                return new Status(new ArrayList<Message>(), new Location(null, 0, 0, 0, null));
+                // *TODO* check Group.publisherId == Self
+                if (!Group.State.PUBLISHING.name().equals(
+                        getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{group.mId}))) {
+                    throw new Utils.ApplicationError(LOG_TAG, "overwriting group not in publishing state");
+                }
+            } catch (NotFoundError e) {                
             }
-        }
-        return mSelfStatus;
-    }
-
-    public synchronized Location getCurrentSelfLocation() throws Utils.ApplicationError {
-        // If location sharing was off when updateSelfStatusLocation was last called, then
-        // mPrivateSelfLocation is the more up-to-date than mSelfStatus.
-        if (mPrivateSelfLocation == null) {
-            return getSelfStatus().mLocation;
-        }
-        return mPrivateSelfLocation;
-    }
-
-    public synchronized void addSelfStatusMessage(Message message, List<LocalResource> attachmentLocalResources) throws Utils.ApplicationError, DataNotFoundError {
-        // Hack: initMessages before committing new message to avoid duplicate adds in addSelfMessageHelper
-        initMessages();
-        initLocalResources();
-        List<LocalResource> newLocalResources = null;
-        if (attachmentLocalResources != null) {
-            newLocalResources = new ArrayList<LocalResource>(mLocalResources);
-            newLocalResources.addAll(attachmentLocalResources);
-        }
-
-        Status currentStatus = getSelfStatus();
-        List<Message> messages = new ArrayList<Message>(currentStatus.mMessages);
-        messages.add(0, message);
-        while (messages.size() > Protocol.MAX_MESSAGE_COUNT) {
-            messages.remove(messages.size() - 1);
-        }
-        Status newStatus = new Status(messages, currentStatus.mLocation);
-
-        if (newLocalResources != null) {
-            writeFile(LOCAL_RESOURCES_FILENAME, Json.toJson(newLocalResources));
-        }
-        writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
-        if (newLocalResources != null) {
-            mLocalResources.addAll(attachmentLocalResources);
-        }
-        mSelfStatus = newStatus;
-        Log.addEntry(LOG_TAG, "added your message");
-        Events.post(new Events.UpdatedSelfStatus());
-        addSelfMessageHelper(getSelf(), message);
-    }
-
-    public synchronized void updateSelfStatusLocation(Location location, boolean shared) throws Utils.ApplicationError {
-        if (shared) {
-            Status currentStatus = getSelfStatus();
-            Status newStatus = new Status(currentStatus.mMessages, location);
-            writeFile(SELF_STATUS_FILENAME, Json.toJson(newStatus));
-            mSelfStatus = newStatus;
-            mPrivateSelfLocation = location;
-        } else {
-            mPrivateSelfLocation = location;
-        }
-        Log.addEntry(LOG_TAG, "updated your location");
-        Events.post(new Events.UpdatedSelfStatus());
-    }
-
-    private void initFriends() throws Utils.ApplicationError {
-        if (mFriends == null) {
+            long newSequenceNumber = 1;
             try {
-                mFriends = new ArrayList<Friend>(Arrays.asList(Json.fromJson(readFile(FRIENDS_FILENAME), Friend[].class)));
-            } catch (DataNotFoundError e) {
-                mFriends = new ArrayList<Friend>();
+                newSequenceNumber =
+                        1 + getLongColumn("SELECT sequenceNumber FROM Group WHERE groupId = ?", new String[]{group.mId});
+            } catch (NotFoundError e) {
             }
+            replaceGroup(group, newSequenceNumber, Group.State.PUBLISHING);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
     }
-
-    public synchronized List<Friend> getFriends() throws Utils.ApplicationError {
-        initFriends();
-        List<Friend> friends = new ArrayList<Friend>(mFriends);
-        Collections.sort(friends, new FriendComparator());
-        return friends;
+    
+    private void replaceGroup(Protocol.Group group, long sequenceNumber, Group.State state)
+            throws Utils.ApplicationError , SQLiteException {
+        // Helper used by putGroup and putPullResponse; assumes already in transaction
+        mDatabase.delete("GroupMember", "groupId = ?", new String[]{group.mId});
+        ContentValues values = new ContentValues();
+        values.put("id", group.mId);
+        values.put("name", group.mName);
+        values.put("publisherId", group.mPublisherId);
+        values.put("createdTimestamp", dateToString(group.mCreatedTimestamp));
+        values.put("modifiedTimestamp", dateToString(group.mModifiedTimestamp));
+        values.put("sequenceNumber", sequenceNumber);
+        values.put("state", state.name());
+        mDatabase.replaceOrThrow("Group", null, values);
+        for (Identity.PublicIdentity memberPublicIdentity : group.mMembers) {
+            ContentValues memberValues = new ContentValues();
+            memberValues.put("groupId", group.mId);
+            memberValues.put("memberId", memberPublicIdentity.getId());
+            memberValues.put("memberNickname", memberPublicIdentity.mNickname);
+            memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
+            mDatabase.insertOrThrow("GroupMember", null, memberValues);
+        }        
     }
 
-    public synchronized Friend getFriendById(String id) throws Utils.ApplicationError, DataNotFoundError {
-        initFriends();
-        for (Friend friend : mFriends) {
-            if (friend.mId.equals(id)) {
-                return friend;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    public synchronized Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, DataNotFoundError {
-        initFriends();
-        for (Friend friend : mFriends) {
-            if (friend.mPublicIdentity.mNickname.equals(nickname)) {
-                return friend;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    public synchronized Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, DataNotFoundError {
-        initFriends();
-        for (Friend friend : mFriends) {
-            if (friend.mPublicIdentity.mX509Certificate.equals(certificate)) {
-                return friend;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    public synchronized void addFriend(Friend friend) throws Utils.ApplicationError {
-        initFriends();
-        boolean friendWithIdExists = true;
-        boolean friendWithNicknameExists = true;
+    public void removeGroup(String groupId) throws Utils.ApplicationError {
         try {
-            getFriendById(friend.mId);
-        } catch (DataNotFoundError e) {
-            friendWithIdExists = false;
-        }
-        try {
-            getFriendByNickname(friend.mPublicIdentity.mNickname);
-        } catch (DataNotFoundError e) {
-            friendWithNicknameExists = false;
-        }
-        // TODO: report which conflict occurred
-        if (friendWithIdExists || friendWithNicknameExists) {
-            throw new DataAlreadyExistsError();
-        }
-        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
-        newFriends.add(friend);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-        mFriends.add(friend);
-        Log.addEntry(LOG_TAG, "added friend: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.AddedFriend(friend.mId));
-    }
-
-    private void updateFriendHelper(List<Friend> list, Friend friend) throws DataNotFoundError {
-        boolean found = false;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).mId.equals(friend.mId)) {
-                list.set(i, friend);
-                found = true;
+            mDatabase.beginTransactionNonExclusive();
+            Group group = getGroup(groupId);
+            Group.State newState = null;
+            switch (group.mState) {
+            case PUBLISHING:
+                newState = Group.State.TOMBSTONE;
+                mDatabase.delete("Post", "groupId = ?", new String[]{groupId});
                 break;
-            }
-        }
-        if (!found) {
-            throw new DataNotFoundError();
-        }
-    }
-
-    public synchronized void updateFriend(Friend friend) throws Utils.ApplicationError {
-        initFriends();
-        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
-        updateFriendHelper(newFriends, friend);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-        updateFriendHelper(mFriends, friend);
-        Log.addEntry(LOG_TAG, "updated friend: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.UpdatedFriend(friend.mId));
-    }
-
-    public synchronized Date getFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
-        Friend friend = getFriendById(friendId);
-        return friend.mLastSentStatusTimestamp;
-    }
-
-    public synchronized void updateFriendLastSentStatusTimestamp(String friendId) throws Utils.ApplicationError {
-        // TODO: don't write an entire file for each timestamp update!
-        Friend friend = getFriendById(friendId);
-        updateFriend(
-            new Friend(
-                friend.mPublicIdentity,
-                friend.mAddedTimestamp,
-                new Date(),
-                friend.mLastReceivedStatusTimestamp));
-    }
-
-    public synchronized Date getFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
-        Friend friend = getFriendById(friendId);
-        return friend.mLastReceivedStatusTimestamp;
-    }
-
-    public synchronized void updateFriendLastReceivedStatusTimestamp(String friendId) throws Utils.ApplicationError {
-        // TODO: don't write an entire file for each timestamp update!
-        Friend friend = getFriendById(friendId);
-        updateFriend(
-            new Friend(
-                friend.mPublicIdentity,
-                friend.mAddedTimestamp,
-                friend.mLastSentStatusTimestamp,
-                new Date()));
-    }
-
-    private void removeFriendHelper(String id, List<Friend> list) throws DataNotFoundError {
-        boolean found = false;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).mId.equals(id)) {
-                list.remove(i);
-                found = true;
+            case SUBSCRIBING:
+                newState = Group.State.RESIGNING;
+                mDatabase.delete("Post", "groupId = ?", new String[]{groupId});
                 break;
-            }
-        }
-        if (!found) {
-            throw new DataNotFoundError();
-        }
-    }
-
-    public synchronized void removeFriend(String id) throws Utils.ApplicationError, DataNotFoundError {
-        initFriends();
-        Friend friend = getFriendById(id);
-        deleteFile(String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id));
-        List<Friend> newFriends = new ArrayList<Friend>(mFriends);
-        removeFriendHelper(id, newFriends);
-        writeFile(FRIENDS_FILENAME, Json.toJson(newFriends));
-        removeFriendHelper(id, mFriends);
-        Log.addEntry(LOG_TAG, "removed friend: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.RemovedFriend(id));
-        // Reset all-messages to remove messages from deleted friend
-        // TODO: reset new-messages
-        mAllMessages = null;
-        initMessages();
-    }
-
-    public synchronized Status getFriendStatus(String id) throws Utils.ApplicationError, DataNotFoundError {
-        String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-        return Json.fromJson(readFile(filename), Status.class);
-    }
-
-    public synchronized void updateFriendStatus(String id, Status status) throws Utils.ApplicationError {
-        // Hack: initMessages before committing new status to avoid duplicate adds in addFriendMessagesHelper
-        initMessages();
-        Friend friend = getFriendById(id);
-        Status previousStatus = null;
-        try {
-            previousStatus = getFriendStatus(id);
-
-            // Mitigate push/pull race condition where older status overwrites newer status
-            // Only checks messages, not location
-            // TODO: more robust protocol... don't rely on clocks
-            if (previousStatus.mMessages.size() > status.mMessages.size()) {
-                Log.addEntry(LOG_TAG, "discarded friend status (fewer messages): " + friend.mPublicIdentity.mNickname);
+            case RESIGNING:
+                // Nothing to change. Keeping Group as a placeholder for state.
+                break;
+            case TOMBSTONE:
+                // Nothing to change. Keeping Group as a placeholder for state.
+                // TODO: could completely delete if know that all members have received tombstone?
                 return;
-            } else if (previousStatus.mMessages.size() == status.mMessages.size() && previousStatus.mMessages.size() > 0) {
-                if (previousStatus.mMessages.get(0).mTimestamp == null || status.mMessages.get(0).mTimestamp == null) {
-                    Log.addEntry(LOG_TAG, "discarded friend status (timestamp unexpectedly null): " + friend.mPublicIdentity.mNickname);
-                    return;
-                } else if (previousStatus.mMessages.get(0).mTimestamp.after(status.mMessages.get(0).mTimestamp)) {
-                    Log.addEntry(LOG_TAG, "discarded friend status (older timestamp): " + friend.mPublicIdentity.mNickname);
-                    return;
+            case ORPHANED:
+            case DEAD:
+                deleteGroup(groupId);
+                break;
+            }
+            if (newState != null) {
+                ContentValues values = new ContentValues();
+                if (group.mGroup.mPublisherId.equals(getSelfId())) {
+                    long newSequenceNumber =  group.mGroup.mSequenceNumber + 1;
+                    values.put("sequenceNumber", newSequenceNumber);
+                }
+                values.put("state", newState.name());
+                if (1 != mDatabase.update("Group", values, "id = ?", new String[]{groupId})) {
+                    throw new Utils.ApplicationError(LOG_TAG, "update group state failed");
                 }
             }
-        } catch (DataNotFoundError e) {
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
-        String filename = String.format(FRIEND_STATUS_FILENAME_FORMAT_STRING, id);
-        writeFile(filename, Json.toJson(status));
-        Log.addEntry(LOG_TAG, "updated friend status: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.UpdatedFriendStatus(friend.mId));
-        addFriendMessagesHelper(friend, status, previousStatus);
+    }
+    
+    private void deleteGroup(String groupId) throws Utils.ApplicationError {
+        // Helper used by removeGroup and putPullResponse; assumes already in transaction
+        mDatabase.delete("Group", "groupId = ?", new String[]{groupId});
+        mDatabase.delete("GroupMember", "groupId = ?", new String[]{groupId});
+        mDatabase.delete("Post", "groupId = ?", new String[]{groupId});
     }
 
-    private void initMessages() throws Utils.ApplicationError {
-        // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
-        // TODO: persistent (on disk) new-message state?
-        // Note: new-messages is not cleared in start() or stop(), so its state is retained when the Engine restarts
-        if (mNewMessages == null) {
-            mNewMessages = new ArrayList<AnnotatedMessage>();
-        }
-        if (mAllMessages == null) {
-            mAllMessages = new ArrayList<AnnotatedMessage>();
-            Self self = getSelf();
-            try {
-                for (Message message : getSelfStatus().mMessages) {
-                    mAllMessages.add(new AnnotatedMessage(self.mPublicIdentity, null, message));
+    private static final String SELECT_GROUP =
+            "SELECT id, name, publisherId, createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM Group";
+
+    private static final IRowToObject<Group> mRowToGroup =
+        new IRowToObject<Group>() {
+            @Override
+            public Group rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                String groupId = cursor.getString(0);
+                List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
+                Cursor memberCursor = null;
+                try {
+                    String query =
+                        "SELECT memberPublicIdentity FROM GroupMember " +
+                            "WHERE groupId = ? " +
+                            "ORDER BY memberNickname ASC, memberId ASC";
+                    memberCursor = database.rawQuery(query, new String[]{groupId});
+                    memberCursor.moveToFirst();
+                    while (!memberCursor.isAfterLast()) {
+                        members.add(Json.fromJson(memberCursor.getString(0), Identity.PublicIdentity.class));
+                        memberCursor.moveToNext();
+                    }
+                } catch (SQLiteException e) {
+                    throw new Utils.ApplicationError(LOG_TAG, e);
+                } finally {
+                    if (memberCursor != null) {
+                        memberCursor.close();
+                    }
                 }
-            } catch (DataNotFoundError e) {
-                // Skip
+                Group.State state = Group.State.valueOf(cursor.getString(6));
+                return new Group(
+                        new Protocol.Group(
+                            groupId,
+                            cursor.getString(1),
+                            cursor.getString(2),
+                            members,
+                            stringToDate(cursor.getString(3)),
+                            stringToDate(cursor.getString(4)),
+                            cursor.getLong(5),
+                            (state == Group.State.TOMBSTONE)),
+                        state);
             }
-            for (Friend friend : getFriends()) {
-                // Hack to continue supporting self-as-friend, for now
-                if (!self.mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
-                    try {
-                        for (Message message : getFriendStatus(friend.mId).mMessages) {
-                            mAllMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));
+        };
+
+    public Group getGroup(String groupId) throws Utils.ApplicationError, NotFoundError {
+        return getObject(SELECT_GROUP + " WHERE id = ?", new String[]{groupId}, mRowToGroup);
+    }
+
+    public CursorIterator<Group> getVisibleGroups() throws Utils.ApplicationError {
+        return getObjectCursor(
+                SELECT_GROUP + " WHERE state IN (?, ?, ?)",
+                new String[]{Group.State.PUBLISHING.name(), Group.State.SUBSCRIBING.name(), Group.State.ORPHANED.name()},
+                mRowToGroup);
+    }
+
+    public CursorIterator<Group> getHiddenGroups() throws Utils.ApplicationError {
+        return getObjectCursor(
+                SELECT_GROUP + " WHERE state IN (?, ?)",
+                new String[]{Group.State.RESIGNING.name(), Group.State.TOMBSTONE.name()},
+                mRowToGroup);
+    }
+
+    public void putSelfLocation(Protocol.Location location)
+            throws Utils.ApplicationError {
+        putLocation(getSelfId(), location);
+    }
+
+    public void putFriendLocation(String friendId, Protocol.Location location)
+            throws Utils.ApplicationError {
+        Protocol.validateLocation(location);
+        putLocation(friendId, location);
+    }
+
+    private void putLocation(String publisherId, Protocol.Location location)
+            throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("publisherId", publisherId);
+            values.put("timestamp", dateToString(location.mTimestamp));
+            values.put("latitude", location.mLatitude);
+            values.put("longitude", location.mLongitude);
+            values.put("streetAddress", location.mStreetAddress);
+            mDatabase.replaceOrThrow("Location", null, values);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    private static final String SELECT_LOCATION =
+            "SELECT timestamp, latitude, longitude, streetAddress FROM Location";
+
+    private static final IRowToObject<Protocol.Location> mRowToLocation =
+        new IRowToObject<Protocol.Location>() {
+            @Override
+            public Protocol.Location rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                return new Protocol.Location(
+                        stringToDate(cursor.getString(0)), cursor.getDouble(1), cursor.getDouble(2), cursor.getString(3));
+            }
+        };
+
+    public Protocol.Location getSelfLocation() throws Utils.ApplicationError, NotFoundError {
+        return getObject(
+                SELECT_LOCATION + " WHERE publisherId = (SELECT id FROM Self)", null, mRowToLocation);
+    }
+
+    public Protocol.Location getFriendLocation(String friendId) throws Utils.ApplicationError, NotFoundError {
+        return getObject(
+                SELECT_LOCATION + " WHERE publisherId = ?", new String[]{friendId}, mRowToLocation);
+    }
+    
+    public void addPost(Protocol.Post post, List<LocalResource> attachmentLocalResources)
+            throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            try {
+                Group.State groupState =
+                        Group.State.valueOf(getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{post.mGroupId}));
+                if (groupState != Group.State.PUBLISHING && groupState != Group.State.SUBSCRIBING) {
+                    throw new Utils.ApplicationError(LOG_TAG, "invalid group state for post");
+                }
+            } catch (NotFoundError e) {
+                throw new Utils.ApplicationError(LOG_TAG, "group not found for post");
+            }
+            long newSequenceNumber = 1;
+            try {
+                newSequenceNumber =
+                    1 + getLongColumn(
+                        "SELECT MAX(sequenceNumber) FROM Post WHERE publisherId = (SELECT id FROM Self) AND groupId = ?",
+                        new String[]{post.mGroupId});
+            } catch (NotFoundError e) {
+            }
+            ContentValues values = new ContentValues();
+            values.put("id", post.mId);
+            values.put("publisherId", getSelfId());
+            values.put("groupId", post.mGroupId);
+            values.put("contentType", post.mContentType);
+            values.put("content", post.mContent);
+            values.put("attachments", Json.toJson(post.mAttachments));
+            values.put("createdTimestamp", dateToString(post.mCreatedTimestamp));
+            values.put("modifiedTimestamp", dateToString(post.mModifiedTimestamp));
+            values.put("sequenceNumber", newSequenceNumber);
+            values.put("state", Post.State.READ.name());
+            mDatabase.insertOrThrow("Post", null, values);
+            int attachmentIndex = 0;
+            for (LocalResource localResource : attachmentLocalResources) {
+                if (!post.mAttachments.get(attachmentIndex).mId.equals(localResource.mResourceId)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "invalid local resource id");
+                }
+                if (!post.mGroupId.equals(localResource.mGroupId)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "invalid local resource group");
+                }
+                ContentValues localResourceValues = new ContentValues();
+                localResourceValues.put("resourceId", localResource.mResourceId);
+                localResourceValues.put("groupId", localResource.mGroupId);
+                localResourceValues.put("type", localResource.mType.name());
+                localResourceValues.put("mimeType", localResource.mMimeType);
+                localResourceValues.put("filePath", localResource.mFilePath);
+                localResourceValues.put("tempFilePath", localResource.mTempFilePath);
+                mDatabase.insertOrThrow("LocalResource", null, localResourceValues);
+                attachmentIndex++;
+            }
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void removePost(String postId) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            // Only publisher can remove post (unlike removeGroup)
+            if (1 != getCount(
+                    "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = (SELECT id FROM Self)",
+                    new String[]{postId})) {
+                throw new Utils.ApplicationError(LOG_TAG, "removing unpublished post");
+            }
+            // *TODO* check post's group's state?
+            long newSequenceNumber = 1;
+            try {
+                newSequenceNumber =
+                    1 + getLongColumn(
+                        "SELECT MAX(sequenceNumber) FROM Post " +
+                            "WHERE publisherId = (SELECT id FROM Self) " +
+                            "AND groupId = (SELECT groupId FROM Post WHERE Post.id = ?)",
+                        new String[]{postId});
+            } catch (NotFoundError e) {
+                throw new Utils.ApplicationError(LOG_TAG, "unexpected sequence number not found");
+            }
+            ContentValues values = new ContentValues();
+            values.put("sequenceNumber", newSequenceNumber);
+            values.put("state", Post.State.TOMBSTONE.name());
+            // Only updates if state is not already TOMBSTONE
+            mDatabase.update(
+                    "Post",
+                    values,
+                    "id = ? AND state <> ?",
+                    new String[]{postId, Post.State.TOMBSTONE.name()});
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void markAsReadPosts(List<String> postIds) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            for (String postId : postIds) {
+                ContentValues values = new ContentValues();
+                values.put("state", Post.State.READ.name());
+                // Only updates when state is UNREAD
+                mDatabase.update(
+                        "Post",
+                        values,
+                        "id = ? AND state = ?",
+                        new String[]{postId, Post.State.UNREAD.name()});
+            }
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    private static final String SELECT_POST =
+            "SELECT id, publisherId, groupId, contentType, content, attachments, " +
+                    "createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM Post";
+
+    private static final IRowToObject<Post> mRowToPost =
+        new IRowToObject<Post>() {
+            @Override
+            public Post rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                Post.State state = Post.State.valueOf(cursor.getString(9));
+                return new Post(
+                        new Protocol.Post(
+                            cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getString(3), cursor.getString(4),
+                            new ArrayList<Protocol.Resource>(Arrays.asList(Json.fromJson(cursor.getString(5), Protocol.Resource[].class))),
+                            stringToDate(cursor.getString(6)), stringToDate(cursor.getString(7)), cursor.getLong(8),
+                            (state == Post.State.TOMBSTONE)),
+                        state);
+            }
+        };
+
+    public CursorIterator<Post> getUnreadPosts() throws Utils.ApplicationError {
+        return getObjectCursor(
+                SELECT_POST +
+                    " WHERE contentType = ? AND unread = 1" +
+                    " ORDER BY modifiedTimestamp DESC",
+                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT},
+                mRowToPost);
+    }
+
+    public CursorIterator<Post> getPosts(String groupId) throws Utils.ApplicationError {
+        return getObjectCursor(
+                SELECT_POST +
+                    " WHERE contentType = ? AND groupId = ?" +
+                    " ORDER BY modifiedTimestamp DESC",
+                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT, groupId},
+                mRowToPost);
+    }
+
+    public CursorIterator<Post> getPostsForUnreceivedGroups() throws Utils.ApplicationError {
+        return getObjectCursor(
+                SELECT_POST +
+                    " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group)" +
+                    " ORDER BY modifiedTimestamp DESC",
+                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT},
+                mRowToPost);
+    }
+
+    public Protocol.PullRequest getPullRequest(String friendId, boolean requestPullBack)
+            throws Utils.ApplicationError, NotFoundError {
+        Map<String, Protocol.SequenceNumbers> groupLastReceivedSequenceNumbers =
+                new LinkedHashMap<String, Protocol.SequenceNumbers>();
+        List<String> groupsToResignMembership = new ArrayList<String>();
+        Cursor cursor = null;
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            // Group state cases:
+            // TOMBSTONE - don't pull 
+            // DEAD - don't pull because: no one is publishing; pull list would never shrink; reveals that group isn't yet locally deleted.
+            // PUBLISHING/SUBSCRIBING - want group changes and posts
+            // RESIGNING/ORPHANED - want to signal resigning status so publisher removes user and others don't send posts
+            // TODO: how are ORPHANED groups cleaned up? If not friends with publisher, won't ever get removed as member?
+            // TODO: don't need subquery when state is RESIGNING/ORPHANED?
+            String query =
+                "SELECT Group.id, Group.sequenceNumber, Group.state, " +
+                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = Group.groupId and publisherId = ?) " +
+                    "FROM Group " + 
+                    "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = Group.id) " +
+                        "AND Group.state IN (?, ?, ?, ?)" +
+                    "ORDER BY id ASC";
+            cursor = mDatabase.rawQuery(
+                    query,
+                    new String[]{
+                            friendId, friendId,
+                            Group.State.PUBLISHING.name(), Group.State.SUBSCRIBING.name(),
+                            Group.State.RESIGNING.name(), Group.State.ORPHANED.name()});
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                String id = cursor.getString(0);
+                long groupSequenceNumber = cursor.getLong(1);
+                Group.State state = Group.State.valueOf(cursor.getString(2));
+                long postSequenceNumber = cursor.getLong(3);
+                switch (state) {
+                case PUBLISHING:
+                case SUBSCRIBING:
+                    groupLastReceivedSequenceNumbers.put(
+                            id,
+                            new Protocol.SequenceNumbers(groupSequenceNumber, postSequenceNumber));
+                    break;
+                case RESIGNING:
+                case ORPHANED:
+                    // In the ORPHANED case, tell the friend we "resigned" from the group -- the friend
+                    // may still be friends with the publisher and the group may still be active.
+                    groupsToResignMembership.add(id);
+                    break;
+                case TOMBSTONE:
+                case DEAD:
+                    // Don't pull
+                    break;
+                }
+                cursor.moveToNext();
+            }
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            mDatabase.endTransaction();
+        }
+        return new Protocol.PullRequest(groupLastReceivedSequenceNumbers, groupsToResignMembership, requestPullBack);
+    }
+
+    public class PullResponseIterator implements Iterable<String>, Iterator<String> {
+
+        private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
+        private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
+        private CursorIterator<Post> mPostIterator;
+        private String mNext;
+
+        public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
+                throws Utils.ApplicationError {
+            mGroupsToSend = getGroupsToSend(friendId, pullRequest);
+            mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
+            mPostIterator = null;
+            mNext = getNext();
+        }
+
+        @Override
+        public Iterator<String> iterator() {
+            return this;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return mNext != null;
+        }
+
+        @Override
+        public String next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            String result = mNext;
+            mNext = getNext();
+            return result;
+        }
+
+        private String getNext() {
+            try {
+                if (mPostIterator != null && mPostIterator.hasNext()) {
+                    return Json.toJson(mPostIterator.next());
+                } else {
+                    // Loop through PullRequest until there's something to send: either a group or a post
+                    while (mGroupsToSendIterator.hasNext()) {
+                        Map.Entry<String, Protocol.SequenceNumbers> groupToSend = mGroupsToSendIterator.next();
+                        String groupId = groupToSend.getKey();
+                        Protocol.SequenceNumbers lastReceivedSequenceNumbers = groupToSend.getValue();
+                        // TODO: re-check membership/group state?
+                        Group group = getGroup(groupId);
+                        mPostIterator = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
+                        // Only the publisher sends group updates
+                        if (group.mGroup.mPublisherId.equals(getSelfId()) &&
+                                group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
+                            return Json.toJson(group.mGroup);
+                        } else if (mPostIterator.hasNext()) {
+                            return Json.toJson(mPostIterator.next().mPost);
                         }
-                    } catch (DataNotFoundError e) {
-                        // Skip
+                        // Else, we didn't have anything to send for this group, so loop around to the next one
+                    }
+                }
+            } catch (NotFoundError e) {
+                Log.addEntry(LOG_TAG, "push iterator failed with item not found");
+            } catch (Utils.ApplicationError e) {
+                Log.addEntry(LOG_TAG, "push iterator failed");
+            }
+            return null;
+        }
+
+        private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.PullRequest pullRequest)
+                throws Utils.ApplicationError {
+            Map<String, Protocol.SequenceNumbers> groupsToSend =
+                    new LinkedHashMap<String, Protocol.SequenceNumbers>();
+            Cursor cursor = null;
+            try {
+                mDatabase.beginTransactionNonExclusive();
+                // Requested groups that are not found locally (or found but friend is not a member) are silently ignored
+                // Pull response is in order of pullRequest, and then by group name for groups the friend doesn't know about
+                // TODO: join instead of subquery?
+                String query =
+                    "SELECT id, state FROM Group WHERE ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)";
+                cursor = mDatabase.rawQuery(query, new String[]{friendId});
+                cursor.moveToFirst();
+                while (!cursor.isAfterLast()) {
+                    // Here we check group ACL and group state; sequence numbers are checked in getNext()
+                    String groupId = cursor.getString(0);
+                    Group.State state = Group.State.valueOf(cursor.getString(1));
+                    switch (state) {
+                    case PUBLISHING:
+                    case SUBSCRIBING:
+                    case TOMBSTONE:
+                    case DEAD:
+                        // Add the group to the "send" list
+                        // In local TOMBSTONE/DEAD state, we send the group AND posts so receiver can see all posts while DEAD
+                        if (pullRequest.mGroupLastReceivedSequenceNumbers.containsKey(groupId)) {
+                            // Case: the friend requested the group
+                            groupsToSend.put(groupId, pullRequest.mGroupLastReceivedSequenceNumbers.get(groupId));
+                        } else if (!pullRequest.mGroupsToResignMembership.contains(groupId)) {
+                            // Case: the friend didn't request the group and isn't resigning -- so the friend hasn't
+                            // received it from the publisher
+                            groupsToSend.put(groupId, new Protocol.SequenceNumbers(0,  0));
+                        }
+                        break;
+                    case RESIGNING:
+                    case ORPHANED:
+                        // Ignore the group
+                        break;
+                    }
+                    cursor.moveToNext();
+                }
+            } catch (SQLiteException e) {
+                throw new Utils.ApplicationError(LOG_TAG, e);
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+                mDatabase.endTransaction();
+            }
+            return groupsToSend;
+        }
+        
+        private CursorIterator<Post> getPosts(String groupId, long afterSequenceNumber)
+                throws Utils.ApplicationError {
+            return getObjectCursor(
+                    SELECT_POST +
+                        " WHERE publisherId = (SELECT id FROM Self) AND groupId = ? AND sequenceNumber > ?" +
+                        " ORDER BY sequenceNumber ASC",
+                    new String[]{groupId, Long.toString(afterSequenceNumber)},
+                    mRowToPost);
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        public void close() {
+            if (mPostIterator != null) {
+                mPostIterator.close();
+                mPostIterator = null;
+            }
+        }
+    }
+
+    public PullResponseIterator putPullRequest(String friendId, Protocol.PullRequest pullRequest)
+            throws Utils.ApplicationError {
+        // If publisher of group that friend wants to be removed from, do that now, before
+        // sending pull data.
+        // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
+        Protocol.validatePullRequest(pullRequest);
+        if (pullRequest.mGroupsToResignMembership.size() > 0) {
+            try {
+                mDatabase.beginTransactionNonExclusive();
+                String modifiedTimestamp = dateToString(new Date());
+                for (String groupId : pullRequest.mGroupsToResignMembership) {
+                    // Silently fails when friend isn't a member, or self isn't the publisher
+                    // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
+                    mDatabase.execSQL(
+                            "UPDATE Group " +
+                                "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
+                                "WHERE id = ? AND publisherId = (SELECT id FROM Self) " +
+                                "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                             new String[]{modifiedTimestamp, groupId, friendId});
+                    mDatabase.delete(
+                            "GroupMember",
+                            "groupId = ? AND memberId = ? " +
+                                "AND groupId IN (SELECT id FROM Group WHERE publisherId = (SELECT id FROM Self))",
+                            new String[]{groupId, friendId});
+                }
+                mDatabase.setTransactionSuccessful();
+            } catch (SQLiteException e) {
+                throw new Utils.ApplicationError(LOG_TAG, e);
+            } finally {
+                mDatabase.endTransaction();
+            }
+        }
+        // *TODO* this is another transaction?
+        // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer? 
+        return new PullResponseIterator(friendId, pullRequest);
+    }
+
+    public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, Protocol.Group pulledGroup, List<Protocol.Post> pulledPosts)
+            throws Utils.ApplicationError {
+        // NOTE: writing would be fastest if the entire "push" PUT request stream were written in one transaction,
+        // but that would block other database access. As a compromise, we support writing chunks of objects. This
+        // has the benefit of writing a few objects per transaction, plus advancing the last received sequence number
+        // even if the PUT request is somehow abnormally terminated.
+        //
+        // In the protocol, the stream of pulled objects should look like this:
+        // [GroupX,] Post-in-GroupX, Post-in-GroupX, ..., [GroupY,] Post-in-GroupY, Post-in-GroupY
+        // So this handler is to be called once each time the Group changes, if there are Group objects
+        //
+        // IMPORTANT: Only pass in the "pullRequest" with the 1st chunk of objects -- it's used to delete
+        // groups in the RESIGNING state once it's known that the group publishing friend has learned of
+        // this state.
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            
+            if (pullRequest != null) {
+                // The request was successful, so we can assume groupsToResignMembership were accepted by the
+                // friend and if the friend was the group publisher we are now removed as a group member. So
+                // fully delete the group in this case.
+                for (String groupId : pullRequest.mGroupsToResignMembership) {
+                    if (1 == getCount(
+                            "SELECT COUNT(*) FROM Group WHERE id = ? AND publisherId = ?",
+                            new String[]{groupId, friendId})) {
+                        deleteGroup(groupId);
                     }
                 }
             }
-            Collections.sort(mAllMessages, new AnnotatedMessageComparator());
-            Events.post(new Events.UpdatedAllMessages());
+            
+            if (pulledGroup != null) {
+                putReceivedGroup(friendId, pulledGroup);
+            }
+            
+            String expectedGroupId = (pulledGroup != null ? pulledGroup.mId : null);
+            
+            for (Protocol.Post post : pulledPosts) {
+                putReceivedPost(friendId, post, expectedGroupId);
+            }
+
+            updateFriendLastReceivedTime(friendId);
+
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
     }
-
-    private void addFriendMessagesHelper(Friend friend, Status status, Status previousStatus) throws Utils.ApplicationError {
-        // TODO: this implementation is only intended for the prototype, which isn't sending incremental updates
-        initMessages();
-        Data.Message lastMessage = null;
-        if (previousStatus != null &&
-                previousStatus.mMessages.size() > 0) {
-            lastMessage = previousStatus.mMessages.get(0);
+    
+    public void putPushedGroup(String friendId, Protocol.Group group) throws Utils.ApplicationError {
+        // Unlike putPushedObject, there's no pull trigger since all we would
+        // know is we missed an older version of the group object itself.
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            putReceivedGroup(friendId, group);
+            updateFriendLastReceivedTime(friendId);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
         }
-        List<AnnotatedMessage> newMessages = new ArrayList<AnnotatedMessage>();
-        for (Data.Message message : status.mMessages) {
-            if (lastMessage == null ||
-                    !message.mTimestamp.equals(lastMessage.mTimestamp) ||
-                    !message.mContent.equals(lastMessage.mContent)) {
-                newMessages.add(new AnnotatedMessage(friend.mPublicIdentity, friend.mId, message));
-                // Automatically enqueue new message attachments for download
-                for (Resource resource : message.mAttachments) {
-                    try {
-                        addDownload(friend.mId, resource);
-                    } catch (DataAlreadyExistsError e) {
-                        // Ignore
-                    }
-                }
-            } else {
+    }
+    
+    public boolean putPushedPost(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+        boolean triggerPull = false;
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            // Trigger a pull from this friend if we *may* have missed an update
+            if (0 == getCount(
+                    "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= ?",
+                    new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber - 1)})) {
+                Log.addEntry(LOG_TAG, "pull triggered by push sequence number");
+                triggerPull = true;
+            }
+            putReceivedPost(friendId, post, null);
+            updateFriendLastReceivedTime(friendId);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+        return triggerPull;
+    }
+
+    private void putReceivedGroup(String friendId, Protocol.Group group)
+            throws Utils.ApplicationError, SQLiteException {
+        // Helper used by putPullResponse and putPushedGroup; assumes in transaction
+        Protocol.validateGroup(group);
+        long previousSequenceNumber = 0;
+        Group.State previousState = Group.State.SUBSCRIBING;
+        try {
+            String[] columns = getRow(
+                    "SELECT publisherId, sequenceNumber, state, FROM Group WHERE id = ?",
+                    new String[]{group.mId});
+            String publisherId = columns[0];
+            previousSequenceNumber = Long.parseLong(columns[1]);
+            previousState = Group.State.valueOf(columns[2]);
+            // Check that friend is publisher
+            if (!publisherId.equals(group.mPublisherId) ||
+                    !publisherId.equals(friendId)) {
+                throw new Utils.ApplicationError(LOG_TAG, "invalid group publisher");                        
+            }
+        } catch (NotFoundError e) {
+            // This is a new group
+        }
+        
+        if (previousSequenceNumber >= group.mSequenceNumber) {
+            // Discard stale updates
+            Log.addEntry(LOG_TAG, "received stale group update");
+        } else {
+            // Accept update
+        
+            // State change when publisher has deleted the group
+            Group.State newState = Group.State.SUBSCRIBING;
+            if (group.mIsTombstone) {
+                newState = Group.State.DEAD;
+            }
+
+            switch (previousState) {
+            case PUBLISHING:
+            case TOMBSTONE:
+            case DEAD:
+            case RESIGNING:
+                Log.addEntry(LOG_TAG, "received unexpected group state");
+                // Not expecting an update in these cases - discard
+                break;
+            case SUBSCRIBING:
+            case ORPHANED:
+                // In ORPHANED case, friend was re-added
+                replaceGroup(group, group.mSequenceNumber, newState);
                 break;
             }
         }
-
-        if (newMessages.size() > 0) {
-            mNewMessages.addAll(0, newMessages);
-            Events.post(new Events.UpdatedNewMessages());
-            // Hack to continue supporting self-as-friend, for now
-            if (!getSelf().mPublicIdentity.mX509Certificate.equals(friend.mPublicIdentity.mX509Certificate)) {
-                mAllMessages.addAll(0, newMessages);
-                Collections.sort(mAllMessages, new AnnotatedMessageComparator());
-                Events.post(new Events.UpdatedAllMessages());
-            }
+    }
+    
+    private void putReceivedPost(String friendId, Protocol.Post post, String expectedGroupId) 
+            throws Utils.ApplicationError, SQLiteException {
+        // Helper used by putPullResponse and putPushedGroup; assumes in transaction
+        Protocol.validatePost(post);
+        if (0 != getCount(
+                "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId <> ?",
+                new String[]{post.mId, friendId})) {
+            throw new Utils.ApplicationError(LOG_TAG, "invalid post publisher");
         }
-    }
-
-    private void addSelfMessageHelper(Self self, Message message) throws Utils.ApplicationError {
-        initMessages();
-        mAllMessages.add(0, new AnnotatedMessage(self.mPublicIdentity, null, message));
-        Events.post(new Events.UpdatedAllMessages());
-    }
-
-    public synchronized List<AnnotatedMessage> getNewMessages() throws Utils.ApplicationError {
-        initMessages();
-        return new ArrayList<AnnotatedMessage>(mNewMessages);
-    }
-
-    public synchronized void resetNewMessages() throws Utils.ApplicationError {
-        initMessages();
-        boolean updatedNewMessages = (mNewMessages.size() > 0);
-        mNewMessages.clear();
-        if (updatedNewMessages) {
-            Events.post(new Events.UpdatedNewMessages());
+        if (!post.mPublisherId.equals(friendId)) {
+            throw new Utils.ApplicationError(LOG_TAG, "mismatched post publisher");
         }
-    }
-
-    public synchronized List<AnnotatedMessage> getAllMessages() throws Utils.ApplicationError {
-        initMessages();
-        return new ArrayList<AnnotatedMessage>(mAllMessages);
-    }
-
-    private void initLocalResources() throws Utils.ApplicationError {
-        if (mLocalResources == null) {
-            try {
-                mLocalResources = new ArrayList<LocalResource>(Arrays.asList(Json.fromJson(readFile(LOCAL_RESOURCES_FILENAME), LocalResource[].class)));
-            } catch (DataNotFoundError e) {
-                mLocalResources = new ArrayList<LocalResource>();
-            }
+        if (expectedGroupId != null && !post.mGroupId.equals(expectedGroupId)) {
+            throw new Utils.ApplicationError(LOG_TAG, "mismatched post group id");
         }
-    }
-
-    public synchronized LocalResource getLocalResource(String resourceId) throws Utils.ApplicationError, DataNotFoundError {
-        initLocalResources();
-        for (LocalResource localResource : mLocalResources) {
-            if (localResource.mResourceId.equals(resourceId)) {
-                return localResource;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    private void initDownloads() throws Utils.ApplicationError {
-        if (mDownloads == null) {
-            try {
-                mDownloads = new ArrayList<Download>(Arrays.asList(Json.fromJson(readFile(DOWNLOADS_FILENAME), Download[].class)));
-            } catch (DataNotFoundError e) {
-                mDownloads = new ArrayList<Download>();
-            }
-        }
-    }
-
-    public synchronized Download getDownload(String friendId, String resourceId) throws Utils.ApplicationError, DataNotFoundError {
-        initDownloads();
-        for (Download download : mDownloads) {
-            if (download.mFriendId.equals(friendId) && download.mResourceId.equals(resourceId)) {
-                return download;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    public synchronized Download getNextInProgressDownload(String friendId) throws Utils.ApplicationError, DataNotFoundError {
-        initDownloads();
-        for (Download download : mDownloads) {
-            if (download.mFriendId.equals(friendId) && download.mState == Download.State.IN_PROGRESS) {
-                return download;
-            }
-        }
-        throw new DataNotFoundError();
-    }
-
-    public synchronized void addDownload(String friendId, Resource resource) throws Utils.ApplicationError, DataAlreadyExistsError {
-        initDownloads();
+        // Check group state as well as post publisher's membership
         try {
-            getDownload(friendId, resource.mId);
-            throw new DataAlreadyExistsError();
-        } catch (DataNotFoundError e) {
-        }
-        Friend friend = getFriendById(friendId);
-        // TODO: double check resource ID is from valid resource in friend message?
-        Download download = new Download(friendId, resource.mId, resource.mMimeType, resource.mSize, Download.State.IN_PROGRESS);
-        List<Download> newDownloads = new ArrayList<Download>(mDownloads);
-        newDownloads.add(download);
-        writeFile(DOWNLOADS_FILENAME, Json.toJson(newDownloads));
-        mDownloads.add(download);
-        Log.addEntry(LOG_TAG, "added download from friend: " + friend.mPublicIdentity.mNickname);
-        Events.post(new Events.AddedDownload(friendId, resource.mId));
-    }
-
-    private void updateDownloadHelper(List<Download> list, Download download) throws DataNotFoundError {
-        boolean found = false;
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).mFriendId.equals(download.mFriendId) && list.get(i).mResourceId.equals(download.mResourceId)) {
-                list.set(i, download);
-                found = true;
-                break;
+            Group.State state = Group.State.valueOf(
+                getStringColumn(
+                        "SELECT state FROM Group WHERE id = ? AND " +
+                            "? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                        new String[]{post.mGroupId, friendId}));
+            // Some cases where friend will send posts to be discarded:
+            // When own state is TOMBSTONE, the friend may still be in SUBSCRIBING state
+            // (has not yet received TOMBSTONE state) and will send posts.
+            // When own state is RESIGNING because we deleted the publisher but the sending
+            // friend did not.
+            // Since DEAD and ORPHANED states still display groups, we'll take the posts.
+            if (state == Group.State.TOMBSTONE || state == Group.State.RESIGNING){
+                // Discard the post
+                return;
             }
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "invalid post from non-group member");                                        
         }
-        if (!found) {
-            throw new DataNotFoundError();
+        if (0 != getCount(
+                "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= ?",
+                new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber)})) {
+            Log.addEntry(LOG_TAG, "received stale post update");
+            // Discard stale update
+            return;
         }
+        // Accept update
+        if (post.mIsTombstone) {
+            // Delete the object when publisher sends a tombstone
+            mDatabase.delete("Post", "id = ?", new String[]{post.mId});                    
+        } else {
+            ContentValues values = new ContentValues();
+            values.put("id", post.mId);
+            values.put("publisherId", friendId);
+            values.put("groupId", post.mGroupId);
+            values.put("contentType", post.mContentType);
+            values.put("content", post.mContent);
+            values.put("attachments", Json.toJson(post.mAttachments));
+            values.put("createdTimestamp", dateToString(post.mCreatedTimestamp));
+            values.put("modifiedTimestamp", dateToString(post.mModifiedTimestamp));
+            values.put("sequenceNumber", post.mSequenceNumber);
+            values.put("unread", 1);
+            mDatabase.replaceOrThrow("Post", null, values);
+            // Automatically enqueue new message attachments for download
+            for (Protocol.Resource resource : post.mAttachments) {
+                addDownload(friendId, resource);
+            }
+        }        
     }
-
-    public synchronized void updateDownloadState(String friendId, String resourceId, Download.State state) throws Utils.ApplicationError, DataNotFoundError {
-        initDownloads();
-        Friend friend = getFriendById(friendId);
-        Download download = getDownload(friendId, resourceId);
-        Download newDownload = new Download(download.mFriendId, download.mResourceId, download.mMimeType, download.mSize, state);
-
-        List<Download> newDownloads = new ArrayList<Download>(mDownloads);
-        updateDownloadHelper(newDownloads, newDownload);
-        writeFile(DOWNLOADS_FILENAME, Json.toJson(newDownloads));
-        updateDownloadHelper(mDownloads, newDownload);
-
-        if (state == Download.State.IN_PROGRESS) {
-            Log.addEntry(LOG_TAG, "resumed download from friend: " + friend.mPublicIdentity.mNickname);
-        } else if (state == Download.State.CANCELLED) {
-            Log.addEntry(LOG_TAG, "cancelled download from friend: " + friend.mPublicIdentity.mNickname);
-        } else if (state == Download.State.COMPLETE) {
-            Log.addEntry(LOG_TAG, "completed download from friend: " + friend.mPublicIdentity.mNickname);
-        }
-        // *** TODO: engine stop downloading on cancel
-        // *** TODO: delete download file on cancel
-        //Events.post(new Events.UpdatedDownloadState());
+    
+    private void updateFriendLastReceivedTime(String friendId) throws Utils.ApplicationError {
+        // Helper used by putPullResponse and putPushedGroup; assumes in transaction
+        // Set friend lastReceivedTimestamp to current time 
+        ContentValues values = new ContentValues();
+        values.put("lastReceivedTimestamp", dateToString(new Date()));
+        if (1 != mDatabase.update("Friend", values, "id = ?", new String[]{friendId})) {
+            throw new Utils.ApplicationError(LOG_TAG, "update friend failed");
+        }        
     }
-
-    private static String readFile(String filename) throws Utils.ApplicationError, DataNotFoundError {
-        FileInputStream inputStream = null;
+    
+    public void addLocalResource(LocalResource localResource) throws Utils.ApplicationError {
         try {
-            File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-            String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
-            File commitFile = new File(directory, commitFilename);
-            File file = new File(directory, filename);
-            replaceFileIfExists(commitFile, file);
-            inputStream = new FileInputStream(file);
-            return Utils.readInputStreamToString(inputStream);
-        } catch (FileNotFoundException e) {
-            throw new DataNotFoundError();
-        } catch (IOException e) {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("resourceId", localResource.mResourceId);
+            values.put("groupId", localResource.mGroupId);
+            values.put("type", localResource.mType.name());
+            values.put("mimeType", localResource.mMimeType);
+            values.put("filePath", localResource.mFilePath);
+            values.put("tempFilePath", localResource.mTempFilePath);
+            mDatabase.insertOrThrow("LocalResource", null, values);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                }
-            }
+            mDatabase.endTransaction();
         }
     }
+    
+    private static final String SELECT_LOCAL_RESOURCE =
+            "SELECT resourceId, groupId, type, mimeType, filePath, tempFilePath FROM LocalResource";
 
-    private static void writeFile(String filename, String value) throws Utils.ApplicationError {
-        FileOutputStream outputStream = null;
+    private static final IRowToObject<LocalResource> mRowToLocalResource =
+        new IRowToObject<LocalResource>() {
+            @Override
+            public LocalResource rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                return new LocalResource(
+                        cursor.getString(0), cursor.getString(1), LocalResource.Type.valueOf(cursor.getString(2)),
+                        cursor.getString(3), cursor.getString(4), cursor.getString(5));
+            }
+        };
+
+    public LocalResource getLocalResource(String friendId, String resourceId)
+            throws Utils.ApplicationError, NotFoundError {
+        // Reports NotFound when friend is not a member of group that resource belongs to
+        return getObject(
+                SELECT_LOCAL_RESOURCE + " WHERE resourceid = ? AND groupId IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
+                new String[]{resourceId, friendId},
+                mRowToLocalResource);
+    }
+
+    public void addDownload(String friendId, Protocol.Resource resource)
+            throws Utils.ApplicationError {
         try {
-            File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-            String commitFilename = filename + COMMIT_FILENAME_SUFFIX;
-            File commitFile = new File(directory, commitFilename);
-            File file = new File(directory, filename);
-            outputStream = new FileOutputStream(commitFile);
-            outputStream.write(value.getBytes());
-            outputStream.close();
-            replaceFileIfExists(commitFile, file);
-        } catch (IOException e) {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("publisherId", friendId);
+            values.put("resourceId", resource.mId);
+            values.put("state", Download.State.IN_PROGRESS.name());
+            values.put("mimeType", resource.mMimeType);
+            values.put("size", resource.mSize);
+            mDatabase.insertOrThrow("Download", null, values);
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                }
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void updateDownloadState(String friendId, String resourceId, Download.State state)
+            throws Utils.ApplicationError, NotFoundError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            ContentValues values = new ContentValues();
+            values.put("state", state.name());
+            if (1 != mDatabase.update(
+                    "Download", values, "publisherId = ? AND resourceId = ?", new String[]{friendId, resourceId})) {
+                throw new Utils.ApplicationError(LOG_TAG, "update download failed");
+            }
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    private static final String SELECT_DOWNLOAD =
+            "SELECT publisherId, resourceId, mimeType, size, state FROM Download";
+
+    private static final IRowToObject<Download> mRowToDownload =
+        new IRowToObject<Download>() {
+            @Override
+            public Download rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                return new Download(
+                        cursor.getString(0), cursor.getString(1), cursor.getString(2),
+                        cursor.getLong(3), Download.State.valueOf(cursor.getString(4)));
+            }
+        };
+
+    public Download getDownload(String friendId, String resourceId)
+            throws Utils.ApplicationError, NotFoundError {
+        return getObject(
+                SELECT_DOWNLOAD + " WHERE publisherId = ? AND resourceid = ?",
+                new String[]{friendId, resourceId},
+                mRowToDownload);
+    }
+
+    public Download getNextInProgressDownload(String friendId)
+            throws Utils.ApplicationError, NotFoundError {
+        // *TODO* ORDER BY...?
+        return getObject(
+                SELECT_DOWNLOAD + " WHERE publisherId = ? AND state = ?",
+                new String[]{friendId, Download.State.IN_PROGRESS.name()},
+                mRowToDownload);
+    }
+    
+    private long getCount(String query, String[] args) throws Utils.ApplicationError {
+        // Helper for SELECT COUNT, which should not throw NotFoundError
+        try {
+            return getLongColumn(query, args);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    private long getLongColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+        Cursor cursor = null;
+        try {
+            cursor = mDatabase.rawQuery(query, args);
+            if (!cursor.moveToFirst()) {
+                throw new NotFoundError();
+            }
+            return cursor.getLong(0);
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+        finally {
+            if (cursor != null) {
+                cursor.close();
             }
         }
     }
 
-    private static void replaceFileIfExists(File commitFile, File file) throws IOException {
-        if (commitFile.exists()) {
-            file.delete();
-            commitFile.renameTo(file);
+    private String getStringColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+        Cursor cursor = null;
+        try {
+            cursor = mDatabase.rawQuery(query, args);
+            if (!cursor.moveToFirst()) {
+                throw new NotFoundError();
+            }
+            return cursor.getString(0);
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+        finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
     }
 
-    private static void deleteFile(String filename) throws Utils.ApplicationError {
-        File directory = Utils.getApplicationContext().getDir(DATA_DIRECTORY, Context.MODE_PRIVATE);
-        File file = new File(directory, filename);
-        if (!file.delete()) {
-            if (file.exists()) {
-                throw new Utils.ApplicationError(LOG_TAG, "failed to delete file");
+    private String[] getRow(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+        Cursor cursor = null;
+        try {
+            cursor = mDatabase.rawQuery(query, args);
+            if (!cursor.moveToFirst()) {
+                throw new NotFoundError();
+            }
+            String[] columns = new String[cursor.getColumnCount()];
+            for (int i = 0; i < cursor.getColumnCount(); i++) {
+                columns[i] = cursor.getString(i);
+            }
+            return columns;
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+        finally {
+            if (cursor != null) {
+                cursor.close();
             }
         }
+    }
+
+    private static interface IRowToObject<T> {
+        public T rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError;
+    }
+
+    private <T> T getObject(String query, String[] args, IRowToObject<T> rowToObject)
+            throws Utils.ApplicationError, NotFoundError {
+        Cursor cursor = null;
+        try {
+            cursor = mDatabase.rawQuery(query, args);
+            if (!cursor.moveToFirst()) {
+                throw new NotFoundError();
+            }
+            return rowToObject.rowToObject(mDatabase, cursor);
+        } catch (SQLiteException e) {
+            if (cursor != null) {
+                cursor.close();
+            }
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    private <T> CursorIterator<T> getObjectCursor(String query, String[] args, IRowToObject<T> rowToObject)
+            throws Utils.ApplicationError {
+        Cursor cursor = null;
+        try {
+            cursor = mDatabase.rawQuery(query, args);
+            return new CursorIterator<T>(mDatabase, cursor, rowToObject);
+        } catch (SQLiteException e) {
+            if (cursor != null) {
+                cursor.close();
+            }
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    public static class CursorIterator<T> implements Iterable<T>, Iterator<T> {
+
+        private final SQLiteDatabase mDatabase;
+        private final Cursor mCursor;
+        private final IRowToObject<T> mRowToObject;
+        private T mNext;
+
+        public CursorIterator(
+                SQLiteDatabase database, Cursor cursor, IRowToObject<T> rowToObject) {
+            mDatabase = database;
+            mCursor = cursor;
+            mCursor.moveToFirst();
+            mNext = getNext();
+            mRowToObject = rowToObject;
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return this;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return mNext != null;
+        }
+
+        @Override
+        public T next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            T result = mNext;
+            mNext = getNext();
+            return result;
+        }
+
+        private T getNext() {
+            if (mCursor.isAfterLast()) {
+                return null;
+            }
+            try {
+                T next = mRowToObject.rowToObject(mDatabase, mCursor);
+                mCursor.moveToNext();
+                return next;
+            } catch (Utils.ApplicationError e) {
+                Log.addEntry(LOG_TAG, "failed to get next cursor object");
+                return null;
+            }
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        public int getCount() {
+            return mCursor.getCount();
+        }
+
+        public void close() {
+            mCursor.close();
+        }
+    }
+    
+    private static Date stringToDate(String string) {
+        // *TODO*
+        return null;
+    }
+
+    private static String dateToString(Date date) {
+        // *TODO*
+        return null;
     }
 }
