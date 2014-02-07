@@ -116,7 +116,11 @@ Groups will be central to the app experience and its navigation will change to r
 ### Notes
 
 * This protocol will sync oldest objects first. It may be preferable to sync in application-specific order (e.g., newest message first for chat).
-* Removal of a group member: a peer stops syncing with a removed member as soon as the peer receives and processes the modified group (immediately if the owner). It’s possible that the removed member continues to receive group posts after the owner has removed the member but before every other member has received the group update. This is a potential side-channel which allows the removed member to observe when each other member receives the group update from the owner.
 * The same algorithm can be used for “special” groups: a public, all-friends group and one-to-one ad hoc groups for private messaging.
 * No changes to the existing attachments (images, files) protocol. These items are downloaded individually, on demand, in any order.
 
+## Security Limitations
+
+* Removal of a group member: a peer stops syncing with a removed member as soon as the peer receives and processes the modified group (immediately if the owner). It’s possible that the removed member continues to receive group posts after the owner has removed the member but before every other member has received the group update. Also, this is a potential side-channel which allows the removed member to observe when each other member receives the group update from the owner.
+
+* There is a possibility of timing attacks in the pull request. The pull requester may be able to use response times to test how many groups the peer belongs to; or to guess a group ID; or to check if a peer knows a given group ID. Note that these timing attacks did not apply to friend authentication, which is done at the transport level via TLS certificates.
