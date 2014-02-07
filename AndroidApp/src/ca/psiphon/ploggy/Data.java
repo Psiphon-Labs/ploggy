@@ -23,11 +23,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -42,12 +44,12 @@ import android.database.sqlite.SQLiteOpenHelper;
  * Data persistence implemented using Sqlite/Sqlcipher. Code is written assuming
  * SQLite WAL-mode concurrency and transaction isolation. BEGIN IMMEDIATE is the
  * preferred behavior for write transactions. Long running read transactions will
- * block the WAL checkpointer and are to be avoided. Multiple readers are 
+ * block the WAL checkpointer and are to be avoided. Multiple readers are
  * supported and expected (no "synchronized" mutex on Data object).
  * See: http://www.sqlite.org/wal.html and http://www.sqlite.org/isolation.html.
  * Also see: http://developer.android.com/reference/android/database/sqlite/SQLiteDatabase.html#enableWriteAheadLogging%28%29
  * regarding SQLiteDatabase thread-safety and WAL-mode.
- * 
+ *
  * Use of SQL is encapsulated: API exposes Java POJOs and iterators.
  *
  * Use getInstance() to get the singleton Data instance. Use the version that takes
@@ -59,8 +61,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 *IN PROGRESS*
 
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
-- Friend: add column(s) to store data transfer per friend
-- Friend lastSentSequenceNumber: needs to be per Group
+- confirmSent: how will this be used with server responses (pull response)?
 - Support per-group privacy settings
 - Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
 - Group order in pull requests: using LinkedHashMap but order is lost in JSON: http://stackoverflow.com/questions/5396680/whats-the-proper-represantation-of-linkedhashmap-in-json
@@ -121,25 +122,25 @@ public class Data extends SQLiteOpenHelper {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
         public final Date mAddedTimestamp;
-        public final Date mLastSentTimestamp;
-        public final long mLastSentSequenceNumber;
         public final Date mLastReceivedTimestamp;
-        public final long mLastReceivedSequenceNumber;
+        public final long mReceivedBytes;
+        public final Date mLastSentTimestamp;
+        public final long mSentBytes;
 
         public Friend(
                 Identity.PublicIdentity publicIdentity,
                 Date addedTimestamp,
-                Date lastSentTimestamp,
-                long lastSentSequenceNumber,
                 Date lastReceivedTimestamp,
-                long lastReceivedSequenceNumber) throws Utils.ApplicationError {
+                long receivedBytes,
+                Date lastSentTimestamp,
+                long sentBytes) throws Utils.ApplicationError {
             mId = publicIdentity.getId();
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
-            mLastSentSequenceNumber = lastSentSequenceNumber;
-            mLastSentTimestamp = lastSentTimestamp;
             mLastReceivedTimestamp = lastReceivedTimestamp;
-            mLastReceivedSequenceNumber = lastReceivedSequenceNumber;
+            mReceivedBytes = receivedBytes;
+            mLastSentTimestamp = lastSentTimestamp;
+            mSentBytes = sentBytes;
         }
     }
 
@@ -174,12 +175,15 @@ public class Data extends SQLiteOpenHelper {
             ORPHANED
         }
         public final State mState;
+        public final Map<String, Protocol.SequenceNumbers> mMemberLastSentSequenceNumbers;
 
         public Group(
                 Protocol.Group group,
-                State state) {
+                State state,
+                Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers) {
             mGroup = group;
             mState = state;
+            mMemberLastSentSequenceNumbers = memberLastSentSequenceNumbers;
         }
     }
 
@@ -265,10 +269,10 @@ public class Data extends SQLiteOpenHelper {
                 "nickname TEXT UNIQUE NOT NULL, " +
                 "certificate TEXT UNIQUE NOT NULL," +
                 "addedTimestamp TEXT NOT NULL," +
-                "lastSentTimestamp TEXT NOT NULL," +
-                "lastSentSequenceNumber INTEGER NOT NULL," +
                 "lastReceivedTimestamp TEXT NOT NULL," +
-                "lastReceivedSequenceNumber INTEGER NOT NULL)",
+                "bytesReceived INTEGER NOT NULL," +
+                "lastSentTimestamp TEXT NOT NULL," +
+                "bytesSent INTEGER NOT NULL)",
             "CREATE INDEX FriendNickname ON Friend (nickname)",
             "CREATE INDEX FriendCertificate ON Friend (certificate)",
 
@@ -288,6 +292,8 @@ public class Data extends SQLiteOpenHelper {
                 "memberId TEXT NOT NULL," +
                 "memberNickname TEXT NOT NULL," +
                 "memberPublicIdentity TEXT NOT NULL," +
+                "lastSentGroupSequenceNumber INTEGER NOT NULL," +
+                "lastSentPostSequenceNumber INTEGER NOT NULL," +
                 "PRIMARY KEY (groupId, memberId))",
 
             "CREATE TABLE Location (" +
@@ -424,7 +430,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void putFriend(Friend friend) throws Utils.ApplicationError {
+    public void addFriend(Friend friend) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
@@ -433,11 +439,11 @@ public class Data extends SQLiteOpenHelper {
             values.put("nickname", friend.mPublicIdentity.mNickname);
             values.put("certificate", friend.mPublicIdentity.mX509Certificate);
             values.put("addedTimestamp", dateToString(friend.mAddedTimestamp));
-            values.put("lastSentTimestamp", dateToString(friend.mLastSentTimestamp));
-            values.put("lastSentSequenceNumber", friend.mLastSentSequenceNumber);
             values.put("lastReceivedTimestamp", dateToString(friend.mLastReceivedTimestamp));
-            values.put("lastReceivedSequenceNumber", friend.mLastReceivedSequenceNumber);
-            mDatabase.replaceOrThrow("Friend", null, values);
+            values.put("receivedBytes", friend.mReceivedBytes);
+            values.put("lastSentTimestamp", dateToString(friend.mLastReceivedTimestamp));
+            values.put("sentBytes", friend.mSentBytes);
+            mDatabase.insertOrThrow("Friend", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -446,16 +452,31 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void updateFriendSentState(String friendId, Date lastSentTimestamp, long lastSentSequenceNumber)
+    // *TODO* note -- informational/could be imprecise
+    public void updateFriendReceived(String friendId, Date lastReceivedTimestamp, long additionalBytesReceived)
             throws Utils.ApplicationError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            ContentValues values = new ContentValues();
-            values.put("lastSentTimestamp", dateToString(lastSentTimestamp));
-            values.put("lastSentSequenceNumber", lastSentSequenceNumber);
-            if (1 != mDatabase.update("Friend", values, "id = ?", new String[]{friendId})) {
-                throw new Utils.ApplicationError(LOG_TAG, "update friend failed");
-            }
+            String timestamp = dateToString(lastReceivedTimestamp);
+            mDatabase.execSQL(
+                    "UPDATE Friend SET lastReceivedTimestamp = ?, receivedBytes = receivedBytes + ? WHERE id = ?",
+                     new String[]{dateToString(lastReceivedTimestamp), Long.toString(additionalBytesReceived), friendId});
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void updateFriendSent(String friendId, Date lastSentTimestamp, long additionalBytesSent)
+            throws Utils.ApplicationError, NotFoundError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            String timestamp = dateToString(lastSentTimestamp);
+            mDatabase.execSQL(
+                    "UPDATE Friend SET lastSentTimestamp = ?, sentBytes = sentBytes + ? WHERE id = ?",
+                     new String[]{dateToString(lastSentTimestamp), Long.toString(additionalBytesSent), friendId});
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -483,7 +504,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.execSQL(
                     "UPDATE Group " +
                         "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
-                        "WHERE publisherId = (SELECT id FROM Self) AND " + 
+                        "WHERE publisherId = (SELECT id FROM Self) AND " +
                             "Group.id IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
                      new String[]{modifiedTimestamp, friendId});
             mDatabase.delete(
@@ -581,7 +602,7 @@ public class Data extends SQLiteOpenHelper {
                         getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{group.mId}))) {
                     throw new Utils.ApplicationError(LOG_TAG, "overwriting group not in publishing state");
                 }
-            } catch (NotFoundError e) {                
+            } catch (NotFoundError e) {
             }
             long newSequenceNumber = 1;
             try {
@@ -597,11 +618,10 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.endTransaction();
         }
     }
-    
+
     private void replaceGroup(Protocol.Group group, long sequenceNumber, Group.State state)
             throws Utils.ApplicationError , SQLiteException {
         // Helper used by putGroup and putPullResponse; assumes already in transaction
-        mDatabase.delete("GroupMember", "groupId = ?", new String[]{group.mId});
         ContentValues values = new ContentValues();
         values.put("id", group.mId);
         values.put("name", group.mName);
@@ -611,14 +631,48 @@ public class Data extends SQLiteOpenHelper {
         values.put("sequenceNumber", sequenceNumber);
         values.put("state", state.name());
         mDatabase.replaceOrThrow("Group", null, values);
+
+        Set<String> existingMemberIds = new HashSet<String>();
+        Cursor cursor = null;
+        try {
+            String query = "SELECT memberId FROM GroupMember WHERE groupId = ?";
+            cursor = mDatabase.rawQuery(query, new String[]{group.mId});
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                String memberId = cursor.getString(0);
+                existingMemberIds.add(memberId);
+                cursor.moveToNext();
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
         for (Identity.PublicIdentity memberPublicIdentity : group.mMembers) {
-            ContentValues memberValues = new ContentValues();
-            memberValues.put("groupId", group.mId);
-            memberValues.put("memberId", memberPublicIdentity.getId());
-            memberValues.put("memberNickname", memberPublicIdentity.mNickname);
-            memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
-            mDatabase.insertOrThrow("GroupMember", null, memberValues);
-        }        
+            String memberId = memberPublicIdentity.getId();
+            if (!existingMemberIds.contains(memberId)) {
+                ContentValues memberValues = new ContentValues();
+                memberValues.put("groupId", group.mId);
+                memberValues.put("memberId", memberId);
+                memberValues.put("memberNickname", memberPublicIdentity.mNickname);
+                memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
+                memberValues.put("lastSentGroupSequenceNumber", 0);
+                memberValues.put("lastSentPostSequenceNumber", 0);
+                mDatabase.insertOrThrow("GroupMember", null, memberValues);
+            } else {
+                // Assumes memberId changes if memberNickname or memberPublicIdentity change
+                // Existing local lastSentGroupSequenceNumber and lastSentPostSequenceNumber
+                // are implicitly retained
+                existingMemberIds.remove(memberId);
+            }
+        }
+
+        for (String memberId : existingMemberIds) {
+            mDatabase.delete(
+                    "GroupMember", "groupId = ? AND memberId = ?",
+                    new String[]{group.mId, memberId});
+        }
     }
 
     public void removeGroup(String groupId) throws Utils.ApplicationError {
@@ -667,7 +721,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.endTransaction();
         }
     }
-    
+
     private void deleteGroup(String groupId) throws Utils.ApplicationError {
         // Helper used by removeGroup and putPullResponse; assumes already in transaction
         mDatabase.delete("Group", "groupId = ?", new String[]{groupId});
@@ -684,16 +738,21 @@ public class Data extends SQLiteOpenHelper {
             public Group rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
                 String groupId = cursor.getString(0);
                 List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
+                Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
                 Cursor memberCursor = null;
                 try {
                     String query =
-                        "SELECT memberPublicIdentity FROM GroupMember " +
+                        "SELECT memberId, memberPublicIdentity, lastSentGroupSequenceNumber, lastSentPostSequenceNumber FROM GroupMember " +
                             "WHERE groupId = ? " +
                             "ORDER BY memberNickname ASC, memberId ASC";
                     memberCursor = database.rawQuery(query, new String[]{groupId});
                     memberCursor.moveToFirst();
                     while (!memberCursor.isAfterLast()) {
-                        members.add(Json.fromJson(memberCursor.getString(0), Identity.PublicIdentity.class));
+                        members.add(
+                                Json.fromJson(memberCursor.getString(1), Identity.PublicIdentity.class));
+                        memberLastSentSequenceNumbers.put(
+                                memberCursor.getString(0),
+                                new Protocol.SequenceNumbers(memberCursor.getLong(2), memberCursor.getLong(3)));
                         memberCursor.moveToNext();
                     }
                 } catch (SQLiteException e) {
@@ -714,7 +773,8 @@ public class Data extends SQLiteOpenHelper {
                             stringToDate(cursor.getString(4)),
                             cursor.getLong(5),
                             (state == Group.State.TOMBSTONE)),
-                        state);
+                        state,
+                        memberLastSentSequenceNumbers);
             }
         };
 
@@ -741,7 +801,7 @@ public class Data extends SQLiteOpenHelper {
         putLocation(getSelfId(), location);
     }
 
-    public void putFriendLocation(String friendId, Protocol.Location location)
+    public void putPushedLocation(String friendId, Protocol.Location location)
             throws Utils.ApplicationError {
         Protocol.validateLocation(location);
         putLocation(friendId, location);
@@ -787,7 +847,7 @@ public class Data extends SQLiteOpenHelper {
         return getObject(
                 SELECT_LOCATION + " WHERE publisherId = ?", new String[]{friendId}, mRowToLocation);
     }
-    
+
     public void addPost(Protocol.Post post, List<LocalResource> attachmentLocalResources)
             throws Utils.ApplicationError {
         try {
@@ -961,7 +1021,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             mDatabase.beginTransactionNonExclusive();
             // Group state cases:
-            // TOMBSTONE - don't pull 
+            // TOMBSTONE - don't pull
             // DEAD - don't pull because: no one is publishing; pull list would never shrink; reveals that group isn't yet locally deleted.
             // PUBLISHING/SUBSCRIBING - want group changes and posts
             // RESIGNING/ORPHANED - want to signal resigning status so publisher removes user and others don't send posts
@@ -970,7 +1030,7 @@ public class Data extends SQLiteOpenHelper {
             String query =
                 "SELECT Group.id, Group.sequenceNumber, Group.state, " +
                         "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = Group.groupId and publisherId = ?) " +
-                    "FROM Group " + 
+                    "FROM Group " +
                     "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = Group.id) " +
                         "AND Group.state IN (?, ?, ?, ?)" +
                     "ORDER BY id ASC";
@@ -1019,17 +1079,23 @@ public class Data extends SQLiteOpenHelper {
 
     public class PullResponseIterator implements Iterable<String>, Iterator<String> {
 
+        private final String mFriendId;
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private CursorIterator<Post> mPostIterator;
         private String mNext;
+        private final Map<String, Long> mPendingConfirmedSentGroups;
+        private final Map<String, Long> mPendingConfirmedSentPosts;
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
                 throws Utils.ApplicationError {
+            mFriendId = friendId;
             mGroupsToSend = getGroupsToSend(friendId, pullRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostIterator = null;
             mNext = getNext();
+            mPendingConfirmedSentGroups = new LinkedHashMap<String, Long>();
+            mPendingConfirmedSentPosts = new LinkedHashMap<String, Long>();
         }
 
         @Override
@@ -1068,9 +1134,12 @@ public class Data extends SQLiteOpenHelper {
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
+                            addPendingConfirmSent(group.mGroup);
                             return Json.toJson(group.mGroup);
                         } else if (mPostIterator.hasNext()) {
-                            return Json.toJson(mPostIterator.next().mPost);
+                            Protocol.Post post = mPostIterator.next().mPost;
+                            addPendingConfirmSent(post);
+                            return Json.toJson(post);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
                     }
@@ -1134,7 +1203,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return groupsToSend;
         }
-        
+
         private CursorIterator<Post> getPosts(String groupId, long afterSequenceNumber)
                 throws Utils.ApplicationError {
             return getObjectCursor(
@@ -1154,6 +1223,32 @@ public class Data extends SQLiteOpenHelper {
             if (mPostIterator != null) {
                 mPostIterator.close();
                 mPostIterator = null;
+            }
+        }
+
+        private void addPendingConfirmSent(Protocol.Group group) {
+            mPendingConfirmedSentGroups.put(group.mId, group.mSequenceNumber);
+        }
+
+        private void addPendingConfirmSent(Protocol.Post post) {
+            mPendingConfirmedSentPosts.put(post.mGroupId, post.mSequenceNumber);
+        }
+
+        public void confirmSent() throws Utils.ApplicationError {
+            // *TODO* how does this relate to the CursorIterator transaction?
+            try {
+                mDatabase.beginTransactionNonExclusive();
+                for (Map.Entry<String, Long> sentGroup : mPendingConfirmedSentGroups.entrySet()) {
+                    Data.this.confirmSent(sentGroup.getKey(), mFriendId, sentGroup.getValue(), -1);
+                }
+                for (Map.Entry<String, Long> sentPost : mPendingConfirmedSentPosts.entrySet()) {
+                    Data.this.confirmSent(sentPost.getKey(), mFriendId, -1, sentPost.getValue());
+                }
+                mDatabase.setTransactionSuccessful();
+                mPendingConfirmedSentGroups.clear();
+                mPendingConfirmedSentPosts.clear();
+            } finally {
+                mDatabase.endTransaction();
             }
         }
     }
@@ -1191,8 +1286,50 @@ public class Data extends SQLiteOpenHelper {
             }
         }
         // *TODO* this is another transaction?
-        // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer? 
+        // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer?
         return new PullResponseIterator(friendId, pullRequest);
+    }
+
+    private void confirmSent(String groupId, String friendId, long lastSentGroupSequenceNumber, long lastSentPostSequenceNumber)
+            throws Utils.ApplicationError {
+        // Helper used by other confirmSent functions; assumes in transaction
+        try {
+            ContentValues values = new ContentValues();
+            if (lastSentGroupSequenceNumber != -1) {
+                values.put("lastSentGroupSequenceNumber", lastSentGroupSequenceNumber);
+            }
+            if (lastSentGroupSequenceNumber != -1) {
+                values.put("lastSentPostSequenceNumber", lastSentPostSequenceNumber);
+            }
+            // *TODO* ensure new values > old values?
+            mDatabase.update(
+                    "GroupMember",
+                    values,
+                    "groupId = ? AND memberId = ?",
+                    new String[]{groupId, friendId});
+        } catch (SQLiteException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    public void confirmSent(String friendId, Protocol.Group group) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            confirmSent(group.mId, friendId, group.mSequenceNumber, -1);
+            mDatabase.setTransactionSuccessful();
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void confirmSent(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            confirmSent(post.mGroupId, friendId, -1, post.mSequenceNumber);
+            mDatabase.setTransactionSuccessful();
+        } finally {
+            mDatabase.endTransaction();
+        }
     }
 
     public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, Protocol.Group pulledGroup, List<Protocol.Post> pulledPosts)
@@ -1211,7 +1348,7 @@ public class Data extends SQLiteOpenHelper {
         // this state.
         try {
             mDatabase.beginTransactionNonExclusive();
-            
+
             if (pullRequest != null) {
                 // The request was successful, so we can assume groupsToResignMembership were accepted by the
                 // friend and if the friend was the group publisher we are now removed as a group member. So
@@ -1224,18 +1361,16 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             }
-            
+
             if (pulledGroup != null) {
                 putReceivedGroup(friendId, pulledGroup);
             }
-            
+
             String expectedGroupId = (pulledGroup != null ? pulledGroup.mId : null);
-            
+
             for (Protocol.Post post : pulledPosts) {
                 putReceivedPost(friendId, post, expectedGroupId);
             }
-
-            updateFriendLastReceivedTime(friendId);
 
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
@@ -1244,14 +1379,13 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.endTransaction();
         }
     }
-    
+
     public void putPushedGroup(String friendId, Protocol.Group group) throws Utils.ApplicationError {
         // Unlike putPushedObject, there's no pull trigger since all we would
         // know is we missed an older version of the group object itself.
         try {
             mDatabase.beginTransactionNonExclusive();
             putReceivedGroup(friendId, group);
-            updateFriendLastReceivedTime(friendId);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -1259,7 +1393,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.endTransaction();
         }
     }
-    
+
     public boolean putPushedPost(String friendId, Protocol.Post post) throws Utils.ApplicationError {
         boolean triggerPull = false;
         try {
@@ -1272,7 +1406,6 @@ public class Data extends SQLiteOpenHelper {
                 triggerPull = true;
             }
             putReceivedPost(friendId, post, null);
-            updateFriendLastReceivedTime(friendId);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -1298,18 +1431,18 @@ public class Data extends SQLiteOpenHelper {
             // Check that friend is publisher
             if (!publisherId.equals(group.mPublisherId) ||
                     !publisherId.equals(friendId)) {
-                throw new Utils.ApplicationError(LOG_TAG, "invalid group publisher");                        
+                throw new Utils.ApplicationError(LOG_TAG, "invalid group publisher");
             }
         } catch (NotFoundError e) {
             // This is a new group
         }
-        
+
         if (previousSequenceNumber >= group.mSequenceNumber) {
             // Discard stale updates
             Log.addEntry(LOG_TAG, "received stale group update");
         } else {
             // Accept update
-        
+
             // State change when publisher has deleted the group
             Group.State newState = Group.State.SUBSCRIBING;
             if (group.mIsTombstone) {
@@ -1332,8 +1465,8 @@ public class Data extends SQLiteOpenHelper {
             }
         }
     }
-    
-    private void putReceivedPost(String friendId, Protocol.Post post, String expectedGroupId) 
+
+    private void putReceivedPost(String friendId, Protocol.Post post, String expectedGroupId)
             throws Utils.ApplicationError, SQLiteException {
         // Helper used by putPullResponse and putPushedGroup; assumes in transaction
         Protocol.validatePost(post);
@@ -1366,7 +1499,7 @@ public class Data extends SQLiteOpenHelper {
                 return;
             }
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "invalid post from non-group member");                                        
+            throw new Utils.ApplicationError(LOG_TAG, "invalid post from non-group member");
         }
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= ?",
@@ -1378,7 +1511,7 @@ public class Data extends SQLiteOpenHelper {
         // Accept update
         if (post.mIsTombstone) {
             // Delete the object when publisher sends a tombstone
-            mDatabase.delete("Post", "id = ?", new String[]{post.mId});                    
+            mDatabase.delete("Post", "id = ?", new String[]{post.mId});
         } else {
             ContentValues values = new ContentValues();
             values.put("id", post.mId);
@@ -1396,19 +1529,9 @@ public class Data extends SQLiteOpenHelper {
             for (Protocol.Resource resource : post.mAttachments) {
                 addDownload(friendId, resource);
             }
-        }        
+        }
     }
-    
-    private void updateFriendLastReceivedTime(String friendId) throws Utils.ApplicationError {
-        // Helper used by putPullResponse and putPushedGroup; assumes in transaction
-        // Set friend lastReceivedTimestamp to current time 
-        ContentValues values = new ContentValues();
-        values.put("lastReceivedTimestamp", dateToString(new Date()));
-        if (1 != mDatabase.update("Friend", values, "id = ?", new String[]{friendId})) {
-            throw new Utils.ApplicationError(LOG_TAG, "update friend failed");
-        }        
-    }
-    
+
     public void addLocalResource(LocalResource localResource) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
@@ -1427,7 +1550,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.endTransaction();
         }
     }
-    
+
     private static final String SELECT_LOCAL_RESOURCE =
             "SELECT resourceId, groupId, type, mimeType, filePath, tempFilePath FROM LocalResource";
 
@@ -1516,7 +1639,7 @@ public class Data extends SQLiteOpenHelper {
                 new String[]{friendId, Download.State.IN_PROGRESS.name()},
                 mRowToDownload);
     }
-    
+
     private long getCount(String query, String[] args) throws Utils.ApplicationError {
         // Helper for SELECT COUNT, which should not throw NotFoundError
         try {
@@ -1682,7 +1805,7 @@ public class Data extends SQLiteOpenHelper {
             mCursor.close();
         }
     }
-    
+
     private static Date stringToDate(String string) {
         // *TODO*
         return null;

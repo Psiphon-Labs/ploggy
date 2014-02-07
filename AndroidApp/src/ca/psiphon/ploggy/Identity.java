@@ -59,7 +59,7 @@ public class Identity {
             mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
         }
-        
+
         public String getId() throws Utils.ApplicationError {
             return Utils.formatFingerprint(getFingerprint());
         }

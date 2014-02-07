@@ -36,6 +36,8 @@ public class Protocol {
 
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
 
+    public static final String REQUEST_LOCATION_GET_REQUEST_PATH = "/requestLocation";
+
     // *TODO* GET vs. PUT for PULL request
     public static final String PULL_PUT_REQUEST_PATH = "/pull";
     public static final String PULL_PUT_REQUEST_MIME_TYPE = "application/json";
@@ -43,13 +45,9 @@ public class Protocol {
 
     public static final String PUSH_PUT_REQUEST_PATH = "/push";
     public static final String PUSH_PUT_REQUEST_MIME_TYPE = "application/json";
-    public static final String PUSH_PUT_RESPONSE_MIME_TYPE = "application/json";
 
     public static final String DOWNLOAD_GET_REQUEST_PATH = "/download";
-    public static final String DOWNLOAD_GET_REQUEST_RESOURCE_TYPE_PARAMETER = "resourceType";
     public static final String DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
-    public static final String RESOURCE_TYPE_RESOURCE = "Resource";
-    public static final String RESOURCE_TYPE_LOCATION = "Location";
 
     public static final String POST_CONTENT_TYPE_DEFAULT = "text/plain";
 
@@ -84,6 +82,23 @@ public class Protocol {
         }
     }
 
+    public static class PushRequest {
+        public enum Type {
+            GROUP,
+            POST,
+            LOCATION
+        }
+        public final Type mType;
+        public final Object mObject;
+
+        public PushRequest(
+                Type type,
+                Object object) {
+            mType = type;
+            mObject = object;
+        }
+    }
+
     public static class Group {
         public final String mId;
         public final String mName;
@@ -114,7 +129,7 @@ public class Protocol {
             mIsTombstone = isTombstone;
         }
     }
-    
+
     public static class Location {
         public final Date mTimestamp;
         public final double mLatitude;
