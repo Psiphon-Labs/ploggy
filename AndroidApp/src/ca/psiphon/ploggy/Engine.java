@@ -29,6 +29,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,20 +65,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private static final String LOG_TAG = "Engine";
 
     private final Context mContext;
-    private final SharedPreferences mSharedPreferences;
     private final Handler mHandler;
-    private Runnable mRestartTask;
-    private Runnable mPollFriendsTask;
+    private final SharedPreferences mSharedPreferences;
+    private boolean mStopped;
+    private Runnable mPreferencesRestartTask;
+    private Runnable mDownloadRetryTask;
     private ExecutorService mTaskThreadPool;
     private ExecutorService mPeerRequestThreadPool;
     enum FriendTaskType {PUSH_TO, PULL_FROM, DOWNLOAD_FROM};
-    private EnumMap<FriendTaskType, HashMap<String, Runnable>> mFriendTasks;
-    private EnumMap<FriendTaskType, HashMap<String, Future<?>>> mFriendTaskFutures;
+    private Map<FriendTaskType, HashMap<String, Runnable>> mFriendTaskObjects;
+    private Map<FriendTaskType, HashMap<String, Future<?>>> mFriendTaskFutures;
+    private Map<String, ArrayList<String>> mFriendPushQueue;
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
 
-    private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000;
+    private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000; // 5 sec.
+    private static final int DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS = 10*60*1000; // 10 min.
 
     private static final int THREAD_POOL_SIZE = 30;
 
@@ -94,17 +98,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        mStopped = true;
     }
 
     public synchronized void start() throws Utils.ApplicationError {
+        if (!mStopped) {
+            stop();
+        }
+        mStopped = false;
         Log.addEntry(LOG_TAG, "starting...");
         Events.register(this);
         mTaskThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         // Using a distinct worker thread pool and queue to manage peer
         // requests, so local tasks are not blocked by peer actions.
         mPeerRequestThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-        mFriendTasks = new EnumMap<FriendTaskType, HashMap<String, Runnable>>(FriendTaskType.class);
+        mFriendTaskObjects = new EnumMap<FriendTaskType, HashMap<String, Runnable>>(FriendTaskType.class);
         mFriendTaskFutures = new EnumMap<FriendTaskType, HashMap<String, Future<?>>>(FriendTaskType.class);
+        mFriendPushQueue = new HashMap<String, ArrayList<String>>();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         startHiddenService();
@@ -116,19 +126,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.unregister(this);
-        stopFriendPoll();
+        stopDownloadRetryTask();
         stopHiddenService();
         if (mLocationMonitor != null) {
             mLocationMonitor.stop();
             mLocationMonitor = null;
         }
-        if (mFriendTasks != null) {
-            mFriendTasks.clear();
-            mFriendTasks = null;
+        if (mFriendTaskObjects != null) {
+            mFriendTaskObjects.clear();
+            mFriendTaskObjects = null;
         }
         if (mFriendTaskFutures != null) {
             mFriendTaskFutures.clear();
             mFriendTaskFutures = null;
+        }
+        if (mFriendPushQueue != null) {
+            mFriendPushQueue.clear();
+            mFriendPushQueue = null;
         }
         if (mTaskThreadPool != null) {
             Utils.shutdownExecutorService(mTaskThreadPool);
@@ -138,6 +152,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Utils.shutdownExecutorService(mPeerRequestThreadPool);
             mPeerRequestThreadPool = null;
         }
+        mStopped = true;
         Log.addEntry(LOG_TAG, "stopped");
     }
 
@@ -146,8 +161,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // Restart engine to apply changed preferences. Delay restart until user inputs are idle.
         // (This idle delay is important due to how SeekBarPreferences trigger onSharedPreferenceChanged
         // continuously as the user slides the seek bar). Delayed restart runs on main thread.
-        if (mRestartTask == null) {
-            mRestartTask = new Runnable() {
+        if (mPreferencesRestartTask == null) {
+            mPreferencesRestartTask = new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -159,9 +174,118 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 }
             };
         } else {
-            mHandler.removeCallbacks(mRestartTask);
+            mHandler.removeCallbacks(mPreferencesRestartTask);
         }
-        mHandler.postDelayed(mRestartTask, PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS);
+        mHandler.postDelayed(mPreferencesRestartTask, PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS);
+    }
+
+
+    @Subscribe
+    public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
+        try {
+            pullFromFriends();
+            startDownloadRetryTask();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to start friend poll after Tor circuit established");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
+        // Apply new transport and hidden service credentials
+        try {
+            start();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to restart hidden service after self updated");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onAddedFriend(Events.AddedFriend addedFriend) {
+        // Apply new set of friends to web server and pull schedule.
+        // Friend poll will be started after Tor circuit is established.
+        // TODO: don't need to restart Tor, just web server
+        // (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
+        try {
+            start();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
+        // Full stop/start to clear friend task cache
+        try {
+            start();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onNewSelfLocationFix(Events.NewSelfLocationFix newSelfLocation) {
+        try {
+            String streetAddress;
+            if (newSelfLocation.mAddress != null) {
+                streetAddress = newSelfLocation.mAddress.toString();
+            } else {
+                streetAddress = "";
+            }
+            Data.getInstance().putSelfLocation(
+                    new Protocol.Location(
+                            new Date(),
+                            newSelfLocation.mLocation.getLatitude(),
+                            newSelfLocation.mLocation.getLongitude(),
+                            streetAddress));
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to update self status with new location");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
+        try {
+            pushToFriends(Data.getInstance().getGroupOrThrow(updatedSelfGroup.mGroupId).mGroup);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed push to friends after self group update");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfLocation(Events.UpdatedSelfLocation updatedSelfLocation) {
+        try {
+            pushToFriends(Data.getInstance().getSelfLocationOrThrow());
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed push to friends after self location update");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
+        try {
+            pushToFriends(Data.getInstance().getPostOrThrow(updatedSelfPost.mPostId).mPost);
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed push to friends after self post update");
+        }
+    }
+
+    // *TODO* ...?
+    /*
+    @Subscribe
+    public synchronized void onDisplayedMessages(Events.DisplayedMessages displayedMessages) {
+        try {
+            Data.getInstance().resetNewMessages();
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to reset new messages");
+        }
+    }
+    */
+
+    @Subscribe
+    public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
+        // Schedule immediate download, if not already downloading from friend
+        triggerFriendTask(FriendTaskType.DOWNLOAD_FROM, addedDownload.mFriendId);
     }
 
     public synchronized Future<?> submitTask(Runnable task) {
@@ -181,7 +305,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private void startHiddenService() throws Utils.ApplicationError {
         stopHiddenService();
 
-        Data.Self self = Data.getInstance().getSelf();
+        Data.Self self = Data.getInstance().getSelfOrThrow();
         List<String> friendCertificates = new ArrayList<String>();
         for (Data.Friend friend : Data.getInstance().getFriends()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
@@ -218,7 +342,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void stopHiddenService() {
         // Friend poll depends on Tor wrapper, so stop it first
-        stopFriendPoll();
+        stopDownloadRetryTask();
         if (mTorWrapper != null) {
             mTorWrapper.stop();
         }
@@ -234,58 +358,77 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
     }
 
-    private void startFriendPoll() throws Utils.ApplicationError {
-        stopFriendPoll();
+    private void pullFromFriends() throws Utils.ApplicationError {
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
+        }
+    }
+
+    private void pushToFriends(Protocol.Group group) throws Utils.ApplicationError {
+        pushToGroup(group, Json.toJson(group));
+    }
+
+    private void pushToFriends(Protocol.Location location) throws Utils.ApplicationError {
+        // *TODO* group location sharing preferences
+        String payload = Json.toJson(location);
+        for (Data.Friend friend : Data.getInstance().getFriends()) {
+            enqueueFriendPushPayload(friend.mId, payload);
+            triggerFriendTask(FriendTaskType.PUSH_TO, friend.mId);
+        }
+    }
+
+    private void pushToFriends(Protocol.Post post) throws Utils.ApplicationError {
+        Data.Group group = Data.getInstance().getGroupOrThrow(post.mGroupId);
+        pushToGroup(group.mGroup, Json.toJson(post));
+    }
+
+    private void pushToGroup(Protocol.Group group, String payload) throws Utils.ApplicationError {
+        for (Identity.PublicIdentity member : group.mMembers) {
+            enqueueFriendPushPayload(member.mId, payload);
+            triggerFriendTask(FriendTaskType.PUSH_TO, member.mId);
+        }
+    }
+
+    private void startDownloadRetryTask() throws Utils.ApplicationError {
+        stopDownloadRetryTask();
         // Start a recurring timer with initial delay
         // FRIEND_REQUEST_DELAY_IN_MILLISECONDS and subsequent delay
-        // preferenceLocationPullFrequencyInMinutes. The timer triggers
-        // friend pulls and downloads.
-        final int finalDelay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
-        if (mPollFriendsTask == null) {
-            mPollFriendsTask = new Runnable() {
+        // DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS. The timer triggers
+        // friend downloads, if any are pending.
+        if (mDownloadRetryTask == null) {
+            mDownloadRetryTask = new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        pollFriends();
+                        for (Data.Friend friend : Data.getInstance().getFriends()) {
+                            triggerFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
+                        }
                     } catch (Utils.ApplicationError e) {
                         Log.addEntry(LOG_TAG, "failed to poll friends");
                     } finally {
-                        mHandler.postDelayed(this, finalDelay);
+                        mHandler.postDelayed(this, DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS);
                     }
                 }
             };
         } else {
-            mHandler.removeCallbacks(mPollFriendsTask);
+            mHandler.removeCallbacks(mDownloadRetryTask);
         }
-        mHandler.postDelayed(mPollFriendsTask, FRIEND_REQUEST_DELAY_IN_MILLISECONDS);
+        mHandler.postDelayed(mDownloadRetryTask, FRIEND_REQUEST_DELAY_IN_MILLISECONDS);
     }
 
-    private void stopFriendPoll() {
-        if (mPollFriendsTask != null) {
-            mHandler.removeCallbacks(mPollFriendsTask);
-        }
-    }
-
-    private void pollFriends() throws Utils.ApplicationError {
-        // Reuses pull frequency as a retry frequency for downloads in case of failure
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            submitFriendTask(FriendTaskType.PULL_FROM, friend.mId);
-            submitFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
+    private void stopDownloadRetryTask() {
+        if (mDownloadRetryTask != null) {
+            mHandler.removeCallbacks(mDownloadRetryTask);
         }
     }
 
-    private void pushToFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            submitFriendTask(FriendTaskType.PUSH_TO, friend.mId);
-        }
-    }
-
-    private synchronized void submitFriendTask(FriendTaskType taskType, String friendId) {
+    private synchronized void triggerFriendTask(FriendTaskType taskType, String friendId) {
         // Schedules one push/pull/download per friend at a time.
-        if (mFriendTasks.get(taskType) == null) {
-            mFriendTasks.put(taskType, new HashMap<String, Runnable>());
+        if (mFriendTaskObjects.get(taskType) == null) {
+            mFriendTaskObjects.put(taskType, new HashMap<String, Runnable>());
         }
-        Runnable task = mFriendTasks.get(taskType).get(friendId);
+        // Cache instantiated task functions
+        Runnable task = mFriendTaskObjects.get(taskType).get(friendId);
         if (task == null) {
             switch (taskType) {
             case PUSH_TO:
@@ -298,7 +441,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 task = makeDownloadFromFriendTask(friendId);
                 break;
             }
-            mFriendTasks.get(taskType).put(friendId, task);
+            mFriendTaskObjects.get(taskType).put(friendId, task);
         }
         if (mFriendTaskFutures.get(taskType) == null) {
             mFriendTaskFutures.put(taskType, new HashMap<String, Future<?>>());
@@ -312,6 +455,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mFriendTaskFutures.get(taskType).put(friendId, future);
     }
 
+    /*
+    // *TODO* may be obsolete code
     private synchronized void cancelPendingFriendTask(FriendTaskType taskType, String friendId) {
         // Remove pending (not running) task, if present in queue
         Future<?> future = mFriendTaskFutures.get(taskType).get(friendId);
@@ -321,9 +466,25 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         }
     }
+    */
 
     private synchronized void completedFriendTask(FriendTaskType taskType, String friendId) {
         mFriendTaskFutures.get(taskType).remove(friendId);
+    }
+
+    private synchronized void enqueueFriendPushPayload(String friendId, String payload) {
+        if (mFriendPushQueue.get(friendId) == null) {
+            mFriendPushQueue.put(friendId, new ArrayList<String>());
+        }
+        mFriendPushQueue.get(friendId).add(payload);
+    }
+
+    private synchronized String dequeueFriendPushPayload(String friendId) {
+        ArrayList<String> queue = mFriendPushQueue.get(friendId);
+        if (queue == null || queue.isEmpty()) {
+            return null;
+        }
+        return queue.remove(0);
     }
 
     private Runnable makePushToFriendTask(String friendId) {
@@ -337,23 +498,33 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         return;
                     }
                     Data.Self self = data.getSelf();
-                    Data.Status selfStatus = data.getSelfStatus();
                     Data.Friend friend = data.getFriendById(finalFriendId);
-                    Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
-                    WebClient.makeJsonPostRequest(
-                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                            friend.mPublicIdentity.mX509Certificate,
-                            getTorSocksProxyPort(),
-                            friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.PUSH_STATUS_REQUEST_PATH,
-                            Json.toJson(selfStatus));
-                    data.updateFriendLastSentStatusTimestamp(finalFriendId);
-                } catch (Data.DataNotFoundError e) {
+                    while (true) {
+                        String payload = dequeueFriendPushPayload(finalFriendId);
+                        if (payload == null) {
+                            // *TODO* race condition when item enqueue before completedFriendTask is called; triggerFriendTask won't start a new task
+                            break;
+                        }
+                        Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
+                        WebClient.makeJsonPutRequest(
+                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                friend.mPublicIdentity.mX509Certificate,
+                                getTorSocksProxyPort(),
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                Protocol.PUSH_PUT_REQUEST_PATH,
+                                payload);
+                        // *TODO* byte count: bytes sent is more than payload length
+                        data.updateFriendSent(finalFriendId, new Date(), payload.length());
+                    }
+                } catch (Data.NotFoundError e) {
                     // Friend was deleted while push was enqueued. Ignore error.
                 } catch (Utils.ApplicationError e) {
                     try {
-                        Log.addEntry(LOG_TAG, "failed to push status to: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        Log.addEntry(
+                                LOG_TAG,
+                                "failed to push status to: " +
+                                    data.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
                     } catch (Utils.ApplicationError e2) {
                         Log.addEntry(LOG_TAG, "failed to push status");
                     }
@@ -377,22 +548,27 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "pull status from: " + friend.mPublicIdentity.mNickname);
+                    // *TODO* handle response data as a stream
                     String response = WebClient.makeGetRequest(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
                             getTorSocksProxyPort(),
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.PULL_STATUS_REQUEST_PATH);
-                    Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    data.updateFriendStatus(finalFriendId, friendStatus);
-                    data.updateFriendLastReceivedStatusTimestamp(finalFriendId);
-                } catch (Data.DataNotFoundError e) {
+                            Protocol.PULL_PUT_REQUEST_PATH);
+                    // Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
+                    // data.updateFriendStatus(finalFriendId, friendStatus);
+                    // *TODO* byte count
+                    data.updateFriendReceived(finalFriendId, new Date(), 0);
+                } catch (Data.NotFoundError e) {
                     // Friend was deleted while pull was enqueued. Ignore error.
                     // RemovedFriend should eventually cancel schedule.
                 } catch (Utils.ApplicationError e) {
                     try {
-                        Log.addEntry(LOG_TAG, "failed to pull status from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        Log.addEntry(
+                                LOG_TAG,
+                                "failed to pull status from: " +
+                                    data.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
                     } catch (Utils.ApplicationError e2) {
                         Log.addEntry(LOG_TAG, "failed to pull status");
                     }
@@ -424,7 +600,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         Data.Download download = null;
                         try {
                             download = data.getNextInProgressDownload(finalFriendId);
-                        } catch (Data.DataNotFoundError e) {
+                        } catch (Data.NotFoundError e) {
                             break;
                         }
                         // TODO: there's a potential race condition between getDownloadedSize and
@@ -443,8 +619,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                     getTorSocksProxyPort(),
                                     friend.mPublicIdentity.mHiddenServiceHostname,
                                     Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                    Protocol.DOWNLOAD_REQUEST_PATH,
-                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
+                                    Protocol.DOWNLOAD_GET_REQUEST_PATH,
+                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
                                     range,
                                     Downloads.openDownloadResourceForAppending(download));
                         }
@@ -453,12 +629,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         // TODO: 404/403: denied by peer? -- change Download state to reflect this and don't retry (e.g., new state: CANCELLED)
                         // TODO: update some last received timestamp?
                     }
-                } catch (Data.DataNotFoundError e) {
+                } catch (Data.NotFoundError e) {
                     // Friend was deleted while pull was enqueued. Ignore error.
                     // RemovedFriend should eventually cancel schedule.
                 } catch (Utils.ApplicationError e) {
                     try {
-                        Log.addEntry(LOG_TAG, "failed to download from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
+                        Log.addEntry(
+                                LOG_TAG,
+                                "failed to download from: " +
+                                    data.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
                     } catch (Utils.ApplicationError e2) {
                         Log.addEntry(LOG_TAG, "failed to download status");
                     }
@@ -469,131 +648,60 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         };
     }
 
-    @Subscribe
-    public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
+    // Note: not synchronized
+    @Override
+    public void handleUpdateLocationRequest(String friendCertificate) throws Utils.ApplicationError {
         try {
-            startFriendPoll();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to start friend poll after Tor circuit established");
+            Data data = Data.getInstance();
+            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+            // *TODO* check location ACL; trigger fix (if not in progress: see spec)
+            // *TODO* byte count (AND/OR called in WebServer.server)
+            data.updateFriendReceived(friend.mId, new Date(), 0);
+            Log.addEntry(LOG_TAG, "served update location request for " + friend.mPublicIdentity.mNickname);
+        } catch (Data.NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "failed to handle update location request: friend not found");
         }
-    }
-
-    @Subscribe
-    public synchronized void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
-        // Apply new transport and hidden service credentials
-        try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to restart hidden service after self updated");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onNewSelfLocation(Events.NewSelfLocation newSelfLocation) {
-        // TODO: location fix timestamp vs. status update timestamp?
-        // TODO: apply precision factor to long/lat/address
-        // TODO: factor Location.getAccuracy() into precision?
-        try {
-            String streetAddress;
-            if (newSelfLocation.mAddress != null) {
-                streetAddress = newSelfLocation.mAddress.toString();
-            } else {
-                streetAddress = "";
-            }
-            Data.getInstance().updateSelfStatusLocation(
-                    new Data.Location(
-                            new Date(),
-                            newSelfLocation.mLocation.getLatitude(),
-                            newSelfLocation.mLocation.getLongitude(),
-                            getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            streetAddress),
-                    currentlySharingLocation());
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to update self status with new location");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
-        try {
-            // Immediately push new status to all friends. If this fails for any reason,
-            // implicitly fall back to friends pulling status.
-            pushToFriends();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed push to friends after self status updated");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onAddedFriend(Events.AddedFriend addedFriend) {
-        // Apply new set of friends to web server and pull schedule.
-        // Friend poll will be started after Tor circuit is established.
-        // TODO: don't need to restart Tor, just web server
-        // (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
-        try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
-        try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onDisplayedMessages(Events.DisplayedMessages displayedMessages) {
-        try {
-            Data.getInstance().resetNewMessages();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to reset new messages");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
-        // Schedule immediate download, if not already downloading from friend
-        submitFriendTask(FriendTaskType.DOWNLOAD_FROM, addedDownload.mFriendId);
     }
 
     // Note: not synchronized
     @Override
-    public Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
-        // Friend is requesting (pulling) self status
-        // TODO: cancel any pending push to this friend?
+    public void handlePushRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError  {
         try {
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            Data.Status status = data.getSelfStatus();
+            // *TODO* deserialize Protocol.Group, Protocol.Location or Protocol.Port
+            // *TODO* data putObject()
             // TODO: we don't yet know the friend really received the response bytes
-            data.updateFriendLastSentStatusTimestamp(friend.mId);
+            // *TODO* byte count (AND/OR called in WebServer.server)
+            data.updateFriendReceived(friend.mId, new Date(), 0);
+            // *TODO* log too noisy?
+            Log.addEntry(LOG_TAG, "served push request for " + friend.mPublicIdentity.mNickname);
+        } catch (Data.NotFoundError e) {
+            // *TODO* use XYZOrThrow instead?
+            throw new Utils.ApplicationError(LOG_TAG, "failed to handle push request: friend not found");
+        }
+    }
+
+    // Note: not synchronized
+    @Override
+    public WebServer.RequestHandler.PullResponse handlePullRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError {
+        try {
+            Data data = Data.getInstance();
+            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
+            Protocol.PullRequest pullRequest = null;
+            // *TODO* body --> pullRequest
+            Data.PullResponseIterator iterator = data.putPullRequest(friend.mId, pullRequest);
+            // *TODO* PullResponseIterator.confirmSent()...?
+            // *TODO* PullResponseIterator --> InputStream OR AcknowledgedInputStream (confirmSent/updateFriendSent)
+            // TODO: we don't yet know the friend really received the response bytes
+            // *TODO* byte count (AND/OR called in WebServer.server)
+            data.updateFriendReceived(friend.mId, new Date(), 0);
+            // *TODO* call in PullResponseIterator? data.updateFriendSent(friend.mId, new Date(), 0);
             Log.addEntry(LOG_TAG, "served pull status request for " + friend.mPublicIdentity.mNickname);
-            return status;
-        } catch (Data.DataNotFoundError e) {
+            return new WebServer.RequestHandler.PullResponse(null);
+        } catch (Data.NotFoundError e) {
+            // *TODO* use XYZOrThrow instead?
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle pull status request: friend not found");
-        }
-    }
-
-    // Note: not synchronized
-    @Override
-    public void handlePushStatusRequest(String friendCertificate, Data.Status status) throws Utils.ApplicationError  {
-        // Friend is pushing their own status
-        try {
-            Data data = Data.getInstance();
-            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            data.updateFriendStatus(friend.mId, status);
-            // TODO: we don't yet know the friend really received the response bytes
-            data.updateFriendLastReceivedStatusTimestamp(friend.mId);
-            // TODO: Reschedule (delay) any outstanding pull from this friend
-            cancelPendingFriendTask(FriendTaskType.PULL_FROM, friend.mId);
-            Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
-        } catch (Data.DataNotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");
         }
     }
 
@@ -604,7 +712,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         try {
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            Data.LocalResource localResource = data.getLocalResource(resourceId);
+            Data.LocalResource localResource = data.getLocalResource(friend.mId, resourceId);
             // Note: don't check availability until after input validation
             if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
                     && !Utils.isConnectedNetworkWifi(mContext)) {
@@ -612,10 +720,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 return new DownloadResponse(false, null, null);
             }
             InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
-            // TODO: update last some last sent timestamp?
+            // *TODO* byte count (AND/OR called in WebServer.server)
+            data.updateFriendReceived(friend.mId, new Date(), 0);
+            // *TODO* call in InputStream? data.updateFriendSent(friend.mId, new Date(), 0);
             Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
             return new DownloadResponse(true, localResource.mMimeType, inputStream);
-        } catch (Data.DataNotFoundError e) {
+        } catch (Data.NotFoundError e) {
+            // *TODO* use XYZOrThrow instead?
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
         }
     }

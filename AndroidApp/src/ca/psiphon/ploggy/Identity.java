@@ -37,6 +37,7 @@ public class Identity {
     // TODO: distinct root cert and server/client (transport) certs?
 
     public static class PublicIdentity {
+        public final String mId;
         public final String mNickname;
         public final String mX509Certificate;
         public final String mHiddenServiceHostname;
@@ -52,16 +53,13 @@ public class Identity {
                 String x509Certificate,
                 String hiddenServiceHostname,
                 String hiddenServicAuthCookie,
-                String signature) {
+                String signature) throws Utils.ApplicationError {
+            mId = Utils.formatFingerprint(getFingerprint());
             mNickname = nickname;
             mX509Certificate = x509Certificate;
             mHiddenServiceHostname = hiddenServiceHostname;
             mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
-        }
-
-        public String getId() throws Utils.ApplicationError {
-            return Utils.formatFingerprint(getFingerprint());
         }
 
         public byte[] getFingerprint() throws Utils.ApplicationError {

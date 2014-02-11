@@ -50,6 +50,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     public interface RequestHandler {
 
+        public static class PullResponse {
+            public final InputStream mData;
+
+            public PullResponse(InputStream data) {
+                mData = data;
+            }
+        }
+
         public static class DownloadResponse {
             public final boolean mAvailable;
             public final String mMimeType;
@@ -63,8 +71,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         }
 
         public void submitWebRequestTask(Runnable task);
-        public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
-        public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError;
+        public void handleUpdateLocationRequest(String friendId) throws Utils.ApplicationError;
+        public void handlePushRequest(String friendId, String requestBody) throws Utils.ApplicationError;
+        public PullResponse handlePullRequest(String friendId, String requestBody) throws Utils.ApplicationError;
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError;
     }
 

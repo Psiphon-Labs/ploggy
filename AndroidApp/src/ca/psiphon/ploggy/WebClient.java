@@ -44,7 +44,7 @@ import ch.boye.httpclientandroidlib.HttpHost;
 import ch.boye.httpclientandroidlib.HttpResponse;
 import ch.boye.httpclientandroidlib.HttpStatus;
 import ch.boye.httpclientandroidlib.client.methods.HttpGet;
-import ch.boye.httpclientandroidlib.client.methods.HttpPost;
+import ch.boye.httpclientandroidlib.client.methods.HttpPut;
 import ch.boye.httpclientandroidlib.client.methods.HttpRequestBase;
 import ch.boye.httpclientandroidlib.client.utils.URIBuilder;
 import ch.boye.httpclientandroidlib.conn.ClientConnectionManager;
@@ -162,7 +162,7 @@ public class WebClient {
                 responseBodyStream);
     }
 
-    public static void makeJsonPostRequest(
+    public static void makeJsonPutRequest(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
             int localSocksProxyPort,
@@ -238,11 +238,11 @@ public class WebClient {
             if (requestBodyStream == null) {
                 request = new HttpGet(uri);
             } else {
-                HttpPost postRequest = new HttpPost(uri);
+                HttpPut putRequest = new HttpPut(uri);
                 InputStreamEntity entity = new InputStreamEntity(requestBodyStream, requestBodyLength);
                 entity.setContentType(requestBodyMimeType);
-                postRequest.setEntity(entity);
-                request = postRequest;
+                putRequest.setEntity(entity);
+                request = putRequest;
             }
             if (rangeHeader != null) {
                 String value = "bytes=" + Long.toString(rangeHeader.first) + "-";

@@ -36,7 +36,7 @@ public class Protocol {
 
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
 
-    public static final String REQUEST_LOCATION_GET_REQUEST_PATH = "/requestLocation";
+    public static final String UPDATE_LOCATION_GET_REQUEST_PATH = "/updateLocation";
 
     // *TODO* GET vs. PUT for PULL request
     public static final String PULL_PUT_REQUEST_PATH = "/pull";

@@ -90,63 +90,100 @@ public class Events {
         }
     }
 
-    public static class NewSelfLocation {
+    public static class AddedFriend  {
+        public final String mFriendId;
+
+        public AddedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class UpdatedFriend  {
+        public final String mFriendId;
+
+        public UpdatedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class RemovedFriend  {
+        public final String mFriendId;
+
+        public RemovedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class UpdatedSelfGroup {
+        public final String mGroupId;
+
+        public UpdatedSelfGroup(String groupId) {
+            mGroupId = groupId;
+        }
+    }
+
+    public static class UpdatedFriendGroup {
+        public final String mFriendId;
+        public final String mGroupId;
+
+        public UpdatedFriendGroup(String friendId, String groupId) {
+            mFriendId = friendId;
+            mGroupId = groupId;
+        }
+    }
+
+    public static class NewSelfLocationFix {
         public final Location mLocation;
         public final Address mAddress;
 
-        public NewSelfLocation(Location location, Address address) {
+        public NewSelfLocationFix(Location location, Address address) {
             mLocation = location;
             mAddress = address;
         }
     }
 
-    public static class UpdatedSelfStatus {
+    public static class UpdatedSelfLocation {
 
-        public UpdatedSelfStatus() {
+        public UpdatedSelfLocation() {
         }
     }
 
-    public static class AddedFriend  {
-        public final String mId;
 
-        public AddedFriend(String id) {
-            mId = id;
+    public static class UpdatedFriendLocation {
+        public final String mFriendId;
+
+        public UpdatedFriendLocation(String friendId) {
+            mFriendId = friendId;
         }
     }
 
-    public static class UpdatedFriend  {
-        public final String mId;
+    public static class UpdatedSelfPost {
+        public final String mPostId;
 
-        public UpdatedFriend(String id) {
-            mId = id;
+        public UpdatedSelfPost(String postId) {
+            mPostId = postId;
         }
     }
 
-    public static class UpdatedFriendStatus {
-        public final String mId;
+    public static class UpdatedFriendPost {
+        public final String mFriendId;
+        public final String mPostId;
 
-        public UpdatedFriendStatus(String id) {
-            mId = id;
+        public UpdatedFriendPost(String friendId, String postId) {
+            mFriendId = friendId;
+            mPostId = postId;
         }
     }
 
-    public static class RemovedFriend  {
-        public final String mId;
-
-        public RemovedFriend(String id) {
-            mId = id;
-        }
-    }
-
+    // *TODO* ...?
     public static class UpdatedNewMessages {
     }
 
-    public static class UpdatedAllMessages {
-    }
-
+    // *TODO* ...?
     public static class DisplayedFriends {
     }
 
+    // *TODO* ...?
     public static class DisplayedMessages {
     }
 

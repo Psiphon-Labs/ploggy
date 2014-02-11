@@ -97,7 +97,7 @@ public class Data extends SQLiteOpenHelper {
                 Identity.PublicIdentity publicIdentity,
                 Identity.PrivateIdentity privateIdentity,
                 Date createdTimestamp) throws Utils.ApplicationError {
-            mId = publicIdentity.getId();
+            mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mPrivateIdentity = privateIdentity;
             mCreatedTimestamp = createdTimestamp;
@@ -112,7 +112,7 @@ public class Data extends SQLiteOpenHelper {
         public CandidateFriend(
                 Identity.PublicIdentity publicIdentity,
                 List<String> groupIds) throws Utils.ApplicationError {
-            mId = publicIdentity.getId();
+            mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mGroupIds = groupIds;
         }
@@ -134,7 +134,7 @@ public class Data extends SQLiteOpenHelper {
                 long receivedBytes,
                 Date lastSentTimestamp,
                 long sentBytes) throws Utils.ApplicationError {
-            mId = publicIdentity.getId();
+            mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
             mLastReceivedTimestamp = lastReceivedTimestamp;
@@ -422,6 +422,14 @@ public class Data extends SQLiteOpenHelper {
             });
     }
 
+    public Self getSelfOrThrow() throws Utils.ApplicationError {
+        try {
+            return getSelf();
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected self not found");
+        }
+    }
+
     private String getSelfId() throws Utils.ApplicationError {
         try {
             return getStringColumn("SELECT id FROM Self", null);
@@ -538,6 +546,14 @@ public class Data extends SQLiteOpenHelper {
         return getObject(SELECT_FRIEND + " WHERE id = ?", new String[]{friendId}, mRowToFriend);
     }
 
+    public Friend getFriendByIdOrThrow(String friendId) throws Utils.ApplicationError {
+        try {
+            return getFriendById(friendId);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+        }
+    }
+
     public Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, NotFoundError {
         return getObject(SELECT_FRIEND + " WHERE nickname = ?", new String[]{nickname}, mRowToFriend);
     }
@@ -650,7 +666,7 @@ public class Data extends SQLiteOpenHelper {
         }
 
         for (Identity.PublicIdentity memberPublicIdentity : group.mMembers) {
-            String memberId = memberPublicIdentity.getId();
+            String memberId = memberPublicIdentity.mId;
             if (!existingMemberIds.contains(memberId)) {
                 ContentValues memberValues = new ContentValues();
                 memberValues.put("groupId", group.mId);
@@ -782,6 +798,14 @@ public class Data extends SQLiteOpenHelper {
         return getObject(SELECT_GROUP + " WHERE id = ?", new String[]{groupId}, mRowToGroup);
     }
 
+    public Group getGroupOrThrow(String groupId) throws Utils.ApplicationError {
+        try {
+            return getGroup(groupId);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected group not found");
+        }
+    }
+
     public CursorIterator<Group> getVisibleGroups() throws Utils.ApplicationError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?, ?)",
@@ -841,6 +865,14 @@ public class Data extends SQLiteOpenHelper {
     public Protocol.Location getSelfLocation() throws Utils.ApplicationError, NotFoundError {
         return getObject(
                 SELECT_LOCATION + " WHERE publisherId = (SELECT id FROM Self)", null, mRowToLocation);
+    }
+
+    public Protocol.Location getSelfLocationOrThrow() throws Utils.ApplicationError {
+        try {
+            return getSelfLocation();
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected self location not found");
+        }
     }
 
     public Protocol.Location getFriendLocation(String friendId) throws Utils.ApplicationError, NotFoundError {
@@ -984,6 +1016,18 @@ public class Data extends SQLiteOpenHelper {
                         state);
             }
         };
+
+    public Post getPost(String postId) throws Utils.ApplicationError, NotFoundError {
+        return getObject(SELECT_POST + " WHERE id = ?", new String[]{postId}, mRowToPost);
+    }
+
+    public Post getPostOrThrow(String postId) throws Utils.ApplicationError {
+        try {
+            return getPost(postId);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected post not found");
+        }
+    }
 
     public CursorIterator<Post> getUnreadPosts() throws Utils.ApplicationError {
         return getObjectCursor(
