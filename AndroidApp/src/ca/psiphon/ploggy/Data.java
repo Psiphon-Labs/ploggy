@@ -60,6 +60,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 *IN PROGRESS*
 
+- Resolve whether require CAST for non-String selectionArgs when used in e.g., integer compare expression (OR: use prepared statements)
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
 - confirmSent: how will this be used with server responses (pull response)?
 - Support per-group privacy settings
@@ -122,25 +123,25 @@ public class Data extends SQLiteOpenHelper {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
         public final Date mAddedTimestamp;
-        public final Date mLastReceivedTimestamp;
-        public final long mReceivedBytes;
-        public final Date mLastSentTimestamp;
-        public final long mSentBytes;
+        public final Date mLastReceivedFromTimestamp;
+        public final long mBytesReceivedFrom;
+        public final Date mLastSentToTimestamp;
+        public final long mBytesSentTo;
 
         public Friend(
                 Identity.PublicIdentity publicIdentity,
                 Date addedTimestamp,
-                Date lastReceivedTimestamp,
-                long receivedBytes,
-                Date lastSentTimestamp,
-                long sentBytes) throws Utils.ApplicationError {
+                Date lastReceivedFromTimestamp,
+                long bytesReceivedFrom,
+                Date lastSentToTimestamp,
+                long bytesSentTo) throws Utils.ApplicationError {
             mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
-            mLastReceivedTimestamp = lastReceivedTimestamp;
-            mReceivedBytes = receivedBytes;
-            mLastSentTimestamp = lastSentTimestamp;
-            mSentBytes = sentBytes;
+            mLastReceivedFromTimestamp = lastReceivedFromTimestamp;
+            mBytesReceivedFrom = bytesReceivedFrom;
+            mLastSentToTimestamp = lastSentToTimestamp;
+            mBytesSentTo = bytesSentTo;
         }
     }
 
@@ -175,15 +176,15 @@ public class Data extends SQLiteOpenHelper {
             ORPHANED
         }
         public final State mState;
-        public final Map<String, Protocol.SequenceNumbers> mMemberLastSentSequenceNumbers;
+        public final Map<String, Protocol.SequenceNumbers> mMemberLastConfirmedSequenceNumbers;
 
         public Group(
                 Protocol.Group group,
                 State state,
-                Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers) {
+                Map<String, Protocol.SequenceNumbers> memberLastConfirmedSequenceNumbers) {
             mGroup = group;
             mState = state;
-            mMemberLastSentSequenceNumbers = memberLastSentSequenceNumbers;
+            mMemberLastConfirmedSequenceNumbers = memberLastConfirmedSequenceNumbers;
         }
     }
 
@@ -269,10 +270,10 @@ public class Data extends SQLiteOpenHelper {
                 "nickname TEXT UNIQUE NOT NULL, " +
                 "certificate TEXT UNIQUE NOT NULL," +
                 "addedTimestamp TEXT NOT NULL," +
-                "lastReceivedTimestamp TEXT NOT NULL," +
-                "bytesReceived INTEGER NOT NULL," +
-                "lastSentTimestamp TEXT NOT NULL," +
-                "bytesSent INTEGER NOT NULL)",
+                "lastReceivedFromTimestamp TEXT NOT NULL," +
+                "bytesReceivedFrom INTEGER NOT NULL," +
+                "lastSentToTimestamp TEXT NOT NULL," +
+                "bytesSentTo INTEGER NOT NULL)",
             "CREATE INDEX FriendNickname ON Friend (nickname)",
             "CREATE INDEX FriendCertificate ON Friend (certificate)",
 
@@ -292,8 +293,8 @@ public class Data extends SQLiteOpenHelper {
                 "memberId TEXT NOT NULL," +
                 "memberNickname TEXT NOT NULL," +
                 "memberPublicIdentity TEXT NOT NULL," +
-                "lastSentGroupSequenceNumber INTEGER NOT NULL," +
-                "lastSentPostSequenceNumber INTEGER NOT NULL," +
+                "lastConfirmedGroupSequenceNumber INTEGER NOT NULL," +
+                "lastConfirmedPostSequenceNumber INTEGER NOT NULL," +
                 "PRIMARY KEY (groupId, memberId))",
 
             "CREATE TABLE Location (" +
@@ -447,10 +448,10 @@ public class Data extends SQLiteOpenHelper {
             values.put("nickname", friend.mPublicIdentity.mNickname);
             values.put("certificate", friend.mPublicIdentity.mX509Certificate);
             values.put("addedTimestamp", dateToString(friend.mAddedTimestamp));
-            values.put("lastReceivedTimestamp", dateToString(friend.mLastReceivedTimestamp));
-            values.put("receivedBytes", friend.mReceivedBytes);
-            values.put("lastSentTimestamp", dateToString(friend.mLastReceivedTimestamp));
-            values.put("sentBytes", friend.mSentBytes);
+            values.put("lastReceivedFromTimestamp", dateToString(friend.mLastReceivedFromTimestamp));
+            values.put("bytesReceivedFrom", friend.mBytesReceivedFrom);
+            values.put("lastSentToTimestamp", dateToString(friend.mLastSentToTimestamp));
+            values.put("bytesSentTo", friend.mBytesSentTo);
             mDatabase.insertOrThrow("Friend", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
@@ -461,14 +462,13 @@ public class Data extends SQLiteOpenHelper {
     }
 
     // *TODO* note -- informational/could be imprecise
-    public void updateFriendReceived(String friendId, Date lastReceivedTimestamp, long additionalBytesReceived)
+    public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
             throws Utils.ApplicationError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            String timestamp = dateToString(lastReceivedTimestamp);
             mDatabase.execSQL(
-                    "UPDATE Friend SET lastReceivedTimestamp = ?, receivedBytes = receivedBytes + ? WHERE id = ?",
-                     new String[]{dateToString(lastReceivedTimestamp), Long.toString(additionalBytesReceived), friendId});
+                    "UPDATE Friend SET lastReceivedFromTimestamp = ?, bytesReceivedFrom = bytesReceivedFrom + ? WHERE id = ?",
+                     new String[]{dateToString(lastReceivedFromTimestamp), Long.toString(additionalBytesReceivedFrom), friendId});
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -477,14 +477,13 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void updateFriendSent(String friendId, Date lastSentTimestamp, long additionalBytesSent)
+    public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
             throws Utils.ApplicationError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            String timestamp = dateToString(lastSentTimestamp);
             mDatabase.execSQL(
-                    "UPDATE Friend SET lastSentTimestamp = ?, sentBytes = sentBytes + ? WHERE id = ?",
-                     new String[]{dateToString(lastSentTimestamp), Long.toString(additionalBytesSent), friendId});
+                    "UPDATE Friend SET lastSentToTimestamp = ?, bytesSentTo = bytesSentTo + ? WHERE id = ?",
+                     new String[]{dateToString(lastSentToTimestamp), Long.toString(additionalBytesSentTo), friendId});
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -529,8 +528,8 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static final String SELECT_FRIEND =
-            "SELECT publicIdentity, addedTimestamp, lastSentTimestamp, lastSentSequenceNumber, " +
-                    "lastReceivedTimestamp, lastReceivedSequenceNumber FROM Friend";
+            "SELECT publicIdentity, addedTimestamp, lastReceivedFromTimestamp, bytesReceivedFrom, " +
+                    "lastSentToTimestamp, bytesSentTo FROM Friend";
 
     private static final IRowToObject<Friend> mRowToFriend =
         new IRowToObject<Friend>() {
@@ -673,12 +672,12 @@ public class Data extends SQLiteOpenHelper {
                 memberValues.put("memberId", memberId);
                 memberValues.put("memberNickname", memberPublicIdentity.mNickname);
                 memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
-                memberValues.put("lastSentGroupSequenceNumber", 0);
-                memberValues.put("lastSentPostSequenceNumber", 0);
+                memberValues.put("lastConfirmedGroupSequenceNumber", 0);
+                memberValues.put("lastConfirmedPostSequenceNumber", 0);
                 mDatabase.insertOrThrow("GroupMember", null, memberValues);
             } else {
                 // Assumes memberId changes if memberNickname or memberPublicIdentity change
-                // Existing local lastSentGroupSequenceNumber and lastSentPostSequenceNumber
+                // Existing local lastConfirmedGroupSequenceNumber and lastConfirmedPostSequenceNumber
                 // are implicitly retained
                 existingMemberIds.remove(memberId);
             }
@@ -758,7 +757,8 @@ public class Data extends SQLiteOpenHelper {
                 Cursor memberCursor = null;
                 try {
                     String query =
-                        "SELECT memberId, memberPublicIdentity, lastSentGroupSequenceNumber, lastSentPostSequenceNumber FROM GroupMember " +
+                        "SELECT memberId, memberPublicIdentity, " +
+                                "lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber FROM GroupMember " +
                             "WHERE groupId = ? " +
                             "ORDER BY memberNickname ASC, memberId ASC";
                     memberCursor = database.rawQuery(query, new String[]{groupId});
@@ -1056,9 +1056,9 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public Protocol.PullRequest getPullRequest(String friendId, boolean requestPullBack)
+    public Protocol.PullRequest getPullRequest(String friendId)
             throws Utils.ApplicationError, NotFoundError {
-        Map<String, Protocol.SequenceNumbers> groupLastReceivedSequenceNumbers =
+        Map<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers =
                 new LinkedHashMap<String, Protocol.SequenceNumbers>();
         List<String> groupsToResignMembership = new ArrayList<String>();
         Cursor cursor = null;
@@ -1093,7 +1093,7 @@ public class Data extends SQLiteOpenHelper {
                 switch (state) {
                 case PUBLISHING:
                 case SUBSCRIBING:
-                    groupLastReceivedSequenceNumbers.put(
+                    groupLastKnownSequenceNumbers.put(
                             id,
                             new Protocol.SequenceNumbers(groupSequenceNumber, postSequenceNumber));
                     break;
@@ -1118,7 +1118,7 @@ public class Data extends SQLiteOpenHelper {
             }
             mDatabase.endTransaction();
         }
-        return new Protocol.PullRequest(groupLastReceivedSequenceNumbers, groupsToResignMembership, requestPullBack);
+        return new Protocol.PullRequest(groupLastKnownSequenceNumbers, groupsToResignMembership);
     }
 
     public class PullResponseIterator implements Iterable<String>, Iterator<String> {
@@ -1128,8 +1128,6 @@ public class Data extends SQLiteOpenHelper {
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private CursorIterator<Post> mPostIterator;
         private String mNext;
-        private final Map<String, Long> mPendingConfirmedSentGroups;
-        private final Map<String, Long> mPendingConfirmedSentPosts;
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
                 throws Utils.ApplicationError {
@@ -1138,8 +1136,6 @@ public class Data extends SQLiteOpenHelper {
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostIterator = null;
             mNext = getNext();
-            mPendingConfirmedSentGroups = new LinkedHashMap<String, Long>();
-            mPendingConfirmedSentPosts = new LinkedHashMap<String, Long>();
         }
 
         @Override
@@ -1178,11 +1174,9 @@ public class Data extends SQLiteOpenHelper {
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
-                            addPendingConfirmSent(group.mGroup);
                             return Json.toJson(group.mGroup);
                         } else if (mPostIterator.hasNext()) {
                             Protocol.Post post = mPostIterator.next().mPost;
-                            addPendingConfirmSent(post);
                             return Json.toJson(post);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
@@ -1221,9 +1215,9 @@ public class Data extends SQLiteOpenHelper {
                     case DEAD:
                         // Add the group to the "send" list
                         // In local TOMBSTONE/DEAD state, we send the group AND posts so receiver can see all posts while DEAD
-                        if (pullRequest.mGroupLastReceivedSequenceNumbers.containsKey(groupId)) {
+                        if (pullRequest.mGroupLastKnownSequenceNumbers.containsKey(groupId)) {
                             // Case: the friend requested the group
-                            groupsToSend.put(groupId, pullRequest.mGroupLastReceivedSequenceNumbers.get(groupId));
+                            groupsToSend.put(groupId, pullRequest.mGroupLastKnownSequenceNumbers.get(groupId));
                         } else if (!pullRequest.mGroupsToResignMembership.contains(groupId)) {
                             // Case: the friend didn't request the group and isn't resigning -- so the friend hasn't
                             // received it from the publisher
@@ -1269,35 +1263,9 @@ public class Data extends SQLiteOpenHelper {
                 mPostIterator = null;
             }
         }
-
-        private void addPendingConfirmSent(Protocol.Group group) {
-            mPendingConfirmedSentGroups.put(group.mId, group.mSequenceNumber);
-        }
-
-        private void addPendingConfirmSent(Protocol.Post post) {
-            mPendingConfirmedSentPosts.put(post.mGroupId, post.mSequenceNumber);
-        }
-
-        public void confirmSent() throws Utils.ApplicationError {
-            // *TODO* how does this relate to the CursorIterator transaction?
-            try {
-                mDatabase.beginTransactionNonExclusive();
-                for (Map.Entry<String, Long> sentGroup : mPendingConfirmedSentGroups.entrySet()) {
-                    Data.this.confirmSent(sentGroup.getKey(), mFriendId, sentGroup.getValue(), -1);
-                }
-                for (Map.Entry<String, Long> sentPost : mPendingConfirmedSentPosts.entrySet()) {
-                    Data.this.confirmSent(sentPost.getKey(), mFriendId, -1, sentPost.getValue());
-                }
-                mDatabase.setTransactionSuccessful();
-                mPendingConfirmedSentGroups.clear();
-                mPendingConfirmedSentPosts.clear();
-            } finally {
-                mDatabase.endTransaction();
-            }
-        }
     }
 
-    public PullResponseIterator putPullRequest(String friendId, Protocol.PullRequest pullRequest)
+    public PullResponseIterator getPullResponse(String friendId, Protocol.PullRequest pullRequest)
             throws Utils.ApplicationError {
         // If publisher of group that friend wants to be removed from, do that now, before
         // sending pull data.
@@ -1334,42 +1302,71 @@ public class Data extends SQLiteOpenHelper {
         return new PullResponseIterator(friendId, pullRequest);
     }
 
-    private void confirmSent(String groupId, String friendId, long lastSentGroupSequenceNumber, long lastSentPostSequenceNumber)
+    private void confirmSentTo(String groupId, String friendId, long lastConfirmedGroupSequenceNumber, long lastConfirmedPostSequenceNumber)
             throws Utils.ApplicationError {
-        // Helper used by other confirmSent functions; assumes in transaction
+        // Helper used by other confirmSentTo functions; assumes in transaction
         try {
-            ContentValues values = new ContentValues();
-            if (lastSentGroupSequenceNumber != -1) {
-                values.put("lastSentGroupSequenceNumber", lastSentGroupSequenceNumber);
+            if (lastConfirmedGroupSequenceNumber != -1) {
+                ContentValues values = new ContentValues();
+                values.put("lastConfirmedGroupSequenceNumber", lastConfirmedGroupSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND lastConfirmedGroupSequenceNumber < ?",
+                        new String[]{groupId, friendId, Long.toString(lastConfirmedGroupSequenceNumber)});
             }
-            if (lastSentGroupSequenceNumber != -1) {
-                values.put("lastSentPostSequenceNumber", lastSentPostSequenceNumber);
+            if (lastConfirmedPostSequenceNumber != -1) {
+                ContentValues values = new ContentValues();
+                values.put("lastConfirmedPostSequenceNumber", lastConfirmedPostSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND lastConfirmedPostSequenceNumber < ?",
+                        new String[]{groupId, friendId, Long.toString(lastConfirmedPostSequenceNumber)});
             }
-            // *TODO* ensure new values > old values?
-            mDatabase.update(
-                    "GroupMember",
-                    values,
-                    "groupId = ? AND memberId = ?",
-                    new String[]{groupId, friendId});
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
     }
 
-    public void confirmSent(String friendId, Protocol.Group group) throws Utils.ApplicationError {
+    public void confirmSentTo(String friendId, Protocol.PullRequest pullRequest) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            confirmSent(group.mId, friendId, group.mSequenceNumber, -1);
+            for (Map.Entry<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers :
+                    pullRequest.mGroupLastKnownSequenceNumbers.entrySet()) {
+                // TODO: case for groups in pullRequest.mGroupsToResignMembership?
+                String groupId = groupLastKnownSequenceNumbers.getKey();
+                long lastConfirmedGroupSequenceNumber = groupLastKnownSequenceNumbers.getValue().mGroupSequenceNumber;
+                long lastConfirmedPostSequenceNumber = groupLastKnownSequenceNumbers.getValue().mPostSequenceNumber;
+
+                if (1 != getCount(
+                        "SELECT COUNT(*) FROM Group WHERE id = ? AND publisherId = (SELECT id FROM Self)",
+                        new String[]{groupId})) {
+                    lastConfirmedGroupSequenceNumber = -1;
+                }
+
+                confirmSentTo(friendId, groupId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
+            }
             mDatabase.setTransactionSuccessful();
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public void confirmSent(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+    public void confirmSentTo(String friendId, Protocol.Group group) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            confirmSent(post.mGroupId, friendId, -1, post.mSequenceNumber);
+            confirmSentTo(group.mId, friendId, group.mSequenceNumber, -1);
+            mDatabase.setTransactionSuccessful();
+        } finally {
+            mDatabase.endTransaction();
+        }
+    }
+
+    public void confirmSentTo(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+        try {
+            mDatabase.beginTransactionNonExclusive();
+            confirmSentTo(post.mGroupId, friendId, -1, post.mSequenceNumber);
             mDatabase.setTransactionSuccessful();
         } finally {
             mDatabase.endTransaction();

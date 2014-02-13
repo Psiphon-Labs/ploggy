@@ -170,6 +170,26 @@ public class WebClient {
             int port,
             String requestPath,
             String requestBody) throws Utils.ApplicationError {
+        makeJsonPutRequest(
+            x509KeyMaterial,
+            peerCertificate,
+            localSocksProxyPort,
+            hostname,
+            port,
+            requestPath,
+            requestBody,
+            null); // responseBodyStream
+    }
+
+    public static void makeJsonPutRequest(
+            X509.KeyMaterial x509KeyMaterial,
+            String peerCertificate,
+            int localSocksProxyPort,
+            String hostname,
+            int port,
+            String requestPath,
+            String requestBody,
+            OutputStream responseBodyStream) throws Utils.ApplicationError {
         byte[] body;
         try {
             body = requestBody.getBytes("UTF-8");
@@ -188,7 +208,7 @@ public class WebClient {
             body.length,
             new ByteArrayInputStream(body),
             null,  // rangeHeader
-            null); // responseBodyStream
+            responseBodyStream);
     }
 
     private static void makeRequest(

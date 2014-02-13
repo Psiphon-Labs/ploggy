@@ -36,15 +36,16 @@ public class Protocol {
 
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
 
-    public static final String UPDATE_LOCATION_GET_REQUEST_PATH = "/updateLocation";
+    public static final String ASK_PULL_GET_REQUEST_PATH = "/askPull";
 
-    // *TODO* GET vs. PUT for PULL request
-    public static final String PULL_PUT_REQUEST_PATH = "/pull";
-    public static final String PULL_PUT_REQUEST_MIME_TYPE = "application/json";
-    public static final String PULL_PUT_RESPONSE_MIME_TYPE = "application/json";
+    public static final String ASK_LOCATION_GET_REQUEST_PATH = "/askLocation";
 
     public static final String PUSH_PUT_REQUEST_PATH = "/push";
     public static final String PUSH_PUT_REQUEST_MIME_TYPE = "application/json";
+
+    public static final String PULL_PUT_REQUEST_PATH = "/pull";
+    public static final String PULL_PUT_REQUEST_MIME_TYPE = "application/json";
+    public static final String PULL_PUT_RESPONSE_MIME_TYPE = "application/json";
 
     public static final String DOWNLOAD_GET_REQUEST_PATH = "/download";
     public static final String DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
@@ -68,17 +69,14 @@ public class Protocol {
     }
 
     public static class PullRequest {
-        public final Map<String, SequenceNumbers> mGroupLastReceivedSequenceNumbers;
+        public final Map<String, SequenceNumbers> mGroupLastKnownSequenceNumbers;
         public final List<String> mGroupsToResignMembership;
-        public final boolean mRequestPullBack;
 
         public PullRequest(
-                Map<String, SequenceNumbers> groupLastReceivedSequenceNumbers,
-                List<String> groupsToResignMembership,
-                boolean requestPullBack) {
-            mGroupLastReceivedSequenceNumbers = groupLastReceivedSequenceNumbers;
+                Map<String, SequenceNumbers> groupLastKnownSequenceNumbers,
+                List<String> groupsToResignMembership) {
+            mGroupLastKnownSequenceNumbers = groupLastKnownSequenceNumbers;
             mGroupsToResignMembership = groupsToResignMembership;
-            mRequestPullBack = requestPullBack;
         }
     }
 

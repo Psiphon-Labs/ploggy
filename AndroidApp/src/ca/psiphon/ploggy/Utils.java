@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -398,6 +399,36 @@ public class Utils {
                 mHandler.removeCallbacks(mExecutorTask);
                 mExecutorTask = null;
             }
+        }
+    }
+
+    // Converts a Iterator<String> to an InputStream
+    public static class StringIteratorInputStream extends InputStream {
+
+        Iterator<String> mStringIterator;
+        String mCurrentString;
+        int mIndex;
+
+        StringIteratorInputStream(Iterator<String> stringIterator) {
+            mStringIterator = stringIterator;
+            mCurrentString = null;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (mCurrentString == null) {
+                if (!mStringIterator.hasNext()) {
+                    return -1;
+                }
+                mCurrentString = mStringIterator.next();
+                mIndex = 0;
+            }
+            int result = mCurrentString.charAt(mIndex);
+            mIndex++;
+            if (mIndex >= mCurrentString.length()) {
+                mCurrentString = null;
+            }
+            return result;
         }
     }
 

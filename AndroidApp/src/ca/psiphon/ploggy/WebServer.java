@@ -25,6 +25,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
+import java.util.Date;
 import java.util.List;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -71,7 +72,10 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         }
 
         public void submitWebRequestTask(Runnable task);
-        public void handleUpdateLocationRequest(String friendId) throws Utils.ApplicationError;
+        public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo);
+        public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom);
+        public void handleAskPullRequest(String friendId) throws Utils.ApplicationError;
+        public void handleAskLocationRequest(String friendId) throws Utils.ApplicationError;
         public void handlePushRequest(String friendId, String requestBody) throws Utils.ApplicationError;
         public PullResponse handlePullRequest(String friendId, String requestBody) throws Utils.ApplicationError;
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError;
