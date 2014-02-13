@@ -61,7 +61,7 @@ import android.os.Build;
 /**
  * Wrapper for Tor child process.
  *
- * Derived from Briar Project's TorPlugin.java. Also use's Briar project custom TorControlConnection.
+ * Derived from Briar Project's TorPlugin.java. Also uses Briar project's custom TorControlConnection.
  * Supports two modes: run Tor services (local SOCKS proxy for clients, Hidden Server in front of web
  * server); and generate key material only.
  * Allows Tor to select listen port for control interface and local SOCKS proxy. Uses file monitoring
