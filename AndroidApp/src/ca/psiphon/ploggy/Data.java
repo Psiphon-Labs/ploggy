@@ -60,16 +60,15 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 *IN PROGRESS*
 
+- Post to event bus; e.g. to trigger Engine and UI updates (special case: due to cascading deletes)
 - Resolve whether require CAST for non-String selectionArgs when used in e.g., integer compare expression (OR: use prepared statements)
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
-- confirmSent: how will this be used with server responses (pull response)?
 - Support per-group privacy settings
 - Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
 - Group order in pull requests: using LinkedHashMap but order is lost in JSON: http://stackoverflow.com/questions/5396680/whats-the-proper-represantation-of-linkedhashmap-in-json
 - Create indexes for queries (see http://www.sqlite.org/optoverview.html)
 - Should we have explicit transactions for returned cursors (and have CursorIterator track a transaction)?
 - Cache POJOs (especially for getFriend and getGroup)
-- Post to event bus; e.g. to trigger UI updates due to cascading deletes
 - Prepared statements?
 - Review all "*TODO*" comments
 - Switch to SQLCipher
@@ -477,6 +476,15 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
+    public void updateFriendReceivedOrThrow(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
+            throws Utils.ApplicationError {
+        try {
+            updateFriendReceived(friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+        }
+    }
+
     public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
             throws Utils.ApplicationError, NotFoundError {
         try {
@@ -489,6 +497,15 @@ public class Data extends SQLiteOpenHelper {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
+        }
+    }
+
+    public void updateFriendSentOrThrow(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
+            throws Utils.ApplicationError {
+        try {
+            updateFriendReceived(friendId, lastSentToTimestamp, additionalBytesSentTo);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
         }
     }
 
@@ -1270,7 +1287,6 @@ public class Data extends SQLiteOpenHelper {
         // If publisher of group that friend wants to be removed from, do that now, before
         // sending pull data.
         // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
-        Protocol.validatePullRequest(pullRequest);
         if (pullRequest.mGroupsToResignMembership.size() > 0) {
             try {
                 mDatabase.beginTransactionNonExclusive();
@@ -1373,7 +1389,9 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, Protocol.Group pulledGroup, List<Protocol.Post> pulledPosts)
+    public static final int MAX_PULL_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
+
+    public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, List<Protocol.Group> pulledGroups, List<Protocol.Post> pulledPosts)
             throws Utils.ApplicationError {
         // NOTE: writing would be fastest if the entire "push" PUT request stream were written in one transaction,
         // but that would block other database access. As a compromise, we support writing chunks of objects. This
@@ -1382,7 +1400,7 @@ public class Data extends SQLiteOpenHelper {
         //
         // In the protocol, the stream of pulled objects should look like this:
         // [GroupX,] Post-in-GroupX, Post-in-GroupX, ..., [GroupY,] Post-in-GroupY, Post-in-GroupY
-        // So this handler is to be called once each time the Group changes, if there are Group objects
+        // However, this isn't enforced here.
         //
         // IMPORTANT: Only pass in the "pullRequest" with the 1st chunk of objects -- it's used to delete
         // groups in the RESIGNING state once it's known that the group publishing friend has learned of
@@ -1403,14 +1421,12 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
 
-            if (pulledGroup != null) {
-                putReceivedGroup(friendId, pulledGroup);
+            for (Protocol.Group group : pulledGroups) {
+                putReceivedGroup(friendId, group);
             }
 
-            String expectedGroupId = (pulledGroup != null ? pulledGroup.mId : null);
-
             for (Protocol.Post post : pulledPosts) {
-                putReceivedPost(friendId, post, expectedGroupId);
+                putReceivedPost(friendId, post);
             }
 
             mDatabase.setTransactionSuccessful();
@@ -1446,7 +1462,7 @@ public class Data extends SQLiteOpenHelper {
                 Log.addEntry(LOG_TAG, "pull triggered by push sequence number");
                 triggerPull = true;
             }
-            putReceivedPost(friendId, post, null);
+            putReceivedPost(friendId, post);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
@@ -1459,7 +1475,6 @@ public class Data extends SQLiteOpenHelper {
     private void putReceivedGroup(String friendId, Protocol.Group group)
             throws Utils.ApplicationError, SQLiteException {
         // Helper used by putPullResponse and putPushedGroup; assumes in transaction
-        Protocol.validateGroup(group);
         long previousSequenceNumber = 0;
         Group.State previousState = Group.State.SUBSCRIBING;
         try {
@@ -1507,10 +1522,9 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private void putReceivedPost(String friendId, Protocol.Post post, String expectedGroupId)
+    private void putReceivedPost(String friendId, Protocol.Post post)
             throws Utils.ApplicationError, SQLiteException {
         // Helper used by putPullResponse and putPushedGroup; assumes in transaction
-        Protocol.validatePost(post);
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId <> ?",
                 new String[]{post.mId, friendId})) {
@@ -1518,9 +1532,6 @@ public class Data extends SQLiteOpenHelper {
         }
         if (!post.mPublisherId.equals(friendId)) {
             throw new Utils.ApplicationError(LOG_TAG, "mismatched post publisher");
-        }
-        if (expectedGroupId != null && !post.mGroupId.equals(expectedGroupId)) {
-            throw new Utils.ApplicationError(LOG_TAG, "mismatched post group id");
         }
         // Check group state as well as post publisher's membership
         try {

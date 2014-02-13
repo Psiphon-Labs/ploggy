@@ -80,7 +80,7 @@ public class Protocol {
         }
     }
 
-    public static class PushRequest {
+    public static class Payload {
         public enum Type {
             GROUP,
             POST,
@@ -89,7 +89,7 @@ public class Protocol {
         public final Type mType;
         public final Object mObject;
 
-        public PushRequest(
+        public Payload(
                 Type type,
                 Object object) {
             mType = type;
@@ -101,8 +101,7 @@ public class Protocol {
         public final String mId;
         public final String mName;
         public final String mPublisherId;
-        //public final Identity.PublicIdentity mPublisher; // ...TODO: redundant?
-        public final List<Identity.PublicIdentity> mMembers; //...TODO: need to include this for case where member isn't a friend...
+        public final List<Identity.PublicIdentity> mMembers;
         public final Date mCreatedTimestamp;
         public final Date mModifiedTimestamp;
         public final long mSequenceNumber;

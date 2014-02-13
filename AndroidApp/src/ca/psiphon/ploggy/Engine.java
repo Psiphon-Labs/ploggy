@@ -21,7 +21,6 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -61,6 +60,22 @@ import com.squareup.otto.Subscribe;
  * An Engine instance is intended to be run via an Android Service set to
  * foreground mode (i.e., long running).
  */
+
+/*
+
+*IN PROGRESS*
+
+- call updateFriendSent/Recv byte counts in WebServer and WebClient
+- add task to restart Engine/Tor if no circuit after N minutes; and restart if no comms after N hours(?)
+- WebClient keep-alive: static instance of PoolingHttpConnMgr; setDefaultMaxRoutes etc.; upgrade httpclientandroidlib to 4.3
+- double-check Protocol.validate() called where required in Engine
+- pull more fixes from NanoHttpd upstream
+- polymorphism for Protocol.Payload handling?
+- Review all "*TODO*" comments
+- Unit tests (or coverage in Tests module)
+
+*/
+
 public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
 
     private static final String LOG_TAG = "Engine";
@@ -76,7 +91,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     enum FriendTaskType {ASK_PULL, ASK_LOCATION, PUSH_TO, PULL_FROM, DOWNLOAD_FROM};
     private Map<FriendTaskType, HashMap<String, Runnable>> mFriendTaskObjects;
     private Map<FriendTaskType, HashMap<String, Future<?>>> mFriendTaskFutures;
-    private Map<String, ArrayList<Protocol.PushRequest>> mFriendPushQueue;
+    private Map<String, ArrayList<Protocol.Payload>> mFriendPushQueue;
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
@@ -115,7 +130,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mPeerRequestThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         mFriendTaskObjects = new EnumMap<FriendTaskType, HashMap<String, Runnable>>(FriendTaskType.class);
         mFriendTaskFutures = new EnumMap<FriendTaskType, HashMap<String, Future<?>>>(FriendTaskType.class);
-        mFriendPushQueue = new HashMap<String, ArrayList<Protocol.PushRequest>>();
+        mFriendPushQueue = new HashMap<String, ArrayList<Protocol.Payload>>();
         mLocationMonitor = new LocationMonitor(this);
         mLocationMonitor.start();
         startHiddenService();
@@ -379,23 +394,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void pushToFriends(Protocol.Group group) throws Utils.ApplicationError {
-        pushToGroup(group, new Protocol.PushRequest(Protocol.PushRequest.Type.GROUP, group));
+        pushToGroup(group, new Protocol.Payload(Protocol.Payload.Type.GROUP, group));
     }
 
     private void pushToFriends(Protocol.Location location) throws Utils.ApplicationError {
         // *TODO* group location sharing preferences
         for (Data.Friend friend : Data.getInstance().getFriends()) {
-            enqueueFriendPushPayload(friend.mId, new Protocol.PushRequest(Protocol.PushRequest.Type.LOCATION, location));
+            enqueueFriendPushPayload(friend.mId, new Protocol.Payload(Protocol.Payload.Type.LOCATION, location));
             triggerFriendTask(FriendTaskType.PUSH_TO, friend.mId);
         }
     }
 
     private void pushToFriends(Protocol.Post post) throws Utils.ApplicationError {
         Data.Group group = Data.getInstance().getGroupOrThrow(post.mGroupId);
-        pushToGroup(group.mGroup, new Protocol.PushRequest(Protocol.PushRequest.Type.POST, post));
+        pushToGroup(group.mGroup, new Protocol.Payload(Protocol.Payload.Type.POST, post));
     }
 
-    private void pushToGroup(Protocol.Group group, Protocol.PushRequest payload) throws Utils.ApplicationError {
+    private void pushToGroup(Protocol.Group group, Protocol.Payload payload) throws Utils.ApplicationError {
         for (Identity.PublicIdentity member : group.mMembers) {
             enqueueFriendPushPayload(member.mId, payload);
             triggerFriendTask(FriendTaskType.PUSH_TO, member.mId);
@@ -491,15 +506,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mFriendTaskFutures.get(taskType).remove(friendId);
     }
 
-    private synchronized void enqueueFriendPushPayload(String friendId, Protocol.PushRequest payload) {
+    private synchronized void enqueueFriendPushPayload(String friendId, Protocol.Payload payload) {
         if (mFriendPushQueue.get(friendId) == null) {
-            mFriendPushQueue.put(friendId, new ArrayList<Protocol.PushRequest>());
+            mFriendPushQueue.put(friendId, new ArrayList<Protocol.Payload>());
         }
         mFriendPushQueue.get(friendId).add(payload);
     }
 
-    private synchronized Protocol.PushRequest dequeueFriendPushPayload(String friendId) {
-        ArrayList<Protocol.PushRequest> queue = mFriendPushQueue.get(friendId);
+    private synchronized Protocol.Payload dequeueFriendPushPayload(String friendId) {
+        ArrayList<Protocol.Payload> queue = mFriendPushQueue.get(friendId);
         if (queue == null || queue.isEmpty()) {
             return null;
         }
@@ -521,13 +536,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask pull to: " + friend.mPublicIdentity.mNickname);
-                    WebClient.makeGetRequest(
+                    WebClient client =
+                        new WebClient(
                             new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                             friend.mPublicIdentity.mX509Certificate,
-                            getTorSocksProxyPort(),
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.ASK_PULL_GET_REQUEST_PATH);
+                            WebClient.RequestType.GET,
+                            Protocol.ASK_PULL_GET_REQUEST_PATH).localSocksProxyPort(getTorSocksProxyPort());
+                    client.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                 } catch (Utils.ApplicationError e) {
@@ -559,13 +576,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask location to: " + friend.mPublicIdentity.mNickname);
-                    WebClient.makeGetRequest(
-                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                            friend.mPublicIdentity.mX509Certificate,
-                            getTorSocksProxyPort(),
-                            friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.ASK_LOCATION_GET_REQUEST_PATH);
+                    WebClient client =
+                            new WebClient(
+                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                friend.mPublicIdentity.mX509Certificate,
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                WebClient.RequestType.GET,
+                                Protocol.ASK_LOCATION_GET_REQUEST_PATH).
+                                    localSocksProxyPort(getTorSocksProxyPort());
+                    client.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                 } catch (Utils.ApplicationError e) {
@@ -597,24 +617,32 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     while (true) {
-                        Object payload = dequeueFriendPushPayload(finalFriendId);
+                        Protocol.Payload payload = dequeueFriendPushPayload(finalFriendId);
                         if (payload == null) {
                             // *TODO* race condition when item enqueue before completedFriendTask is called; triggerFriendTask won't start a new task
                             break;
                         }
                         Log.addEntry(LOG_TAG, "push to: " + friend.mPublicIdentity.mNickname);
-                        WebClient.makeJsonPutRequest(
-                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                friend.mPublicIdentity.mX509Certificate,
-                                getTorSocksProxyPort(),
-                                friend.mPublicIdentity.mHiddenServiceHostname,
-                                Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                Protocol.PUSH_PUT_REQUEST_PATH,
-                                Json.toJson(payload));
-                        if (payload instanceof Protocol.Group) {
-                            data.confirmSentTo(friend.mId, (Protocol.Group)payload);
-                        } else if (payload instanceof Protocol.Post) {
-                            data.confirmSentTo(friend.mId, (Protocol.Post)payload);
+                        WebClient client =
+                                new WebClient(
+                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                    friend.mPublicIdentity.mX509Certificate,
+                                    friend.mPublicIdentity.mHiddenServiceHostname,
+                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                    WebClient.RequestType.PUT,
+                                    Protocol.PUSH_PUT_REQUEST_PATH).
+                                        localSocksProxyPort(getTorSocksProxyPort()).
+                                        requestBody(Json.toJson(payload.mObject));
+                        client.makeRequest();
+                        switch (payload.mType) {
+                        case GROUP:
+                            data.confirmSentTo(friend.mId, (Protocol.Group)payload.mObject);
+                            break;
+                        case POST:
+                            data.confirmSentTo(friend.mId, (Protocol.Post)payload.mObject);
+                            break;
+                        default:
+                            break;
                         }
                     }
                 } catch (Data.NotFoundError e) {
@@ -655,19 +683,53 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     // The primary (first) pull is also the only one where we request a
                     // pull in the other direction from the peer.
                     for (int i = 0; i < 2; i++) {
-                        // *TODO* handle response data as a stream
-                        OutputStream responseStream = null;
-                        String pullRequest = Json.toJson(data.getPullRequest(finalFriendId));
-                        WebClient.makeJsonPutRequest(
-                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                friend.mPublicIdentity.mX509Certificate,
-                                getTorSocksProxyPort(),
-                                friend.mPublicIdentity.mHiddenServiceHostname,
-                                Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                Protocol.PULL_PUT_REQUEST_PATH,
-                                pullRequest,
-                                responseStream);
-                        !!! *TODO* responseStream --> objects --> data.putPullResponse(finalFriendId, pullRequest, pulledGroup, pulledPosts)
+                        final Protocol.PullRequest finalPullRequest = data.getPullRequest(finalFriendId);
+                        WebClient.ResponseBodyHandler responseBodyHandler = new WebClient.ResponseBodyHandler() {
+                            @Override
+                            public void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError {
+                                Data data = Data.getInstance();
+                                Protocol.PullRequest pullRequest = finalPullRequest;
+                                List<Protocol.Group> groups = new ArrayList<Protocol.Group>();
+                                List<Protocol.Post> posts = new ArrayList<Protocol.Post>();
+                                Json.PayloadIterator payloadIterator = new Json.PayloadIterator(responseBodyInputStream);
+                                for (Protocol.Payload payload : payloadIterator) {
+                                    switch(payload.mType) {
+                                    case GROUP:
+                                        Protocol.Group group = (Protocol.Group)payload.mObject;
+                                        Protocol.validateGroup(group);
+                                        groups.add(group);
+                                        break;
+                                    case POST:
+                                        Protocol.Post post = (Protocol.Post)payload.mObject;
+                                        Protocol.validatePost(post);
+                                        posts.add(post);
+                                        break;
+                                    default:
+                                        break;
+                                    }
+                                    if (groups.size() + posts.size() >= Data.MAX_PULL_RESPONSE_TRANSACTION_OBJECT_COUNT) {
+                                        data.putPullResponse(finalFriendId, pullRequest, groups, posts);
+                                        pullRequest = null;
+                                        groups.clear();
+                                        posts.clear();
+                                    }
+                                }
+                                data.putPullResponse(finalFriendId, pullRequest, groups, posts);
+                            }
+                        };
+                        WebClient client =
+                                new WebClient(
+                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                    friend.mPublicIdentity.mX509Certificate,
+                                    friend.mPublicIdentity.mHiddenServiceHostname,
+                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                    WebClient.RequestType.PUT,
+                                    Protocol.PULL_PUT_REQUEST_PATH).
+                                        localSocksProxyPort(getTorSocksProxyPort()).
+                                        requestBody(Json.toJson(finalPullRequest)).
+                                        responseBodyHandler(responseBodyHandler);
+                        client.makeRequest();
+
                     }
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
@@ -721,17 +783,22 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             // the COMPLETED state change. Skip the download.
                         } else {
                             Log.addEntry(LOG_TAG, "download from: " + friend.mPublicIdentity.mNickname);
+                            List<Pair<String, String>> requestParameters =
+                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId));
                             Pair<Long, Long> range = new Pair<Long, Long>(downloadedSize, (long)-1);
-                            WebClient.makeGetRequest(
-                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                    friend.mPublicIdentity.mX509Certificate,
-                                    getTorSocksProxyPort(),
-                                    friend.mPublicIdentity.mHiddenServiceHostname,
-                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                    Protocol.DOWNLOAD_GET_REQUEST_PATH,
-                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
-                                    range,
-                                    Downloads.openDownloadResourceForAppending(download));
+                            WebClient client =
+                                    new WebClient(
+                                        new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                                        friend.mPublicIdentity.mX509Certificate,
+                                        friend.mPublicIdentity.mHiddenServiceHostname,
+                                        Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                        WebClient.RequestType.GET,
+                                        Protocol.DOWNLOAD_GET_REQUEST_PATH).
+                                            localSocksProxyPort(getTorSocksProxyPort()).
+                                            requestParameters(requestParameters).
+                                            rangeHeader(range).
+                                            responseBodyOutputStream(Downloads.openDownloadResourceForAppending(download));
+                            client.makeRequest();
                         }
                         data.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
                         // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)
@@ -757,20 +824,37 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         };
     }
 
-    // Note: not synchronized
+
+    // Note: WebServer callbacks not synchronized
+    @Override
+    public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
+            throws Utils.ApplicationError  {
+        Data.getInstance().updateFriendSentOrThrow(
+                friendId, lastSentToTimestamp, additionalBytesSentTo);
+    }
+
+    // Note: WebServer callbacks not synchronized
+    @Override
+    public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
+            throws Utils.ApplicationError {
+        Data.getInstance().updateFriendReceivedOrThrow(
+                friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
+    }
+
+    // Note: WebServer callbacks not synchronized
     @Override
     public void handleAskPullRequest(String friendCertificate) throws Utils.ApplicationError {
         try {
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            // *TODO* check location ACL; trigger fix (if not in progress: see spec)
+            triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
             Log.addEntry(LOG_TAG, "served ask pull request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
             throw new Utils.ApplicationError(LOG_TAG, "failed to handle ask pull request: friend not found");
         }
     }
 
-    // Note: not synchronized
+    // Note: WebServer callbacks not synchronized
     @Override
     public void handleAskLocationRequest(String friendCertificate) throws Utils.ApplicationError {
         try {
@@ -783,14 +867,41 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    // Note: not synchronized
+    // Note: WebServer callbacks not synchronized
     @Override
     public void handlePushRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError  {
         try {
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            // *TODO* deserialize Protocol.Group, Protocol.Location or Protocol.Port
-            // *TODO* data putObject()
+            // TODO: stream requestBody instead of loading entirely into memory
+            Json.PayloadIterator payloadIterator = new Json.PayloadIterator(requestBody);
+            boolean needPull = false;
+            for (Protocol.Payload payload : payloadIterator) {
+                switch(payload.mType) {
+                case GROUP:
+                    Protocol.Group group = (Protocol.Group)payload.mObject;
+                    Protocol.validateGroup(group);
+                    data.putPushedGroup(friend.mId, group);
+                    break;
+                case LOCATION:
+                    Protocol.Location location = (Protocol.Location)payload.mObject;
+                    Protocol.validateLocation(location);
+                    data.putPushedLocation(friend.mId, location);
+                    break;
+                case POST:
+                    Protocol.Post post = (Protocol.Post)payload.mObject;
+                    Protocol.validatePost(post);
+                    if (data.putPushedPost(friend.mId, post)) {
+                        needPull = true;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+            if (needPull) {
+                triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
+            }
             // *TODO* log too noisy?
             Log.addEntry(LOG_TAG, "served push request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
@@ -799,14 +910,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    // Note: not synchronized
+    // Note: WebServer callbacks not synchronized
     @Override
     public WebServer.RequestHandler.PullResponse handlePullRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError {
         try {
             Data data = Data.getInstance();
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            Protocol.PullRequest pullRequest = null;
-            // *TODO* body --> pullRequest
+            Protocol.PullRequest pullRequest = Json.fromJson(requestBody, Protocol.PullRequest.class);
+            Protocol.validatePullRequest(pullRequest);
             data.confirmSentTo(friend.mId, pullRequest);
             Data.PullResponseIterator pullResponseIterator = data.getPullResponse(friend.mId, pullRequest);
             Log.addEntry(LOG_TAG, "served pull request for " + friend.mPublicIdentity.mNickname);
@@ -818,7 +929,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    // Note: not synchronized
+    // Note: WebServer callbacks not synchronized
     @Override
     public WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
             String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {

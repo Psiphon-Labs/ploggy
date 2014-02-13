@@ -61,14 +61,17 @@ public class Nominatim {
 
         String response;
         try {
-            response = WebClient.makeGetRequest(
-                null,
-                SERVER_CERT,
-                torSocksProxyPort,
-                SERVER_ADDRESS,
-                SERVER_PORT,
-                REQUEST_PATH,
-                requestParameters);
+            WebClient client =
+                new WebClient(
+                    null,
+                    SERVER_CERT,
+                    SERVER_ADDRESS,
+                    SERVER_PORT,
+                    WebClient.RequestType.GET,
+                    REQUEST_PATH).
+                        localSocksProxyPort(torSocksProxyPort).
+                        requestParameters(requestParameters);
+            response = client.makeRequestAndLoadResponse();
         }
         catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());

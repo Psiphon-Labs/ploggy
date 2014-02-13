@@ -72,8 +72,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         }
 
         public void submitWebRequestTask(Runnable task);
-        public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo);
-        public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom);
+        public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo) throws Utils.ApplicationError;
+        public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom) throws Utils.ApplicationError;
         public void handleAskPullRequest(String friendId) throws Utils.ApplicationError;
         public void handleAskLocationRequest(String friendId) throws Utils.ApplicationError;
         public void handlePushRequest(String friendId, String requestBody) throws Utils.ApplicationError;

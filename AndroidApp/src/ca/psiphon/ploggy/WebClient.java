@@ -72,180 +72,122 @@ public class WebClient {
 
     private static final String LOG_TAG = "Web Client";
 
-    public static final int UNTUNNELED_REQUEST = -1;
+    enum RequestType {GET, PUT};
+
+    private X509.KeyMaterial mX509KeyMaterial = null;
+    private String mPeerCertificate = null;
+    private int mLocalSocksProxyPort = -1;
+    private String mHostname = null;
+    private int mPort = -1;
+    private RequestType mRequestType;
+    private String mRequestPath = null;
+    private List<Pair<String,String>> mRequestParameters = null;
+    private String mRequestBodyMimeType = null;
+    private long mRequestBodyLength = -1;
+    private InputStream mRequestBodyInputStream = null;
+    private Pair<Long, Long> mRangeHeader = null;
+    private OutputStream mResponseBodyOutputStream = null;
+    private ResponseBodyHandler mResponseBodyHandler = null;
 
     private static final String LOCAL_SOCKS_PROXY_PORT_PARAM_NAME = "localSocksProxyPort";
     private static final int CONNECT_TIMEOUT_MILLISECONDS = 60000;
     private static final int READ_TIMEOUT_MILLISECONDS = 60000;
 
-    // TODO: fluent interface for makeRequest
-
-    public static String makeGetRequest(
+    public WebClient(
             X509.KeyMaterial x509KeyMaterial,
             String peerCertificate,
-            int localSocksProxyPort,
             String hostname,
             int port,
-            String requestPath) throws Utils.ApplicationError {
-        ByteArrayOutputStream responseBodyStream = new ByteArrayOutputStream();
-        makeRequest(
-                x509KeyMaterial,
-                peerCertificate,
-                localSocksProxyPort,
-                hostname,
-                port,
-                requestPath,
-                null,  // requestParameters
-                null,  // requestBodyMimeType
-                -1,    // requestBodyLength
-                null,  // requestBodyStream
-                null,  // rangeHeader
-                responseBodyStream);
-        try {
-            return new String(responseBodyStream.toByteArray(), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
+            RequestType requestType,
+            String requestPath) {
+        mX509KeyMaterial = x509KeyMaterial;
+        mPeerCertificate = peerCertificate;
+        mHostname = hostname;
+        mPort = port;
+        mRequestPath = requestPath;
     }
 
-    public static String makeGetRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String peerCertificate,
-            int localSocksProxyPort,
-            String hostname,
-            int port,
-            String requestPath,
-            List<Pair<String,String>> requestParameters) throws Utils.ApplicationError {
-        ByteArrayOutputStream responseBodyStream = new ByteArrayOutputStream();
-        makeRequest(
-                x509KeyMaterial,
-                peerCertificate,
-                localSocksProxyPort,
-                hostname,
-                port,
-                requestPath,
-                requestParameters,  // requestParameters
-                null,  // requestBodyMimeType
-                -1,    // requestBodyLength
-                null,  // requestBodyStream
-                null,  // rangeHeader
-                responseBodyStream);
-        try {
-            return new String(responseBodyStream.toByteArray(), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
+    public WebClient localSocksProxyPort(int localSocksProxyPort) {
+        mLocalSocksProxyPort = localSocksProxyPort;
+        return this;
     }
 
-    public static void makeGetRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String peerCertificate,
-            int localSocksProxyPort,
-            String hostname,
-            int port,
-            String requestPath,
-            List<Pair<String,String>> requestParameters,
-            Pair<Long, Long> rangeHeader,
-            OutputStream responseBodyStream) throws Utils.ApplicationError {
-        makeRequest(
-                x509KeyMaterial,
-                peerCertificate,
-                localSocksProxyPort,
-                hostname,
-                port,
-                requestPath,
-                requestParameters,
-                null,  // requestBodyMimeType
-                -1,    // requestBodyLength
-                null,  // requestBodyStream
-                rangeHeader,
-                responseBodyStream);
+    public WebClient requestParameters(List<Pair<String,String>> requestParameters) {
+        mRequestParameters = requestParameters;
+        return this;
     }
 
-    public static void makeJsonPutRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String peerCertificate,
-            int localSocksProxyPort,
-            String hostname,
-            int port,
-            String requestPath,
-            String requestBody) throws Utils.ApplicationError {
-        makeJsonPutRequest(
-            x509KeyMaterial,
-            peerCertificate,
-            localSocksProxyPort,
-            hostname,
-            port,
-            requestPath,
-            requestBody,
-            null); // responseBodyStream
+    public WebClient requestBody(String mimeType, long length, InputStream inputStream) {
+        mRequestBodyMimeType = mimeType;
+        mRequestBodyLength = length;
+        mRequestBodyInputStream = inputStream;
+        return this;
     }
 
-    public static void makeJsonPutRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String peerCertificate,
-            int localSocksProxyPort,
-            String hostname,
-            int port,
-            String requestPath,
-            String requestBody,
-            OutputStream responseBodyStream) throws Utils.ApplicationError {
+    public WebClient requestBody(String requestBody) throws Utils.ApplicationError {
         byte[] body;
         try {
             body = requestBody.getBytes("UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         }
-        makeRequest(
-            x509KeyMaterial,
-            peerCertificate,
-            localSocksProxyPort,
-            hostname,
-            port,
-            requestPath,
-            null,  // requestParameters
-            "application/json",
-            body.length,
-            new ByteArrayInputStream(body),
-            null,  // rangeHeader
-            responseBodyStream);
+        return requestBody("application/json", body.length, new ByteArrayInputStream(body));
     }
 
-    private static void makeRequest(
-            X509.KeyMaterial x509KeyMaterial,
-            String peerCertificate,
-            int localSocksProxyPort,
-            String hostname,
-            int port,
-            String requestPath,
-            List<Pair<String,String>> requestParameters,
-            String requestBodyMimeType,
-            long requestBodyLength,
-            InputStream requestBodyStream,
-            Pair<Long, Long> rangeHeader,
-            OutputStream responseBodyStream) throws Utils.ApplicationError {
+    public WebClient rangeHeader(Pair<Long, Long> rangeHeader) {
+        mRangeHeader = rangeHeader;
+        return this;
+    }
+
+    public WebClient responseBodyOutputStream(OutputStream responseBodyOutputStream) {
+        mResponseBodyOutputStream = responseBodyOutputStream;
+        mResponseBodyHandler = null;
+        return this;
+    }
+
+    public interface ResponseBodyHandler {
+        void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError;
+    }
+
+    public WebClient responseBodyHandler(ResponseBodyHandler responseBodyHandler) {
+        mResponseBodyHandler = responseBodyHandler;
+        mResponseBodyOutputStream = null;
+        return this;
+    }
+
+    public String makeRequestAndLoadResponse() throws Utils.ApplicationError {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        responseBodyOutputStream(outputStream);
+        try {
+            return new String(outputStream.toByteArray(), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
+    }
+
+    public void makeRequest() throws Utils.ApplicationError {
         HttpRequestBase request = null;
         ClientConnectionManager connectionManager = null;
         try {
             URIBuilder uriBuilder =
                     new URIBuilder()
                         .setScheme(Protocol.WEB_SERVER_PROTOCOL)
-                        .setHost(hostname)
-                        .setPort(port)
-                        .setPath(requestPath);
-            if (requestParameters != null) {
-                for (Pair<String,String> requestParameter : requestParameters) {
+                        .setHost(mHostname)
+                        .setPort(mPort)
+                        .setPath(mRequestPath);
+            if (mRequestParameters != null) {
+                for (Pair<String,String> requestParameter : mRequestParameters) {
                     uriBuilder.addParameter(requestParameter.first, requestParameter.second);
                 }
             }
             URI uri = uriBuilder.build();
 
-            SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, Arrays.asList(peerCertificate));
+            SSLContext sslContext = TransportSecurity.getSSLContext(mX509KeyMaterial, Arrays.asList(mPeerCertificate));
             SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext);
             // TODO: keep a persistent PoolingClientConnectionManager across makeRequest calls for connection reuse?
             SchemeRegistry registry = new SchemeRegistry();
             registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
-            if (localSocksProxyPort == UNTUNNELED_REQUEST) {
+            if (mLocalSocksProxyPort == -1) {
                 connectionManager = new PoolingClientConnectionManager(registry);
             } else {
                 connectionManager = new SocksProxyPoolingClientConnectionManager(registry);
@@ -253,21 +195,27 @@ public class WebClient {
             HttpParams params = new BasicHttpParams();
             HttpConnectionParams.setConnectionTimeout(params, CONNECT_TIMEOUT_MILLISECONDS);
             HttpConnectionParams.setSoTimeout(params, READ_TIMEOUT_MILLISECONDS);
-            params.setIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, localSocksProxyPort);
+            params.setIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, mLocalSocksProxyPort);
             DefaultHttpClient client = new DefaultHttpClient(connectionManager, params);
-            if (requestBodyStream == null) {
+            switch (mRequestType) {
+            case GET:
                 request = new HttpGet(uri);
-            } else {
+                // TODO: assert mRequestBodyInputStream is null? it's ignored
+                break;
+            case PUT:
                 HttpPut putRequest = new HttpPut(uri);
-                InputStreamEntity entity = new InputStreamEntity(requestBodyStream, requestBodyLength);
-                entity.setContentType(requestBodyMimeType);
-                putRequest.setEntity(entity);
+                if (mRequestBodyInputStream != null) {
+                    InputStreamEntity entity = new InputStreamEntity(mRequestBodyInputStream, mRequestBodyLength);
+                    entity.setContentType(mRequestBodyMimeType);
+                    putRequest.setEntity(entity);
+                }
                 request = putRequest;
+                break;
             }
-            if (rangeHeader != null) {
-                String value = "bytes=" + Long.toString(rangeHeader.first) + "-";
-                if (rangeHeader.second != -1) {
-                    value = value + Long.toString(rangeHeader.second);
+            if (mRangeHeader != null) {
+                String value = "bytes=" + Long.toString(mRangeHeader.first) + "-";
+                if (mRangeHeader.second != -1) {
+                    value = value + Long.toString(mRangeHeader.second);
                 }
                 request.addHeader("Range", value);
             }
@@ -277,9 +225,11 @@ public class WebClient {
                 throw new Utils.ApplicationError(LOG_TAG, String.format("HTTP request failed with %d", statusCode));
             }
             HttpEntity responseEntity = response.getEntity();
-            if (responseBodyStream != null) {
-                Utils.copyStream(responseEntity.getContent(), responseBodyStream);
-            } else {
+            if (mResponseBodyOutputStream != null) {
+                Utils.copyStream(responseEntity.getContent(), mResponseBodyOutputStream);
+            } else if (mResponseBodyHandler != null) {
+                mResponseBodyHandler.consume(responseEntity.getContent());
+            }else {
                 // Even if the caller doesn't want the content, we need to consume the bytes
                 // (particularly if leaving the socket up in a keep-alive state).
                 Utils.discardStream(responseEntity.getContent());
