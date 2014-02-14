@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.NumberFormat;
@@ -164,6 +166,14 @@ public class Utils {
 
     public static void discardStream(InputStream inputStream) throws IOException {
         copyStream(inputStream, new NullOutputStream());
+    }
+
+    public static InputStream makeInputStream(String input) throws Utils.ApplicationError {
+        try {
+            return new ByteArrayInputStream(input.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            throw new Utils.ApplicationError(LOG_TAG, e);
+        }
     }
 
     public static class FileInitializedObserver extends FileObserver {

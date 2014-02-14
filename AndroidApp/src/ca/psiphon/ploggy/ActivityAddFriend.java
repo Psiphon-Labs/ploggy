@@ -19,7 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -141,8 +140,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 Uri uri = intent.getData();
 
                 if (uri.toString().startsWith(IDENTITY_LINK_PREFIX)) {
-                    String fragment = uri.getFragment();
-                    inputStream = new ByteArrayInputStream(fragment.getBytes("UTF-8"));
+                    inputStream = Utils.makeInputStream(uri.getFragment());
                 }
                 else {
                     String scheme = uri.getScheme();

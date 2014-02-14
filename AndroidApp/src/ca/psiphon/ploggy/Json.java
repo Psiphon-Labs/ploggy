@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,18 +19,29 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 import ca.psiphon.ploggy.Protocol.Payload;
 
 import com.google.gson.FieldNamingStrategy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonIOException;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 
 /**
  * Helper wrappers around GSON JSON serialization routines.
@@ -47,6 +58,7 @@ public class Json {
                     serializeNulls().
                     setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").
                     setFieldNamingStrategy(new CustomFieldNamingStrategy()).
+                    registerTypeAdapter(Protocol.Payload.class, new PayloadDeserializer()).
                     create();
 
     public static String toJson(Object object) {
@@ -61,64 +73,98 @@ public class Json {
         }
     }
 
-    // TODO: remove this function if not used
-    /*
-    public static <T> ArrayList<T> fromJsonStream(InputStream inputStream, Class<T> type) throws Utils.ApplicationError {
-        // Reads succession of JSON objects from a stream. This does *not* expect a well-formed JSON array.
-        // Designed to work with the log file, which is constantly appended to.
-        try {
-            JsonReader jsonReader = new JsonReader(new InputStreamReader(inputStream, "UTF-8"));
-            jsonReader.setLenient(true);
-            ArrayList<T> array = new ArrayList<T>();
-            while (jsonReader.peek() != JsonToken.END_DOCUMENT) {
-                array.add((T)mSerializer.fromJson(jsonReader, type));
-            }
-            jsonReader.close();
-            return array;
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
-    }
-    */
-
     public static class PayloadIterator implements Iterable<Protocol.Payload>, Iterator<Protocol.Payload> {
 
-        private final InputStream mInputStream;
+        private final JsonReader mJsonReader;
 
-        public PayloadIterator(InputStream inputStream) {
-            mInputStream = inputStream;
-        }
-
-        public PayloadIterator(String input) throws Utils.ApplicationError {
+        public PayloadIterator(InputStream inputStream) throws Utils.ApplicationError {
+            // *TODO* double check mJsonReader.close() closes input stream
             try {
-                mInputStream = new ByteArrayInputStream(input.getBytes("UTF-8"));
+                mJsonReader = new JsonReader(new InputStreamReader(inputStream, "UTF-8"));
+                // Set lenient mode to accept multiple JSON objects, one after the
+                // other, in the same stream
+                mJsonReader.setLenient(true);
             } catch (UnsupportedEncodingException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             }
         }
 
+        public PayloadIterator(String input) throws Utils.ApplicationError {
+            this(Utils.makeInputStream(input));
+        }
+
         @Override
-        public Iterator<Payload> iterator() {
+        public Iterator<Protocol.Payload> iterator() {
             return this;
         }
 
         @Override
         public boolean hasNext() {
-            // *TODO* implement
-            return false;
+            try {
+                return mJsonReader.peek() != JsonToken.END_DOCUMENT;
+            } catch (IOException e) {
+                return false;
+            }
         }
 
         @Override
-        public Payload next() {
-            // *TODO* implement
-            return null;
+        public Protocol.Payload next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+            try {
+                Protocol.Payload payload = mSerializer.fromJson(mJsonReader, Protocol.Payload.class);
+                if (!hasNext()) {
+                    mJsonReader.close();
+                }
+                return payload;
+            } catch (JsonIOException e) {
+            } catch (JsonSyntaxException e) {
+            } catch (IOException e) {
+            }
+            throw new NoSuchElementException();
         }
 
         @Override
         public void remove() {
             throw new UnsupportedOperationException();
+        }
+
+        public void close() {
+            try {
+                mJsonReader.close();
+            } catch (IOException e) {
+            }
+
+        }
+    }
+
+    private static class PayloadDeserializer implements JsonDeserializer<Protocol.Payload> {
+        @Override
+        public Payload deserialize(
+                JsonElement json,
+                Type typeOfT,
+                JsonDeserializationContext context) throws JsonParseException {
+            JsonObject jsonObject = json.getAsJsonObject();
+            Protocol.Payload.Type payloadType = null;
+            Type objectType = null;
+            // Determine JSON object type via unique field names
+            if (jsonObject.has("members")) {
+                payloadType = Protocol.Payload.Type.GROUP;
+                objectType = Protocol.Group.class;
+            } else if (jsonObject.has("content")) {
+                payloadType = Protocol.Payload.Type.POST;
+                objectType = Protocol.Post.class;
+            } else if (jsonObject.has("latitude")) {
+                payloadType = Protocol.Payload.Type.LOCATION;
+                objectType = Protocol.Location.class;
+            } else {
+                throw new JsonParseException("unrecognized payload type");
+            }
+            // *TODO* confirm not getting infinite loop mentioned here:
+            // http://google-gson.googlecode.com/svn/trunk/gson/docs/javadocs/com/google/gson/JsonDeserializationContext.html
+            // if so, alternative? new Gson().fromJson(json, type);
+            return new Protocol.Payload(payloadType, context.deserialize(json, objectType));
         }
     }
 

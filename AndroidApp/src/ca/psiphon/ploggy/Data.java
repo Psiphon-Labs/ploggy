@@ -1831,12 +1831,14 @@ public class Data extends SQLiteOpenHelper {
         }
 
         private T getNext() {
-            if (mCursor.isAfterLast()) {
+            if (mCursor.isClosed() || mCursor.isAfterLast()) {
                 return null;
             }
             try {
                 T next = mRowToObject.rowToObject(mDatabase, mCursor);
-                mCursor.moveToNext();
+                if (!mCursor.moveToNext()) {
+                    mCursor.close();
+                }
                 return next;
             } catch (Utils.ApplicationError e) {
                 Log.addEntry(LOG_TAG, "failed to get next cursor object");
