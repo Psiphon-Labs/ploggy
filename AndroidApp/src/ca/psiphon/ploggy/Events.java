@@ -20,6 +20,7 @@
 package ca.psiphon.ploggy;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import android.location.Address;
@@ -158,23 +159,36 @@ public class Events {
     }
 
     public static class UpdatedSelfPost {
+        public final String mGroupId;
         public final String mPostId;
 
-        public UpdatedSelfPost(String postId) {
+        public UpdatedSelfPost(String groupId, String postId) {
+            mGroupId = groupId;
             mPostId = postId;
         }
     }
 
     public static class UpdatedFriendPost {
         public final String mFriendId;
+        public final String mGroupId;
         public final String mPostId;
 
-        public UpdatedFriendPost(String friendId, String postId) {
+        public UpdatedFriendPost(String friendId,String groupId,  String postId) {
+            mGroupId = groupId;
             mFriendId = friendId;
             mPostId = postId;
         }
     }
 
+    public static class MarkedAsReadPosts {
+        public final List<String> mPostIds;
+
+        public MarkedAsReadPosts(List<String> postIds) {
+            mPostIds = postIds;
+        }
+    }
+
+    /*
     // *TODO* ...?
     public static class UpdatedNewMessages {
     }
@@ -186,6 +200,7 @@ public class Events {
     // *TODO* ...?
     public static class DisplayedMessages {
     }
+    */
 
     public static class AddedDownload {
         public final String mFriendId;

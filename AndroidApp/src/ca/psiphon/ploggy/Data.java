@@ -60,7 +60,6 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 *IN PROGRESS*
 
-- Post to event bus; e.g. to trigger Engine and UI updates (special case: due to cascading deletes)
 - Resolve whether require CAST for non-String selectionArgs when used in e.g., integer compare expression (OR: use prepared statements)
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
 - Support per-group privacy settings
@@ -400,6 +399,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("createdTimestamp", dateToString(self.mCreatedTimestamp));
             mDatabase.insertOrThrow("Self", null, values);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedSelf());
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -453,6 +453,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("bytesSentTo", friend.mBytesSentTo);
             mDatabase.insertOrThrow("Friend", null, values);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.AddedFriend(friend.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -469,6 +470,7 @@ public class Data extends SQLiteOpenHelper {
                     "UPDATE Friend SET lastReceivedFromTimestamp = ?, bytesReceivedFrom = bytesReceivedFrom + ? WHERE id = ?",
                      new String[]{dateToString(lastReceivedFromTimestamp), Long.toString(additionalBytesReceivedFrom), friendId});
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriend(friendId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -493,6 +495,7 @@ public class Data extends SQLiteOpenHelper {
                     "UPDATE Friend SET lastSentToTimestamp = ?, bytesSentTo = bytesSentTo + ? WHERE id = ?",
                      new String[]{dateToString(lastSentToTimestamp), Long.toString(additionalBytesSentTo), friendId});
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriend(friendId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -537,6 +540,7 @@ public class Data extends SQLiteOpenHelper {
                     new String[]{friendId});
 
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.RemovedFriend(friendId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -644,6 +648,7 @@ public class Data extends SQLiteOpenHelper {
             }
             replaceGroup(group, newSequenceNumber, Group.State.PUBLISHING);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedSelfGroup(group.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -711,6 +716,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             mDatabase.beginTransactionNonExclusive();
             Group group = getGroup(groupId);
+            boolean isSelfGroup = group.mGroup.mPublisherId.equals(getSelfId());
             Group.State newState = null;
             switch (group.mState) {
             case PUBLISHING:
@@ -735,8 +741,8 @@ public class Data extends SQLiteOpenHelper {
             }
             if (newState != null) {
                 ContentValues values = new ContentValues();
-                if (group.mGroup.mPublisherId.equals(getSelfId())) {
-                    long newSequenceNumber =  group.mGroup.mSequenceNumber + 1;
+                if (isSelfGroup) {
+                    long newSequenceNumber = group.mGroup.mSequenceNumber + 1;
                     values.put("sequenceNumber", newSequenceNumber);
                 }
                 values.put("state", newState.name());
@@ -745,6 +751,13 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
             mDatabase.setTransactionSuccessful();
+            if (newState != null) {
+                if (isSelfGroup) {
+                    Events.post(new Events.UpdatedSelfGroup(group.mGroup.mId));
+                } else {
+                    Events.post(new Events.UpdatedFriendGroup(group.mGroup.mPublisherId, group.mGroup.mId));
+                }
+            }
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } catch (NotFoundError e) {
@@ -840,12 +853,14 @@ public class Data extends SQLiteOpenHelper {
     public void putSelfLocation(Protocol.Location location)
             throws Utils.ApplicationError {
         putLocation(getSelfId(), location);
+        Events.post(new Events.UpdatedSelfLocation());
     }
 
     public void putPushedLocation(String friendId, Protocol.Location location)
             throws Utils.ApplicationError {
         Protocol.validateLocation(location);
         putLocation(friendId, location);
+        Events.post(new Events.UpdatedFriendLocation(friendId));
     }
 
     private void putLocation(String publisherId, Protocol.Location location)
@@ -949,6 +964,7 @@ public class Data extends SQLiteOpenHelper {
                 attachmentIndex++;
             }
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedSelfPost(post.mGroupId, post.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -959,10 +975,13 @@ public class Data extends SQLiteOpenHelper {
     public void removePost(String postId) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            // Only publisher can remove post (unlike removeGroup)
-            if (1 != getCount(
-                    "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = (SELECT id FROM Self)",
-                    new String[]{postId})) {
+            String groupId = null;
+            // Note the Publisher Id check -- only publisher can remove post (unlike removeGroup)
+            try {
+                groupId = getStringColumn(
+                        "SELECT groupId FROM Post WHERE id = ? AND publisherId = (SELECT id FROM Self)",
+                        new String[]{postId});
+            } catch (NotFoundError e) {
                 throw new Utils.ApplicationError(LOG_TAG, "removing unpublished post");
             }
             // *TODO* check post's group's state?
@@ -987,6 +1006,7 @@ public class Data extends SQLiteOpenHelper {
                     "id = ? AND state <> ?",
                     new String[]{postId, Post.State.TOMBSTONE.name()});
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedSelfPost(groupId, postId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -1008,6 +1028,7 @@ public class Data extends SQLiteOpenHelper {
                         new String[]{postId, Post.State.UNREAD.name()});
             }
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.MarkedAsReadPosts(postIds));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -1140,7 +1161,6 @@ public class Data extends SQLiteOpenHelper {
 
     public class PullResponseIterator implements Iterable<String>, Iterator<String> {
 
-        private final String mFriendId;
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private CursorIterator<Post> mPostIterator;
@@ -1148,7 +1168,6 @@ public class Data extends SQLiteOpenHelper {
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
                 throws Utils.ApplicationError {
-            mFriendId = friendId;
             mGroupsToSend = getGroupsToSend(friendId, pullRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostIterator = null;
@@ -1291,22 +1310,34 @@ public class Data extends SQLiteOpenHelper {
             try {
                 mDatabase.beginTransactionNonExclusive();
                 String modifiedTimestamp = dateToString(new Date());
+                List<String> resignedGroups = new ArrayList<String>();
                 for (String groupId : pullRequest.mGroupsToResignMembership) {
                     // Silently fails when friend isn't a member, or self isn't the publisher
                     // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
-                    mDatabase.execSQL(
-                            "UPDATE Group " +
-                                "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
-                                "WHERE id = ? AND publisherId = (SELECT id FROM Self) " +
-                                "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
-                             new String[]{modifiedTimestamp, groupId, friendId});
-                    mDatabase.delete(
-                            "GroupMember",
-                            "groupId = ? AND memberId = ? " +
-                                "AND groupId IN (SELECT id FROM Group WHERE publisherId = (SELECT id FROM Self))",
-                            new String[]{groupId, friendId});
+                    if (1 == getCount(
+                            "SELECT COUNT(*) FROM Group " +
+                            "WHERE id = ? " +
+                            "AND publisherId = (SELECT id FROM Self) " +
+                            "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                            new String[]{groupId, friendId})) {
+                        mDatabase.execSQL(
+                                "UPDATE Group " +
+                                    "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
+                                    "WHERE id = ? AND publisherId = (SELECT id FROM Self) " +
+                                    "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                                 new String[]{modifiedTimestamp, groupId, friendId});
+                        mDatabase.delete(
+                                "GroupMember",
+                                "groupId = ? AND memberId = ? " +
+                                    "AND groupId IN (SELECT id FROM Group WHERE publisherId = (SELECT id FROM Self))",
+                                new String[]{groupId, friendId});
+                        resignedGroups.add(groupId);
+                    }
                 }
                 mDatabase.setTransactionSuccessful();
+                for (String groupId : resignedGroups) {
+                    Events.post(new Events.UpdatedSelfGroup(groupId));
+                }
             } catch (SQLiteException e) {
                 throw new Utils.ApplicationError(LOG_TAG, e);
             } finally {
@@ -1364,6 +1395,7 @@ public class Data extends SQLiteOpenHelper {
                 confirmSentTo(friendId, groupId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
             }
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
@@ -1374,6 +1406,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(group.mId, friendId, group.mSequenceNumber, -1);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
@@ -1384,6 +1417,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(post.mGroupId, friendId, -1, post.mSequenceNumber);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
@@ -1420,16 +1454,28 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             }
-
             for (Protocol.Group group : pulledGroups) {
                 putReceivedGroup(friendId, group);
             }
-
             for (Protocol.Post post : pulledPosts) {
                 putReceivedPost(friendId, post);
             }
 
             mDatabase.setTransactionSuccessful();
+
+            if (pullRequest != null) {
+                for (String groupId : pullRequest.mGroupsToResignMembership) {
+                    Events.post(new Events.UpdatedFriendGroup(friendId, groupId));
+                }
+            }
+            for (Protocol.Group group : pulledGroups) {
+                Events.post(new Events.UpdatedFriendGroup(friendId, group.mId));
+            }
+            for (Protocol.Post post : pulledPosts) {
+                // *TODO* too many events? Don't refresh UI on this event?
+                Events.post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
+            }
+
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -1444,6 +1490,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             putReceivedGroup(friendId, group);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriendGroup(friendId, group.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -1464,6 +1511,7 @@ public class Data extends SQLiteOpenHelper {
             }
             putReceivedPost(friendId, post);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
@@ -1637,6 +1685,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("size", resource.mSize);
             mDatabase.insertOrThrow("Download", null, values);
             mDatabase.setTransactionSuccessful();
+            Events.post(new Events.AddedDownload(friendId, resource.mId));
         } catch (SQLiteException e) {
             throw new Utils.ApplicationError(LOG_TAG, e);
         } finally {
