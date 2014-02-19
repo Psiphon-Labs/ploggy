@@ -60,7 +60,6 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 *IN PROGRESS*
 
-- Resolve whether require CAST for non-String selectionArgs when used in e.g., integer compare expression (OR: use prepared statements)
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
 - Support per-group privacy settings
 - Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
@@ -467,7 +466,8 @@ public class Data extends SQLiteOpenHelper {
         try {
             mDatabase.beginTransactionNonExclusive();
             mDatabase.execSQL(
-                    "UPDATE Friend SET lastReceivedFromTimestamp = ?, bytesReceivedFrom = bytesReceivedFrom + ? WHERE id = ?",
+                    "UPDATE Friend SET lastReceivedFromTimestamp = ?, " +
+                            "bytesReceivedFrom = bytesReceivedFrom + CAST(? as INTEGER) WHERE id = ?",
                      new String[]{dateToString(lastReceivedFromTimestamp), Long.toString(additionalBytesReceivedFrom), friendId});
             mDatabase.setTransactionSuccessful();
             Events.post(new Events.UpdatedFriend(friendId));
@@ -492,7 +492,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             mDatabase.beginTransactionNonExclusive();
             mDatabase.execSQL(
-                    "UPDATE Friend SET lastSentToTimestamp = ?, bytesSentTo = bytesSentTo + ? WHERE id = ?",
+                    "UPDATE Friend SET lastSentToTimestamp = ?, bytesSentTo = bytesSentTo + CAST(? as INTEGER) WHERE id = ?",
                      new String[]{dateToString(lastSentToTimestamp), Long.toString(additionalBytesSentTo), friendId});
             mDatabase.setTransactionSuccessful();
             Events.post(new Events.UpdatedFriend(friendId));
@@ -1282,7 +1282,7 @@ public class Data extends SQLiteOpenHelper {
                 throws Utils.ApplicationError {
             return getObjectCursor(
                     SELECT_POST +
-                        " WHERE publisherId = (SELECT id FROM Self) AND groupId = ? AND sequenceNumber > ?" +
+                        " WHERE publisherId = (SELECT id FROM Self) AND groupId = ? AND sequenceNumber > CAST(? as INTEGER)" +
                         " ORDER BY sequenceNumber ASC",
                     new String[]{groupId, Long.toString(afterSequenceNumber)},
                     mRowToPost);
@@ -1359,7 +1359,7 @@ public class Data extends SQLiteOpenHelper {
                 mDatabase.update(
                         "GroupMember",
                         values,
-                        "groupId = ? AND memberId = ? AND lastConfirmedGroupSequenceNumber < ?",
+                        "groupId = ? AND memberId = ? AND lastConfirmedGroupSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(lastConfirmedGroupSequenceNumber)});
             }
             if (lastConfirmedPostSequenceNumber != -1) {
@@ -1368,7 +1368,7 @@ public class Data extends SQLiteOpenHelper {
                 mDatabase.update(
                         "GroupMember",
                         values,
-                        "groupId = ? AND memberId = ? AND lastConfirmedPostSequenceNumber < ?",
+                        "groupId = ? AND memberId = ? AND lastConfirmedPostSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(lastConfirmedPostSequenceNumber)});
             }
         } catch (SQLiteException e) {
@@ -1504,7 +1504,8 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             // Trigger a pull from this friend if we *may* have missed an update
             if (0 == getCount(
-                    "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= ?",
+                    "SELECT COUNT(*) FROM Post " +
+                        "WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= CAST(? as INTEGER)",
                     new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber - 1)})) {
                 Log.addEntry(LOG_TAG, "pull triggered by push sequence number");
                 triggerPull = true;
@@ -1602,7 +1603,8 @@ public class Data extends SQLiteOpenHelper {
             throw new Utils.ApplicationError(LOG_TAG, "invalid post from non-group member");
         }
         if (0 != getCount(
-                "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= ?",
+                "SELECT COUNT(*) FROM Post " +
+                    "WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= CAST(? as INTEGER)",
                 new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber)})) {
             Log.addEntry(LOG_TAG, "received stale post update");
             // Discard stale update
