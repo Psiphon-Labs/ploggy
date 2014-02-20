@@ -95,6 +95,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private LocationMonitor mLocationMonitor;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
+    private WebClientConnectionPool mWebClientConnectionPool;
 
     private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000; // 5 sec.
     private static final int DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS = 10*60*1000; // 10 min.
@@ -199,6 +200,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
         try {
+            initializeWebClientConnectionPool();
             // Ask friends to pull local, self changes...
             askPullFromFriends();
             // ...and pull changes from friends
@@ -370,6 +372,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
+    private void initializeWebClientConnectionPool() throws Utils.ApplicationError {
+        if (mWebClientConnectionPool != null) {
+            mWebClientConnectionPool.shutdown();
+        }
+        mWebClientConnectionPool = new WebClientConnectionPool(getTorSocksProxyPort());
+    }
+
     public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
         if (mTorWrapper != null) {
             return mTorWrapper.getSocksProxyPort();
@@ -536,15 +545,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask pull to: " + friend.mPublicIdentity.mNickname);
-                    WebClient client =
-                        new WebClient(
-                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                            friend.mPublicIdentity.mX509Certificate,
+                    WebClientRequest webClientRequest =
+                        new WebClientRequest(
+                            mWebClientConnectionPool,
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            WebClient.RequestType.GET,
-                            Protocol.ASK_PULL_GET_REQUEST_PATH).localSocksProxyPort(getTorSocksProxyPort());
-                    client.makeRequest();
+                            WebClientRequest.RequestType.GET,
+                            Protocol.ASK_PULL_GET_REQUEST_PATH);
+                    webClientRequest.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                 } catch (Utils.ApplicationError e) {
@@ -576,16 +584,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Data.Self self = data.getSelf();
                     Data.Friend friend = data.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask location to: " + friend.mPublicIdentity.mNickname);
-                    WebClient client =
-                            new WebClient(
-                                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                friend.mPublicIdentity.mX509Certificate,
+                    WebClientRequest webClientRequest =
+                            new WebClientRequest(
+                                mWebClientConnectionPool,
                                 friend.mPublicIdentity.mHiddenServiceHostname,
                                 Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                WebClient.RequestType.GET,
-                                Protocol.ASK_LOCATION_GET_REQUEST_PATH).
-                                    localSocksProxyPort(getTorSocksProxyPort());
-                    client.makeRequest();
+                                WebClientRequest.RequestType.GET,
+                                Protocol.ASK_LOCATION_GET_REQUEST_PATH);
+                    webClientRequest.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                 } catch (Utils.ApplicationError e) {
@@ -623,17 +629,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             break;
                         }
                         Log.addEntry(LOG_TAG, "push to: " + friend.mPublicIdentity.mNickname);
-                        WebClient client =
-                                new WebClient(
-                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                    friend.mPublicIdentity.mX509Certificate,
+                        WebClientRequest webClientRequest =
+                                new WebClientRequest(
+                                    mWebClientConnectionPool,
                                     friend.mPublicIdentity.mHiddenServiceHostname,
                                     Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                    WebClient.RequestType.PUT,
+                                    WebClientRequest.RequestType.PUT,
                                     Protocol.PUSH_PUT_REQUEST_PATH).
-                                        localSocksProxyPort(getTorSocksProxyPort()).
                                         requestBody(Json.toJson(payload.mObject));
-                        client.makeRequest();
+                        webClientRequest.makeRequest();
                         switch (payload.mType) {
                         case GROUP:
                             data.confirmSentTo(friend.mId, (Protocol.Group)payload.mObject);
@@ -684,7 +688,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     // pull in the other direction from the peer.
                     for (int i = 0; i < 2; i++) {
                         final Protocol.PullRequest finalPullRequest = data.getPullRequest(finalFriendId);
-                        WebClient.ResponseBodyHandler responseBodyHandler = new WebClient.ResponseBodyHandler() {
+                        WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
                             @Override
                             public void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError {
                                 Data data = Data.getInstance();
@@ -717,19 +721,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 data.putPullResponse(finalFriendId, pullRequest, groups, posts);
                             }
                         };
-                        WebClient client =
-                                new WebClient(
-                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                    friend.mPublicIdentity.mX509Certificate,
+                        WebClientRequest webClientRequest =
+                                new WebClientRequest(
+                                    mWebClientConnectionPool,
                                     friend.mPublicIdentity.mHiddenServiceHostname,
                                     Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                    WebClient.RequestType.PUT,
+                                    WebClientRequest.RequestType.PUT,
                                     Protocol.PULL_PUT_REQUEST_PATH).
-                                        localSocksProxyPort(getTorSocksProxyPort()).
                                         requestBody(Json.toJson(finalPullRequest)).
                                         responseBodyHandler(responseBodyHandler);
-                        client.makeRequest();
-
+                        webClientRequest.makeRequest();
                     }
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
@@ -786,19 +787,17 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             List<Pair<String, String>> requestParameters =
                                     Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId));
                             Pair<Long, Long> range = new Pair<Long, Long>(downloadedSize, (long)-1);
-                            WebClient client =
-                                    new WebClient(
-                                        new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                        friend.mPublicIdentity.mX509Certificate,
+                            WebClientRequest webClientRequest =
+                                    new WebClientRequest(
+                                        mWebClientConnectionPool,
                                         friend.mPublicIdentity.mHiddenServiceHostname,
                                         Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                        WebClient.RequestType.GET,
+                                        WebClientRequest.RequestType.GET,
                                         Protocol.DOWNLOAD_GET_REQUEST_PATH).
-                                            localSocksProxyPort(getTorSocksProxyPort()).
                                             requestParameters(requestParameters).
                                             rangeHeader(range).
                                             responseBodyOutputStream(Downloads.openDownloadResourceForAppending(download));
-                            client.makeRequest();
+                            webClientRequest.makeRequest();
                         }
                         data.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
                         // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)

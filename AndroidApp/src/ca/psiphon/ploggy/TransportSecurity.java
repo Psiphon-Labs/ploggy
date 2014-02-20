@@ -24,17 +24,24 @@ import java.net.ServerSocket;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
+import ch.boye.httpclientandroidlib.conn.ssl.X509HostnameVerifier;
 
 /**
  * Helpers for building custom TLS connections.
@@ -66,13 +73,62 @@ public class TransportSecurity {
         }
     }
 
+    // Checks that server hostname (.onion domain) and presented certificate matches friend record
+    private static class PloggyHiddenServiceHostnameVerifier implements X509HostnameVerifier {
+
+        @Override
+        public boolean verify(String hostname, SSLSession sslSession) {
+            try {
+                Certificate[] certificates = sslSession.getPeerCertificates();
+                if (certificates.length != 1) {
+                    return false;
+                }
+                return verify(hostname, Utils.encodeBase64(certificates[0].getEncoded()));
+            } catch (SSLPeerUnverifiedException e) {
+            } catch (CertificateEncodingException e) {
+            }
+            return false;
+        }
+
+        @Override
+        public void verify(String hostname, SSLSocket sslSocket) throws IOException {
+            if (!verify(hostname, sslSocket.getSession())) {
+                throw new IOException("verify certificate failed");
+            }
+        }
+
+        @Override
+        public void verify(String hostname, X509Certificate certificate) throws SSLException {
+            try {
+                if (verify(hostname, Utils.encodeBase64(certificate.getEncoded()))) {
+                    return;
+                }
+            } catch (CertificateEncodingException e) {
+            }
+            throw new SSLException("verify certificate failed");
+        }
+
+        @Override
+        public void verify(String hostname, String[] commonNames, String[] subjectAlts) throws SSLException {
+            if (commonNames.length < 1 || !hostname.equals(commonNames[0])) {
+                throw new SSLException("unexpected hostname in certificate");
+            }
+        }
+
+        private boolean verify(String hostname, String certificate) {
+            try {
+                Data.Friend friend = Data.getInstance().getFriendByCertificateOrThrow(certificate);
+                return hostname.equals(friend.mPublicIdentity.mHiddenServiceHostname);
+            } catch (Utils.ApplicationError e) {
+            }
+            return false;
+        }
+    }
+
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
 
         public ClientSSLSocketFactory(SSLContext sslContext) {
-            // Using ALLOW_ALL effectively disables hostname verification. Ploggy
-            // simply checks that the peer is authenticating with the sole friend
-            // certificate expected for this connection.
-            super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+            super(sslContext, new PloggyHiddenServiceHostnameVerifier());
         }
 
         @Override

@@ -62,6 +62,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 - Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
 - Support per-group privacy settings
+      (or downgrade functionality, for now, to all-or-nothing location sharing per group and just use SharedPreferences)
 - Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
 - Group order in pull requests: using LinkedHashMap but order is lost in JSON: http://stackoverflow.com/questions/5396680/whats-the-proper-represantation-of-linkedhashmap-in-json
 - Create indexes for queries (see http://www.sqlite.org/optoverview.html)
@@ -580,6 +581,14 @@ public class Data extends SQLiteOpenHelper {
 
     public Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, NotFoundError {
         return getObject(SELECT_FRIEND + " WHERE certificate = ?", new String[]{certificate}, mRowToFriend);
+    }
+
+    public Friend getFriendByCertificateOrThrow(String certificate) throws Utils.ApplicationError {
+        try {
+            return getFriendByCertificate(certificate);
+        } catch (NotFoundError e) {
+            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+        }
     }
 
     public CursorIterator<Friend> getFriends() throws Utils.ApplicationError {
