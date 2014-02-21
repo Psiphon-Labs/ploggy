@@ -19,8 +19,10 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import android.location.Address;
@@ -41,12 +43,27 @@ public class Events {
 
     private static final String LOG_TAG = "Events";
 
-    // TODO: final?
-    private static Bus mBus;
-    private static Handler mHandler;
-    private static Set<Object> mRegisteredObjects;
+    private static Map<String, Events> mInstances = new HashMap<String, Events>();
 
-    public static void initialize() {
+    public static synchronized Events getInstance(String name) {
+        if (!mInstances.containsKey(name)) {
+            mInstances.put(name, new Events(name));
+        }
+        return mInstances.get(name);
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        throw new CloneNotSupportedException();
+    }
+
+    private final String mInstanceName;
+    private final Bus mBus;
+    private final Handler mHandler;
+    private final Set<Object> mRegisteredObjects;
+
+    private Events(String instanceName) {
+        mInstanceName = instanceName;
         mBus = new Bus(ThreadEnforcer.MAIN);
         mHandler = new Handler();
 
@@ -57,21 +74,21 @@ public class Events {
         mRegisteredObjects = new HashSet<Object>();
     }
 
-    public static void register(Object object) {
+    public void register(Object object) {
         if (!mRegisteredObjects.contains(object)) {
             mBus.register(object);
             mRegisteredObjects.add(object);
         }
     }
 
-    public static void unregister(Object object) {
+    public void unregister(Object object) {
         if (mRegisteredObjects.contains(object)) {
             mBus.unregister(object);
             mRegisteredObjects.remove(object);
         }
     }
 
-    public static void post(Object object) {
+    public void post(Object object) {
         final Object postObject = object;
         mHandler.post(
             new Runnable() {

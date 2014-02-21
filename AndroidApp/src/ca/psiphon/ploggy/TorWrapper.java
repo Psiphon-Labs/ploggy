@@ -120,21 +120,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
     private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 90000;
 
-    public TorWrapper(Mode mode) {
-        this(mode, null, null, -1);
+    public TorWrapper(String instanceName, Mode mode) {
+        this(instanceName, mode, null, null, -1);
     }
 
     public TorWrapper(
-            Mode mode,
-            List<HiddenServiceAuth> hiddenServiceAuth,
-            HiddenService.KeyMaterial keyMaterial,
-            int webServerPort) {
-        this(mode, null, hiddenServiceAuth, keyMaterial, webServerPort);
-    }
-
-    public TorWrapper(
-            Mode mode,
             String instanceName,
+            Mode mode,
             List<HiddenServiceAuth> hiddenServiceAuth,
             HiddenService.KeyMaterial keyMaterial,
             int webServerPort) {
@@ -147,7 +139,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mKeyMaterial = keyMaterial;
         mWebServerPort = webServerPort;
         Context context = Utils.getApplicationContext();
-        String rootDirectory = String.format((Locale)null, "tor-%s", mInstanceName);
+        String rootDirectory = String.format((Locale)null, "tor-%s-%s", mInstanceName, mMode.toString());
         mRootDirectory = context.getDir(rootDirectory, Context.MODE_PRIVATE);
         mDataDirectory = new File(mRootDirectory, "data");
         mHiddenServiceDirectory = new File(mRootDirectory, "hidden_service");
@@ -167,7 +159,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
 
     private String logTag() {
-        return String.format("%s [%s]", LOG_TAG, mInstanceName);
+        return String.format("%s [%s][%s]", LOG_TAG, mInstanceName, mMode.toString());
     }
 
     public void start() {
@@ -554,7 +546,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 mCircuitEstablishedLatch.countDown();
             }
             Log.addEntry(logTag(), "circuit established");
-            Events.post(new Events.TorCircuitEstablished());
+            Events.getInstance(mInstanceName).post(new Events.TorCircuitEstablished());
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
             Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");

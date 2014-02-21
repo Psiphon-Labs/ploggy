@@ -54,7 +54,7 @@ public class Identity {
                 String hiddenServiceHostname,
                 String hiddenServicAuthCookie,
                 String signature) throws Utils.ApplicationError {
-            mId = Utils.formatFingerprint(getFingerprint());
+            mId = Utils.encodeBase64(getFingerprint());
             mNickname = nickname;
             mX509Certificate = x509Certificate;
             mHiddenServiceHostname = hiddenServiceHostname;

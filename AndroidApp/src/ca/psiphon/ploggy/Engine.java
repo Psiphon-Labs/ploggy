@@ -80,6 +80,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private static final String LOG_TAG = "Engine";
 
+    private final String mInstanceName;
     private final Context mContext;
     private final Handler mHandler;
     private final SharedPreferences mSharedPreferences;
@@ -108,8 +109,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // start up, or when a friend is added, for example).
     private static final int FRIEND_REQUEST_DELAY_IN_MILLISECONDS = 30*1000;
 
+    private static final String DEFAULT_ENGINE_NAME = "ploggy";
+
     public Engine(Context context) {
+        this(DEFAULT_ENGINE_NAME, context);
+    }
+
+    public Engine(String instanceName, Context context) {
         Utils.initSecureRandom();
+        mInstanceName = instanceName;
         mContext = context;
         mHandler = new Handler();
         // TODO: distinct instance of preferences for each persona
@@ -124,7 +132,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
         mStopped = false;
         Log.addEntry(LOG_TAG, "starting...");
-        Events.register(this);
+        Events.getInstance(mInstanceName).register(this);
         mTaskThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         // Using a distinct worker thread pool and queue to manage peer
         // requests, so local tasks are not blocked by peer actions.
@@ -142,7 +150,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized void stop() {
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
-        Events.unregister(this);
+        Events.getInstance(mInstanceName).unregister(this);
         stopDownloadRetryTask();
         stopHiddenService();
         if (mLocationMonitor != null) {
@@ -253,7 +261,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             } else {
                 streetAddress = "";
             }
-            Data.getInstance().putSelfLocation(
+            Data.getInstance(mInstanceName).putSelfLocation(
                     new Protocol.Location(
                             new Date(),
                             newSelfLocation.mLocation.getLatitude(),
@@ -267,7 +275,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onUpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
         try {
-            pushToFriends(Data.getInstance().getGroupOrThrow(updatedSelfGroup.mGroupId).mGroup);
+            pushToFriends(Data.getInstance(mInstanceName).getGroupOrThrow(updatedSelfGroup.mGroupId).mGroup);
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self group update");
         }
@@ -276,7 +284,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onUpdatedSelfLocation(Events.UpdatedSelfLocation updatedSelfLocation) {
         try {
-            pushToFriends(Data.getInstance().getSelfLocationOrThrow());
+            pushToFriends(Data.getInstance(mInstanceName).getSelfLocationOrThrow());
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self location update");
         }
@@ -285,7 +293,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onUpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
         try {
-            pushToFriends(Data.getInstance().getPostOrThrow(updatedSelfPost.mPostId).mPost);
+            pushToFriends(Data.getInstance(mInstanceName).getPostOrThrow(updatedSelfPost.mPostId).mPost);
         } catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self post update");
         }
@@ -326,9 +334,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private void startHiddenService() throws Utils.ApplicationError {
         stopHiddenService();
 
-        Data.Self self = Data.getInstance().getSelfOrThrow();
+        Data data = Data.getInstance(mInstanceName);
+        Data.Self self = data.getSelfOrThrow();
         List<String> friendCertificates = new ArrayList<String>();
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : data.getFriends()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mWebServer = new WebServer(
@@ -342,13 +351,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
 
         List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : data.getFriends()) {
             hiddenServiceAuths.add(
                     new TorWrapper.HiddenServiceAuth(
                             friend.mPublicIdentity.mHiddenServiceHostname,
                             friend.mPublicIdentity.mHiddenServiceAuthCookie));
         }
         mTorWrapper = new TorWrapper(
+                mInstanceName,
                 TorWrapper.Mode.MODE_RUN_SERVICES,
                 hiddenServiceAuths,
                 new HiddenService.KeyMaterial(
@@ -387,7 +397,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void askPullFromFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : Data.getInstance(mInstanceName).getFriends()) {
             triggerFriendTask(FriendTaskType.ASK_PULL, friend.mId);
         }
     }
@@ -397,7 +407,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void pullFromFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : Data.getInstance(mInstanceName).getFriends()) {
             triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
         }
     }
@@ -408,14 +418,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void pushToFriends(Protocol.Location location) throws Utils.ApplicationError {
         // *TODO* group location sharing preferences
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : Data.getInstance(mInstanceName).getFriends()) {
             enqueueFriendPushPayload(friend.mId, new Protocol.Payload(Protocol.Payload.Type.LOCATION, location));
             triggerFriendTask(FriendTaskType.PUSH_TO, friend.mId);
         }
     }
 
     private void pushToFriends(Protocol.Post post) throws Utils.ApplicationError {
-        Data.Group group = Data.getInstance().getGroupOrThrow(post.mGroupId);
+        Data.Group group = Data.getInstance(mInstanceName).getGroupOrThrow(post.mGroupId);
         pushToGroup(group.mGroup, new Protocol.Payload(Protocol.Payload.Type.POST, post));
     }
 
@@ -437,7 +447,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 @Override
                 public void run() {
                     try {
-                        for (Data.Friend friend : Data.getInstance().getFriends()) {
+                        for (Data.Friend friend : Data.getInstance(mInstanceName).getFriends()) {
                             triggerFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
                         }
                     } catch (Utils.ApplicationError e) {
@@ -537,7 +547,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
-                Data data = Data.getInstance();
+                Data data = Data.getInstance(mInstanceName);
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
@@ -576,7 +586,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
-                Data data = Data.getInstance();
+                Data data = Data.getInstance(mInstanceName);
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
@@ -615,7 +625,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
-                Data data = Data.getInstance();
+                Data data = Data.getInstance(mInstanceName);
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
@@ -672,7 +682,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
-                Data data = Data.getInstance();
+                Data data = Data.getInstance(mInstanceName);
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
@@ -691,7 +701,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
                             @Override
                             public void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError {
-                                Data data = Data.getInstance();
+                                Data data = Data.getInstance(mInstanceName);
                                 Protocol.PullRequest pullRequest = finalPullRequest;
                                 List<Protocol.Group> groups = new ArrayList<Protocol.Group>();
                                 List<Protocol.Post> posts = new ArrayList<Protocol.Post>();
@@ -756,7 +766,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
-                Data data = Data.getInstance();
+                Data data = Data.getInstance(mInstanceName);
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
@@ -828,7 +838,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
             throws Utils.ApplicationError  {
-        Data.getInstance().updateFriendSentOrThrow(
+        Data.getInstance(mInstanceName).updateFriendSentOrThrow(
                 friendId, lastSentToTimestamp, additionalBytesSentTo);
     }
 
@@ -836,7 +846,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
             throws Utils.ApplicationError {
-        Data.getInstance().updateFriendReceivedOrThrow(
+        Data.getInstance(mInstanceName).updateFriendReceivedOrThrow(
                 friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
     }
 
@@ -844,7 +854,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public void handleAskPullRequest(String friendCertificate) throws Utils.ApplicationError {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(mInstanceName);
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
             Log.addEntry(LOG_TAG, "served ask pull request for " + friend.mPublicIdentity.mNickname);
@@ -857,7 +867,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public void handleAskLocationRequest(String friendCertificate) throws Utils.ApplicationError {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(mInstanceName);
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             // *TODO* check location ACL; trigger fix (if not in progress: see spec)
             Log.addEntry(LOG_TAG, "served ask location request for " + friend.mPublicIdentity.mNickname);
@@ -870,7 +880,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public void handlePushRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError  {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(mInstanceName);
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             // TODO: stream requestBody instead of loading entirely into memory
             Json.PayloadIterator payloadIterator = new Json.PayloadIterator(requestBody);
@@ -913,7 +923,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Override
     public WebServer.RequestHandler.PullResponse handlePullRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(mInstanceName);
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             Protocol.PullRequest pullRequest = Json.fromJson(requestBody, Protocol.PullRequest.class);
             Protocol.validatePullRequest(pullRequest);
@@ -933,7 +943,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
             String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(mInstanceName);
             Data.Friend friend = data.getFriendByCertificate(friendCertificate);
             Data.LocalResource localResource = data.getLocalResource(friend.mId, resourceId);
             // Note: don't check availability until after input validation

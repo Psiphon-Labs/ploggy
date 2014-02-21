@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,18 +19,16 @@
 
 package ca.psiphon.ploggy;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import android.util.Pair;
+import android.net.TrafficStats;
+import android.os.Process;
+
+import com.squareup.otto.Subscribe;
 
 /**
  * Component tests.
@@ -59,6 +57,330 @@ public class Tests {
                 },
                 2000);
     }
+
+
+    private static final String ALICE = "Alice";
+    private static final String BOB = "Bob";
+    private static final String CAROL = "Carol";
+    private static final String EVE = "Eve";
+
+    private static final String ALICE_GROUP = "Alice's Group";
+
+    private static final int AWAIT_SYNC_TIMEOUT_SECONDS = 120;
+
+    public static void runComponentTests() {
+        PloggyInstance alice = new PloggyInstance(ALICE);
+        PloggyInstance bob = new PloggyInstance(BOB);
+        PloggyInstance carol = new PloggyInstance(CAROL);
+        PloggyInstance eve = new PloggyInstance(EVE);
+
+        try {
+            Log.addEntry(LOG_TAG, "Baseline TrafficStats data usage...");
+            // TrafficStats docs state state are only reset on device boot
+            logAppDataUsage();
+
+            alice.start();
+            bob.start();
+            carol.start();
+            eve.start();
+
+            alice.addFriend(bob);
+            alice.addFriend(carol);
+
+            bob.addFriend(alice);
+
+            carol.addFriend(alice);
+
+            // Alice does not make Eve a friend
+            eve.addFriend(alice);
+
+            String aliceGroupId = alice.addGroup(ALICE_GROUP);
+
+            Log.addEntry(LOG_TAG, "Locally write and read 10K posts...");
+            alice.addPosts(aliceGroupId, 10000);
+            alice.loadPosts(aliceGroupId);
+
+            Log.addEntry(LOG_TAG, "Add friends to group and sync group and posts...");
+            alice.addGroupMember(aliceGroupId, bob);
+            alice.addGroupMember(aliceGroupId, carol);
+            alice.awaitSync(aliceGroupId, bob);
+            alice.awaitSync(aliceGroupId, carol);
+            alice.compareGroupData(aliceGroupId, bob);
+            alice.compareGroupData(aliceGroupId, carol);
+
+            Log.addEntry(LOG_TAG, "Recorded data usage (vs. TrafficStats)...");
+            alice.logFriendsDataTransfer();
+            bob.logFriendsDataTransfer();
+            carol.logFriendsDataTransfer();
+            logAppDataUsage();
+
+            Log.addEntry(LOG_TAG, "Group as friend introduction service...");
+            bob.addCandidateFriends();
+            bob.checkIsFriend(carol);
+            carol.addCandidateFriends();
+            carol.checkIsFriend(bob);
+
+            Log.addEntry(LOG_TAG, "Group subscribers publish posts...");
+            bob.addPosts(aliceGroupId, 100);
+            carol.addPosts(aliceGroupId, 100);
+            bob.awaitSync(aliceGroupId, alice);
+            bob.awaitSync(aliceGroupId, carol);
+            carol.awaitSync(aliceGroupId, alice);
+            carol.awaitSync(aliceGroupId, bob);
+            alice.compareGroupData(aliceGroupId, bob);
+            alice.compareGroupData(aliceGroupId, carol);
+            bob.compareGroupData(aliceGroupId, carol);
+
+            Log.addEntry(LOG_TAG, "Latency for chat-like post exchange...");
+            // TODO: should be triggered by Events.UpdatedFriendPost?
+            for (int i = 0; i < 100; i++) {
+                alice.addPosts(aliceGroupId, 1);
+                alice.awaitSync(aliceGroupId, bob);
+                bob.addPosts(aliceGroupId, 1);
+                bob.awaitSync(aliceGroupId, alice);
+            }
+
+            // TODO:
+            // - location sharing
+            // - group remove/resign/delete cases
+            // - attachments
+
+            Log.addEntry(LOG_TAG, "Component tests succeeded");
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "Component tests failed");
+        } catch (InterruptedException e) {
+            Log.addEntry(LOG_TAG, "Component tests interrupted");
+        } finally {
+            alice.stop();
+            bob.stop();
+            carol.stop();
+            eve.stop();
+        }
+    }
+
+    private static class PloggyInstance {
+        private final String mInstanceName;
+        private final Engine mEngine;
+        private final Data mData;
+
+        public PloggyInstance(String instanceName) {
+            mInstanceName = instanceName;
+            mData = Data.getInstance(mInstanceName);
+            mEngine = new Engine(mInstanceName, Utils.getApplicationContext());
+        }
+
+        public void start() {
+            Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
+            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
+            Data.Self self = new Data.Self(
+                    Identity.makeSignedPublicIdentity(
+                            mInstanceName,
+                            selfX509KeyMaterial,
+                            selfHiddenServiceKeyMaterial),
+                    Identity.makePrivateIdentity(
+                            selfX509KeyMaterial,
+                            selfHiddenServiceKeyMaterial),
+                    new Date());
+            mData.reset();
+            mData.putSelf(self);
+            Events.getInstance(mInstanceName).register(this);
+            mEngine.start();
+            Log.addEntry(LOG_TAG, "Started " + mInstanceName);
+        }
+
+        public void stop() {
+            Log.addEntry(LOG_TAG, "Stopping " + mInstanceName);
+            mEngine.stop();
+            Events.getInstance(mInstanceName).unregister(this);
+            Log.addEntry(LOG_TAG, "Stopped " + mInstanceName);
+        }
+
+        public Identity.PublicIdentity getPublicIdentity() throws Utils.ApplicationError {
+            return mData.getSelfOrThrow().mPublicIdentity;
+        }
+
+        void addFriend(PloggyInstance ploggyInstance) throws Utils.ApplicationError {
+            addFriend(ploggyInstance.getPublicIdentity());
+        }
+
+        void addFriend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+            Data.Friend friend = new Data.Friend(publicIdentity, new Date(), null, 0, null, 0);
+            mData.addFriend(friend);
+            Log.addEntry(LOG_TAG, mInstanceName + " added friend " + publicIdentity.mNickname);
+        }
+
+        String addGroup(String name) throws Utils.ApplicationError {
+            String groupId = Utils.makeId();
+            String publisherId = getPublicIdentity().mId;
+            Date now = new Date();
+            Protocol.Group group = new Protocol.Group(
+                    groupId,
+                    name,
+                    publisherId,
+                    new ArrayList<Identity.PublicIdentity>(),
+                    now,
+                    now,
+                    -1,
+                    false);
+            mData.putGroup(group);
+            Log.addEntry(LOG_TAG, mInstanceName + " added group " + name);
+            return groupId;
+        }
+
+        void addGroupMember(String groupId, PloggyInstance ploggyInstance)
+                throws Utils.ApplicationError {
+            Date now = new Date();
+            Protocol.Group group = mData.getGroupOrThrow(groupId).mGroup;
+            List<Identity.PublicIdentity> updatedMembers =
+                    new ArrayList<Identity.PublicIdentity>(group.mMembers);
+            updatedMembers.add(ploggyInstance.getPublicIdentity());
+            Protocol.Group updatedGroup = new Protocol.Group(
+                    group.mId,
+                    group.mName,
+                    group.mPublisherId,
+                    updatedMembers,
+                    group.mCreatedTimestamp,
+                    now,
+                    group.mSequenceNumber,
+                    group.mIsTombstone);
+            mData.putGroup(updatedGroup);
+            Log.addEntry(
+                    LOG_TAG,
+                    mInstanceName + " added group member " + ploggyInstance.getPublicIdentity().mNickname);
+        }
+
+        void addPosts(String groupId, int count) throws Utils.ApplicationError {
+            String publisherId = getPublicIdentity().mId;
+            List<Protocol.Resource> attachments = new ArrayList<Protocol.Resource>();
+            Date now = new Date();
+            for (int i = 0; i < count; i++) {
+                String content = Utils.encodeBase64(Utils.getRandomBytes(250));
+                Protocol.Post post = new Protocol.Post(
+                        Utils.makeId(),
+                        groupId,
+                        publisherId,
+                        Protocol.POST_CONTENT_TYPE_DEFAULT,
+                        content,
+                        attachments,
+                        now,
+                        now,
+                        -1,
+                        false);
+                mData.addPost(post, null);
+            }
+            Log.addEntry(
+                    LOG_TAG,
+                    mInstanceName + " added posts: " + Integer.toString(count));
+        }
+
+        @SuppressWarnings("unused")
+        void loadPosts(String groupId) throws Utils.ApplicationError {
+            int count = 0;
+            for (Data.Post post : mData.getPosts(groupId)) {
+                count++;
+            }
+            Log.addEntry(
+                    LOG_TAG,
+                    mInstanceName + " loaded posts: " + Integer.toString(count));
+        }
+
+        void awaitSync(String groupId, PloggyInstance ploggyInstance)
+                throws Utils.ApplicationError, InterruptedException {
+            Identity.PublicIdentity publicIdentity = ploggyInstance.getPublicIdentity();
+            for (int i = 0; i < AWAIT_SYNC_TIMEOUT_SECONDS; i++) {
+                Thread.sleep(1000);
+                Data.Group group = mData.getGroupOrThrow(groupId);
+                // *TODO* compare MemberLastConfirmedSequenceNumbers with current max Group/Post seq numbers.
+                Protocol.SequenceNumbers lastConfirmedSequenceNumbers =
+                        group.mMemberLastConfirmedSequenceNumbers.get(publicIdentity.mId);
+                if (lastConfirmedSequenceNumbers.mGroupSequenceNumber == group.mGroup.mSequenceNumber
+                        && lastConfirmedSequenceNumbers.mPostSequenceNumber == group.mLastKnownPostSequenceNumber) {
+                    Log.addEntry(
+                            LOG_TAG,
+                            mInstanceName + " got sync for " + publicIdentity.mNickname);
+                    return;
+                }
+                if (i % 10 == 0) {
+                    Log.addEntry(
+                            LOG_TAG,
+                            mInstanceName + " awaiting sync for " + publicIdentity.mNickname);
+                }
+            }
+            throw new Utils.ApplicationError(LOG_TAG, "awaitSync timed out");
+        }
+
+        void compareGroupData(String groupId, PloggyInstance ploggyInstance)
+                throws Utils.ApplicationError {
+            String selfGroup = Json.toJson(mData.getGroupOrThrow(groupId).mGroup);
+            String friendGroup = Json.toJson(Data.getInstance(ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
+            if (!selfGroup.equals(friendGroup)) {
+                throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - group mismatch");
+            }
+            Data.CursorIterator<Data.Post> selfIterator = mData.getPosts(groupId);
+            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
+            while (selfIterator.hasNext()) {
+                if (!friendIterator.hasNext()) {
+                    throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - friend has fewer posts");
+                }
+                String selfPost = Json.toJson(selfIterator.next().mPost);
+                String friendPost = Json.toJson(friendIterator.next().mPost);
+                if (!selfPost.equals(friendPost)) {
+                    throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - post mismatch");
+                }
+            }
+            if (friendIterator.hasNext()) {
+                throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - friend has more posts");
+            }
+        }
+
+        void logFriendsDataTransfer() throws Utils.ApplicationError {
+            for (Data.Friend friend : mData.getFriends()) {
+                Log.addEntry(
+                        LOG_TAG,
+                        mInstanceName + " data usage for friend " + friend.mPublicIdentity.mNickname + ": " +
+                            Utils.byteCountToDisplaySize(friend.mBytesSentTo, false) + " sent to " +
+                            Utils.byteCountToDisplaySize(friend.mBytesReceivedFrom, false) + " received from ");
+            }
+        }
+
+        void addCandidateFriends() throws Utils.ApplicationError {
+            for (Data.CandidateFriend friend : mData.getCandidateFriends()) {
+                addFriend(friend.mPublicIdentity);
+            }
+        }
+
+        void checkIsFriend(PloggyInstance ploggyInstance) throws Utils.ApplicationError {
+            Identity.PublicIdentity publicIdentity = ploggyInstance.getPublicIdentity();
+            mData.getFriendByIdOrThrow(publicIdentity.mId);
+            Log.addEntry(
+                    LOG_TAG,
+                    mInstanceName + " has friend " + publicIdentity.mNickname);
+        }
+
+        @Subscribe
+        public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
+            Log.addEntry(LOG_TAG, "Tor circuit established for " + mInstanceName);
+        }
+    }
+
+    private static void logAppDataUsage() {
+        // *TODO* need Tor child process uid? Or this?
+        int uid = Process.myUid();
+        long bytesSent = TrafficStats.getUidTxBytes(uid);
+        long bytesReceived = TrafficStats.getUidRxBytes(uid);
+        Log.addEntry(
+                LOG_TAG,
+                "App data usage: " +
+                    Utils.byteCountToDisplaySize(bytesSent, false) + " sent " +
+                    Utils.byteCountToDisplaySize(bytesReceived, false) + " received ");
+    }
+}
+
+
+    /*
+
+    *TODO* remove obsolete test code -- once all test cases are covered
 
     private static class MockRequestHandler implements WebServer.RequestHandler {
 
@@ -348,4 +670,4 @@ public class Tests {
             }
         }
     }
-}
+    */

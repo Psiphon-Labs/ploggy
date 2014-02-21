@@ -233,6 +233,10 @@ public class Utils {
         }
     }
 
+    public static String makeId() {
+        return encodeBase64(getRandomBytes(Protocol.ID_LENGTH));
+    }
+
     public static String formatFingerprint(byte[] fingerprintBytes) {
         // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
@@ -268,6 +272,17 @@ public class Utils {
                     R.string.format_distance_kilometers,
                     NumberFormat.getInstance().format(distanceInKilometers));
         }
+    }
+
+    public static String byteCountToDisplaySize(long bytes, boolean si) {
+        // http://stackoverflow.com/questions/3758606/how-to-convert-byte-size-into-human-readable-format-in-java/3758880#3758880
+        int unit = si ? 1000 : 1024;
+        if (bytes < unit) {
+            return bytes + " B";
+        }
+        int exp = (int) (Math.log(bytes) / Math.log(unit));
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
 
     public static class DateFormatter {

@@ -52,7 +52,7 @@ public class Protocol {
 
     public static final String POST_CONTENT_TYPE_DEFAULT = "text/plain";
 
-    public static int RESOURCE_ID_LENGTH = 32;
+    public static int ID_LENGTH = 32;
 
     public static int MAX_MESSAGE_SIZE = 1000000;
 
