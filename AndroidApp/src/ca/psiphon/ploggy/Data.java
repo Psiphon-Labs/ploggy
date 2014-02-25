@@ -32,6 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
@@ -175,17 +176,17 @@ public class Data extends SQLiteOpenHelper {
         }
         public final State mState;
         public final Map<String, Protocol.SequenceNumbers> mMemberLastConfirmedSequenceNumbers;
-        public final long mLastKnownPostSequenceNumber;
+        public final long mLastPostSequenceNumber;
 
         public Group(
                 Protocol.Group group,
                 State state,
                 Map<String, Protocol.SequenceNumbers> memberLastConfirmedSequenceNumbers,
-                long lastKnownPostSequenceNumber) {
+                long lastPostSequenceNumber) {
             mGroup = group;
             mState = state;
             mMemberLastConfirmedSequenceNumbers = memberLastConfirmedSequenceNumbers;
-            mLastKnownPostSequenceNumber = lastKnownPostSequenceNumber;
+            mLastPostSequenceNumber = lastPostSequenceNumber;
         }
     }
 
@@ -335,11 +336,22 @@ public class Data extends SQLiteOpenHelper {
 
     private static Map<String, Data> mInstances = new HashMap<String, Data>();
 
-    public static synchronized Data getInstance(String name) {
+    public static synchronized Data getInstance(Context context, String name) {
         if (!mInstances.containsKey(name)) {
-            mInstances.put(name, new Data(name));
+            mInstances.put(name, new Data(context, name));
         }
         return mInstances.get(name);
+    }
+
+    public static synchronized void deleteDatabase(Context context, String name)
+            throws Utils.ApplicationError {
+        if (mInstances.containsKey(name)) {
+            mInstances.get(name).close();
+            mInstances.remove(name);
+        }
+        if (!context.deleteDatabase(name)) {
+            throw new Utils.ApplicationError(LOG_TAG, "failed to delete database");
+        }
     }
 
     @Override
@@ -350,8 +362,8 @@ public class Data extends SQLiteOpenHelper {
     private final String mInstanceName;
     private final SQLiteDatabase mDatabase;
 
-    private Data(String instanceName) {
-        super(Utils.getApplicationContext(), instanceName, null, DATABASE_VERSION);
+    private Data(Context context, String instanceName) {
+        super(context, instanceName, null, DATABASE_VERSION);
         mInstanceName = instanceName;
         mDatabase = getWritableDatabase();
     }
@@ -813,6 +825,15 @@ public class Data extends SQLiteOpenHelper {
                         memberCursor.close();
                     }
                 }
+                long lastPostSequenceNumber = 0;
+                try {
+                    lastPostSequenceNumber =
+                        getLongColumn(
+                                database,
+                                "SELECT MAX(sequenceNumber) FROM Post WHERE publisherId = (SELECT id FROM Self) AND groupId = ?",
+                                new String[]{groupId});
+                } catch (Data.NotFoundError e) {
+                }
                 Group.State state = Group.State.valueOf(cursor.getString(6));
                 return new Group(
                         new Protocol.Group(
@@ -825,7 +846,8 @@ public class Data extends SQLiteOpenHelper {
                             cursor.getLong(5),
                             (state == Group.State.TOMBSTONE)),
                         state,
-                        memberLastSentSequenceNumbers);
+                        memberLastSentSequenceNumbers,
+                        lastPostSequenceNumber);
             }
         };
 
@@ -1757,10 +1779,10 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private long getLongColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+    private static long getLongColumn(SQLiteDatabase database, String query, String[] args) throws Utils.ApplicationError, NotFoundError {
         Cursor cursor = null;
         try {
-            cursor = mDatabase.rawQuery(query, args);
+            cursor = database.rawQuery(query, args);
             if (!cursor.moveToFirst()) {
                 throw new NotFoundError();
             }
@@ -1773,6 +1795,10 @@ public class Data extends SQLiteOpenHelper {
                 cursor.close();
             }
         }
+    }
+
+    private long getLongColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+        return getLongColumn(mDatabase, query, args);
     }
 
     private String getStringColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {

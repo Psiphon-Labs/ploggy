@@ -25,8 +25,10 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import android.content.Context;
 import android.net.TrafficStats;
 import android.os.Process;
+import ca.psiphon.ploggy.Utils.ApplicationError;
 
 import com.squareup.otto.Subscribe;
 
@@ -69,12 +71,17 @@ public class Tests {
     private static final int AWAIT_SYNC_TIMEOUT_SECONDS = 120;
 
     public static void runComponentTests() {
-        PloggyInstance alice = new PloggyInstance(ALICE);
-        PloggyInstance bob = new PloggyInstance(BOB);
-        PloggyInstance carol = new PloggyInstance(CAROL);
-        PloggyInstance eve = new PloggyInstance(EVE);
+        PloggyInstance alice = null;
+        PloggyInstance bob = null;
+        PloggyInstance carol = null;
+        PloggyInstance eve = null;
 
         try {
+            alice = new PloggyInstance(ALICE);
+            bob = new PloggyInstance(BOB);
+            carol = new PloggyInstance(CAROL);
+            eve = new PloggyInstance(EVE);
+
             Log.addEntry(LOG_TAG, "Baseline TrafficStats data usage...");
             // TrafficStats docs state state are only reset on device boot
             logAppDataUsage();
@@ -151,25 +158,36 @@ public class Tests {
         } catch (InterruptedException e) {
             Log.addEntry(LOG_TAG, "Component tests interrupted");
         } finally {
-            alice.stop();
-            bob.stop();
-            carol.stop();
-            eve.stop();
+            if (alice != null) {
+                alice.stop();
+            }
+            if (bob != null) {
+                bob.stop();
+            }
+            if (carol != null) {
+                carol.stop();
+            }
+            if (eve != null) {
+                eve.stop();
+            }
         }
     }
 
     private static class PloggyInstance {
+        private final Context mContext;
         private final String mInstanceName;
         private final Engine mEngine;
         private final Data mData;
 
-        public PloggyInstance(String instanceName) {
+        public PloggyInstance(String instanceName) throws ApplicationError {
+            mContext = Utils.getApplicationContext();
             mInstanceName = instanceName;
-            mData = Data.getInstance(mInstanceName);
-            mEngine = new Engine(mInstanceName, Utils.getApplicationContext());
+            Data.deleteDatabase(mContext, mInstanceName);
+            mData = Data.getInstance(mContext, mInstanceName);
+            mEngine = new Engine(mContext, mInstanceName);
         }
 
-        public void start() {
+        public void start() throws Utils.ApplicationError {
             Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
             HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
@@ -182,7 +200,6 @@ public class Tests {
                             selfX509KeyMaterial,
                             selfHiddenServiceKeyMaterial),
                     new Date());
-            mData.reset();
             mData.putSelf(self);
             Events.getInstance(mInstanceName).register(this);
             mEngine.start();
@@ -295,7 +312,7 @@ public class Tests {
                 Protocol.SequenceNumbers lastConfirmedSequenceNumbers =
                         group.mMemberLastConfirmedSequenceNumbers.get(publicIdentity.mId);
                 if (lastConfirmedSequenceNumbers.mGroupSequenceNumber == group.mGroup.mSequenceNumber
-                        && lastConfirmedSequenceNumbers.mPostSequenceNumber == group.mLastKnownPostSequenceNumber) {
+                        && lastConfirmedSequenceNumbers.mPostSequenceNumber == group.mLastPostSequenceNumber) {
                     Log.addEntry(
                             LOG_TAG,
                             mInstanceName + " got sync for " + publicIdentity.mNickname);
@@ -313,12 +330,12 @@ public class Tests {
         void compareGroupData(String groupId, PloggyInstance ploggyInstance)
                 throws Utils.ApplicationError {
             String selfGroup = Json.toJson(mData.getGroupOrThrow(groupId).mGroup);
-            String friendGroup = Json.toJson(Data.getInstance(ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
+            String friendGroup = Json.toJson(Data.getInstance(mContext, ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
             if (!selfGroup.equals(friendGroup)) {
                 throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - group mismatch");
             }
             Data.CursorIterator<Data.Post> selfIterator = mData.getPosts(groupId);
-            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
+            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(mContext, ploggyInstance.mInstanceName).getPosts(groupId);
             while (selfIterator.hasNext()) {
                 if (!friendIterator.hasNext()) {
                     throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - friend has fewer posts");

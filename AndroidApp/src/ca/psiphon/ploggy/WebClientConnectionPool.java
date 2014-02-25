@@ -48,6 +48,9 @@ import ch.boye.httpclientandroidlib.protocol.HttpContext;
  *
  * Implements HTTP requests through Tor with TLS configured with TransportSecurity specs and mutual
  * authentication.
+ *
+ * TODO: Upgrade httpclientandroidlib to 4.3?
+ *
  */
 public class WebClientConnectionPool {
 
