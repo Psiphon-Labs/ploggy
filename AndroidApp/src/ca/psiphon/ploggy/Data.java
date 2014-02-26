@@ -61,7 +61,6 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 *IN PROGRESS*
 
-- Resolve whether to use execSQL vs. update() for UPDATEs with expressions in the SET clause
 - Support per-group privacy settings
       (or downgrade functionality, for now, to all-or-nothing location sharing per group and just use SharedPreferences)
 - Delete-friend-who-is-own-group-member: friend won't sync loss of membership; but could it be inferred based on a 403 error?
@@ -69,10 +68,8 @@ import android.database.sqlite.SQLiteOpenHelper;
 - Create indexes for queries (see http://www.sqlite.org/optoverview.html)
 - Should we have explicit transactions for returned cursors (and have CursorIterator track a transaction)?
 - Cache POJOs (especially for getFriend and getGroup)
-- Prepared statements?
 - Review all "*TODO*" comments
 - Switch to SQLCipher
-- Unit tests (or coverage in Tests module)
 
 */
 

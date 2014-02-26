@@ -64,13 +64,12 @@ public class WebClientConnectionPool {
     private final SocksProxyPoolingClientConnectionManager mMutualAuthenticationPoolingClientConnectionManager;
     private final SocksProxyPoolingClientConnectionManager mPoolingClientConnectionManager;
 
-    public WebClientConnectionPool(
-            int localSocksProxyPort) throws Utils.ApplicationError {
-        Data data = Data.getInstance();
+    public WebClientConnectionPool(Data data, int localSocksProxyPort)
+            throws Utils.ApplicationError {
         Data.Self self = data.getSelfOrThrow();
         X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey);
         List<String> friendCertificates = new ArrayList<String>();
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
+        for (Data.Friend friend : data.getFriends()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mMutualAuthenticationPoolingClientConnectionManager =

@@ -67,7 +67,6 @@ import com.squareup.otto.Subscribe;
 
 - call updateFriendSent/Recv byte counts in WebServer and WebClient
 - add task to restart Engine/Tor if no circuit after N minutes; and restart if no comms after N hours(?)
-- Upgrade httpclientandroidlib to 4.3...?
 - double-check Protocol.validate() called where required in Engine
 - pull more fixes from NanoHttpd upstream
 - Review all "*TODO*" comments
@@ -385,7 +384,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (mWebClientConnectionPool != null) {
             mWebClientConnectionPool.shutdown();
         }
-        mWebClientConnectionPool = new WebClientConnectionPool(getTorSocksProxyPort());
+        mWebClientConnectionPool = new WebClientConnectionPool(mData, getTorSocksProxyPort());
     }
 
     public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
@@ -830,17 +829,25 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
-            throws Utils.ApplicationError  {
-        mData.updateFriendSentOrThrow(friendId, lastSentToTimestamp, additionalBytesSentTo);
+    public String getFriendNicknameByCertificate(String friendCertificate) throws Utils.ApplicationError {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        return friend.mPublicIdentity.mNickname;
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
+    public void updateFriendSent(String friendCertificate, Date lastSentToTimestamp, long additionalBytesSentTo)
+            throws Utils.ApplicationError  {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        mData.updateFriendSentOrThrow(friend.mId, lastSentToTimestamp, additionalBytesSentTo);
+    }
+
+    // Note: WebServer callbacks not synchronized
+    @Override
+    public void updateFriendReceived(String friendCertificate, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
             throws Utils.ApplicationError {
-        mData.updateFriendReceivedOrThrow(
-                friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        mData.updateFriendReceivedOrThrow(friend.mId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
     }
 
     // Note: WebServer callbacks not synchronized
