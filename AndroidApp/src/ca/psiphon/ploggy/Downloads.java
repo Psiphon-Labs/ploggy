@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 import android.content.Context;
-import ca.psiphon.ploggy.Utils.ApplicationError;
 
 /**
  * Helpers for managing download files
@@ -41,12 +40,12 @@ public class Downloads {
         return getDownloadFile(download).length();
     }
 
-    public static OutputStream openDownloadResourceForAppending(Data.Download download) throws ApplicationError {
+    public static OutputStream openDownloadResourceForAppending(Data.Download download) throws PloggyError {
         try {
             OutputStream outputStream = new FileOutputStream(getDownloadFile(download), true);
             return outputStream;
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 

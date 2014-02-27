@@ -38,11 +38,11 @@ public class HiddenService {
         }
     }
 
-    public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
+    public static KeyMaterial generateKeyMaterial() throws PloggyError {
         return generateKeyMaterial(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
     }
 
-    public static KeyMaterial generateKeyMaterial(String instanceName) throws Utils.ApplicationError {
+    public static KeyMaterial generateKeyMaterial(String instanceName) throws PloggyError {
         TorWrapper tor = new TorWrapper(instanceName, TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
         // Note: MODE_GENERATE_KEY_MATERIAL stops its Tor process
         tor.start();

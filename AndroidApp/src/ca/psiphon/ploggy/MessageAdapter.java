@@ -57,18 +57,18 @@ public class MessageAdapter extends BaseAdapter {
     private final String mFriendId;
     private List<Data.Message> mMessages;
 
-    public MessageAdapter(Context context, Mode mode) throws Utils.ApplicationError {
+    public MessageAdapter(Context context, Mode mode) throws PloggyError {
         this(context, mode, null);
     }
 
-    public MessageAdapter(Context context, Mode mode, String friendId) throws Utils.ApplicationError {
+    public MessageAdapter(Context context, Mode mode, String friendId) throws PloggyError {
         mContext = context;
         mMode = mode;
         mFriendId = friendId;
         updateMessages();
     }
 
-    public void updateMessages() throws Utils.ApplicationError {
+    public void updateMessages() throws PloggyError {
         switch (mMode) {
         case ALL_MESSAGES:
             mAnnotatedMessages = Data.getInstance().getAllMessages();
@@ -132,7 +132,7 @@ public class MessageAdapter extends BaseAdapter {
                 }
             } catch (Data.DataNotFoundError e) {
                 Log.addEntry(LOG_TAG, "attachment data not found");
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to load attachment data");
             }
         }

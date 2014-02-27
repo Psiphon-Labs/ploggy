@@ -79,7 +79,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);
                 mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));
                 return;
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to show friend");
             }
         }
@@ -130,7 +130,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 mReceivedFriend = friend;
                 showFriend();
                 // TODO: update add_friend_description_text as well?
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
             }
         } else {
@@ -167,7 +167,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
             } catch (IOException e) {
                 Log.addEntry(LOG_TAG, e.getMessage());
                 Log.addEntry(LOG_TAG, "failed to open .ploggy file");
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to open .ploggy file");
             } finally {
                 if (inputStream != null) {
@@ -205,7 +205,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
             } catch (Data.AlreadyExistsError e) {
                 String prompt = getString(R.string.prompt_add_friend_friend_already_exists, mReceivedFriend.mPublicIdentity.mNickname);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to add friend");
             }
         }

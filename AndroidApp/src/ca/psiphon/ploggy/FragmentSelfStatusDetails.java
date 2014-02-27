@@ -151,7 +151,7 @@ public class FragmentSelfStatusDetails extends Fragment {
                                 selfLocation.mLongitude));
                 mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfLocation.mTimestamp, true));
             }
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             // TODO: hide identity/message views?
             Log.addEntry(LOG_TAG, "failed to display self status details");
         }

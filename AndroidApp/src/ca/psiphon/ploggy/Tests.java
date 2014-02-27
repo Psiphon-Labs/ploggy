@@ -28,7 +28,6 @@ import java.util.TimerTask;
 import android.content.Context;
 import android.net.TrafficStats;
 import android.os.Process;
-import ca.psiphon.ploggy.Utils.ApplicationError;
 
 import com.squareup.otto.Subscribe;
 
@@ -153,7 +152,7 @@ public class Tests {
             // - attachments
 
             Log.addEntry(LOG_TAG, "Component tests succeeded");
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "Component tests failed");
         } catch (InterruptedException e) {
             Log.addEntry(LOG_TAG, "Component tests interrupted");
@@ -179,7 +178,7 @@ public class Tests {
         private final Engine mEngine;
         private final Data mData;
 
-        public PloggyInstance(String instanceName) throws ApplicationError {
+        public PloggyInstance(String instanceName) throws PloggyError {
             mContext = Utils.getApplicationContext();
             mInstanceName = instanceName;
             Data.deleteDatabase(mContext, mInstanceName);
@@ -187,7 +186,7 @@ public class Tests {
             mEngine = new Engine(mContext, mInstanceName);
         }
 
-        public void start() throws Utils.ApplicationError {
+        public void start() throws PloggyError {
             Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
             HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial(mInstanceName);
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
@@ -213,25 +212,25 @@ public class Tests {
             Log.addEntry(LOG_TAG, "Stopped " + mInstanceName);
         }
 
-        public Identity.PublicIdentity getPublicIdentity() throws Utils.ApplicationError {
+        public Identity.PublicIdentity getPublicIdentity() throws PloggyError {
             return mData.getSelfOrThrow().mPublicIdentity;
         }
 
-        void addFriend(PloggyInstance ploggyInstance) throws Utils.ApplicationError {
+        void addFriend(PloggyInstance ploggyInstance) throws PloggyError {
             addFriend(ploggyInstance.getPublicIdentity());
         }
 
-        void addFriend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+        void addFriend(Identity.PublicIdentity publicIdentity) throws PloggyError {
             Data.Friend friend = new Data.Friend(publicIdentity, new Date());
             try {
                 mData.addFriend(friend);
             } catch (Data.AlreadyExistsError e) {
-                throw new Utils.ApplicationError(LOG_TAG, e);
+                throw new PloggyError(LOG_TAG, e);
             }
             Log.addEntry(LOG_TAG, mInstanceName + " added friend " + publicIdentity.mNickname);
         }
 
-        String addGroup(String name) throws Utils.ApplicationError {
+        String addGroup(String name) throws PloggyError {
             String groupId = Utils.makeId();
             String publisherId = getPublicIdentity().mId;
             Date now = new Date();
@@ -250,7 +249,7 @@ public class Tests {
         }
 
         void addGroupMember(String groupId, PloggyInstance ploggyInstance)
-                throws Utils.ApplicationError {
+                throws PloggyError {
             Date now = new Date();
             Protocol.Group group = mData.getGroupOrThrow(groupId).mGroup;
             List<Identity.PublicIdentity> updatedMembers =
@@ -271,7 +270,7 @@ public class Tests {
                     mInstanceName + " added group member " + ploggyInstance.getPublicIdentity().mNickname);
         }
 
-        void addPosts(String groupId, int count) throws Utils.ApplicationError {
+        void addPosts(String groupId, int count) throws PloggyError {
             String publisherId = getPublicIdentity().mId;
             List<Protocol.Resource> attachments = new ArrayList<Protocol.Resource>();
             Date now = new Date();
@@ -296,7 +295,7 @@ public class Tests {
         }
 
         @SuppressWarnings("unused")
-        void loadPosts(String groupId) throws Utils.ApplicationError {
+        void loadPosts(String groupId) throws PloggyError {
             int count = 0;
             for (Data.Post post : mData.getPosts(groupId)) {
                 count++;
@@ -307,7 +306,7 @@ public class Tests {
         }
 
         void awaitSync(String groupId, PloggyInstance ploggyInstance)
-                throws Utils.ApplicationError, InterruptedException {
+                throws PloggyError, InterruptedException {
             Identity.PublicIdentity publicIdentity = ploggyInstance.getPublicIdentity();
             for (int i = 0; i < AWAIT_SYNC_TIMEOUT_SECONDS; i++) {
                 Thread.sleep(1000);
@@ -328,34 +327,34 @@ public class Tests {
                             mInstanceName + " awaiting sync for " + publicIdentity.mNickname);
                 }
             }
-            throw new Utils.ApplicationError(LOG_TAG, "awaitSync timed out");
+            throw new PloggyError(LOG_TAG, "awaitSync timed out");
         }
 
         void compareGroupData(String groupId, PloggyInstance ploggyInstance)
-                throws Utils.ApplicationError {
+                throws PloggyError {
             String selfGroup = Json.toJson(mData.getGroupOrThrow(groupId).mGroup);
             String friendGroup = Json.toJson(Data.getInstance(mContext, ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
             if (!selfGroup.equals(friendGroup)) {
-                throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - group mismatch");
+                throw new PloggyError(LOG_TAG, "compareGroupData - group mismatch");
             }
             Data.CursorIterator<Data.Post> selfIterator = mData.getPosts(groupId);
             Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(mContext, ploggyInstance.mInstanceName).getPosts(groupId);
             while (selfIterator.hasNext()) {
                 if (!friendIterator.hasNext()) {
-                    throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - friend has fewer posts");
+                    throw new PloggyError(LOG_TAG, "compareGroupData - friend has fewer posts");
                 }
                 String selfPost = Json.toJson(selfIterator.next().mPost);
                 String friendPost = Json.toJson(friendIterator.next().mPost);
                 if (!selfPost.equals(friendPost)) {
-                    throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - post mismatch");
+                    throw new PloggyError(LOG_TAG, "compareGroupData - post mismatch");
                 }
             }
             if (friendIterator.hasNext()) {
-                throw new Utils.ApplicationError(LOG_TAG, "compareGroupData - friend has more posts");
+                throw new PloggyError(LOG_TAG, "compareGroupData - friend has more posts");
             }
         }
 
-        void logFriendsDataTransfer() throws Utils.ApplicationError {
+        void logFriendsDataTransfer() throws PloggyError {
             for (Data.Friend friend : mData.getFriends()) {
                 Log.addEntry(
                         LOG_TAG,
@@ -365,13 +364,13 @@ public class Tests {
             }
         }
 
-        void addCandidateFriends() throws Utils.ApplicationError {
+        void addCandidateFriends() throws PloggyError {
             for (Data.CandidateFriend friend : mData.getCandidateFriends()) {
                 addFriend(friend.mPublicIdentity);
             }
         }
 
-        void checkIsFriend(PloggyInstance ploggyInstance) throws Utils.ApplicationError {
+        void checkIsFriend(PloggyInstance ploggyInstance) throws PloggyError {
             Identity.PublicIdentity publicIdentity = ploggyInstance.getPublicIdentity();
             mData.getFriendByIdOrThrow(publicIdentity.mId);
             Log.addEntry(

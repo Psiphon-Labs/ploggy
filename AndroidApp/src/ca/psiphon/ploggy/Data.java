@@ -102,7 +102,7 @@ public class Data extends SQLiteOpenHelper {
         public Self(
                 Identity.PublicIdentity publicIdentity,
                 Identity.PrivateIdentity privateIdentity,
-                Date createdTimestamp) throws Utils.ApplicationError {
+                Date createdTimestamp) throws PloggyError {
             mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mPrivateIdentity = privateIdentity;
@@ -117,7 +117,7 @@ public class Data extends SQLiteOpenHelper {
 
         public CandidateFriend(
                 Identity.PublicIdentity publicIdentity,
-                List<String> groupIds) throws Utils.ApplicationError {
+                List<String> groupIds) throws PloggyError {
             mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mGroupIds = groupIds;
@@ -135,7 +135,7 @@ public class Data extends SQLiteOpenHelper {
 
         public Friend(
                 Identity.PublicIdentity publicIdentity,
-                Date addedTimestamp) throws Utils.ApplicationError {
+                Date addedTimestamp) throws PloggyError {
             this(publicIdentity, addedTimestamp, null, 0, null, 0);
         }
 
@@ -145,7 +145,7 @@ public class Data extends SQLiteOpenHelper {
                 Date lastReceivedFromTimestamp,
                 long bytesReceivedFrom,
                 Date lastSentToTimestamp,
-                long bytesSentTo) throws Utils.ApplicationError {
+                long bytesSentTo) throws PloggyError {
             mId = publicIdentity.mId;
             mPublicIdentity = publicIdentity;
             mAddedTimestamp = addedTimestamp;
@@ -360,13 +360,13 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public static synchronized void deleteDatabase(Context context, String name)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         if (mInstances.containsKey(name)) {
             mInstances.get(name).close();
             mInstances.remove(name);
         }
         if (!context.deleteDatabase(name)) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to delete database");
+            throw new PloggyError(LOG_TAG, "failed to delete database");
         }
     }
 
@@ -410,7 +410,7 @@ public class Data extends SQLiteOpenHelper {
         db.enableWriteAheadLogging();
     }
 
-    public void putSelf(Self self) throws Utils.ApplicationError {
+    public void putSelf(Self self) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             // Only one Self row
@@ -425,19 +425,19 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelf());
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public Self getSelf() throws Utils.ApplicationError, NotFoundError {
+    public Self getSelf() throws PloggyError, NotFoundError {
         return getObject(
             "SELECT publicIdentity, privateIdentity, createdTimestamp FROM Self",
             null,
             new IRowToObject<Self>() {
                 @Override
-                public Self rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+                public Self rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                     return new Self(
                             Json.fromJson(cursor.getString(0), Identity.PublicIdentity.class),
                             Json.fromJson(cursor.getString(1), Identity.PrivateIdentity.class),
@@ -446,23 +446,23 @@ public class Data extends SQLiteOpenHelper {
             });
     }
 
-    public Self getSelfOrThrow() throws Utils.ApplicationError {
+    public Self getSelfOrThrow() throws PloggyError {
         try {
             return getSelf();
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected self not found");
+            throw new PloggyError(LOG_TAG, "unexpected self not found");
         }
     }
 
-    private String getSelfId() throws Utils.ApplicationError {
+    private String getSelfId() throws PloggyError {
         try {
             return getStringColumn("SELECT id FROM Self", null);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public void addFriend(Friend friend) throws AlreadyExistsError, Utils.ApplicationError {
+    public void addFriend(Friend friend) throws AlreadyExistsError, PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             if (0 < getCount(
@@ -484,7 +484,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.AddedFriend(friend.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -492,7 +492,7 @@ public class Data extends SQLiteOpenHelper {
 
     // *TODO* note -- informational/could be imprecise
     public void updateFriendReceived(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
             mDatabase.execSQL(
@@ -502,23 +502,23 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
     public void updateFriendReceivedOrThrow(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             updateFriendReceived(friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(LOG_TAG, "unexpected friend not found");
         }
     }
 
     public void updateFriendSent(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
             mDatabase.execSQL(
@@ -527,22 +527,22 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
     public void updateFriendSentOrThrow(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             updateFriendReceived(friendId, lastSentToTimestamp, additionalBytesSentTo);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(LOG_TAG, "unexpected friend not found");
         }
     }
 
-    public void removeFriend(String friendId) throws Utils.ApplicationError {
+    public void removeFriend(String friendId) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             mDatabase.delete("Friend", "id = ?", new String[]{friendId});
@@ -572,7 +572,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.RemovedFriend(friendId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -585,49 +585,49 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<Friend> mRowToFriend =
         new IRowToObject<Friend>() {
             @Override
-            public Friend rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public Friend rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 return new Friend(
                         Json.fromJson(cursor.getString(0), Identity.PublicIdentity.class), stringToDate(cursor.getString(1)),
                         stringToDate(cursor.getString(2)), cursor.getLong(3), stringToDate(cursor.getString(4)), cursor.getLong(5));
             }
         };
 
-    public Friend getFriendById(String friendId) throws Utils.ApplicationError, NotFoundError {
+    public Friend getFriendById(String friendId) throws PloggyError, NotFoundError {
         return getObject(SELECT_FRIEND + " WHERE id = ?", new String[]{friendId}, mRowToFriend);
     }
 
-    public Friend getFriendByIdOrThrow(String friendId) throws Utils.ApplicationError {
+    public Friend getFriendByIdOrThrow(String friendId) throws PloggyError {
         try {
             return getFriendById(friendId);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(LOG_TAG, "unexpected friend not found");
         }
     }
 
-    public Friend getFriendByNickname(String nickname) throws Utils.ApplicationError, NotFoundError {
+    public Friend getFriendByNickname(String nickname) throws PloggyError, NotFoundError {
         return getObject(SELECT_FRIEND + " WHERE nickname = ?", new String[]{nickname}, mRowToFriend);
     }
 
-    public Friend getFriendByCertificate(String certificate) throws Utils.ApplicationError, NotFoundError {
+    public Friend getFriendByCertificate(String certificate) throws PloggyError, NotFoundError {
         return getObject(SELECT_FRIEND + " WHERE certificate = ?", new String[]{certificate}, mRowToFriend);
     }
 
-    public Friend getFriendByCertificateOrThrow(String certificate) throws Utils.ApplicationError {
+    public Friend getFriendByCertificateOrThrow(String certificate) throws PloggyError {
         try {
             return getFriendByCertificate(certificate);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(LOG_TAG, "unexpected friend not found");
         }
     }
 
-    public CursorIterator<Friend> getFriends() throws Utils.ApplicationError {
+    public CursorIterator<Friend> getFriends() throws PloggyError {
         return getObjectCursor(SELECT_FRIEND, null, mRowToFriend);
     }
 
     private static final IRowToObject<CandidateFriend> mRowToCandidateFriend =
         new IRowToObject<CandidateFriend>() {
             @Override
-            public CandidateFriend rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public CandidateFriend rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 String memberId = cursor.getString(0);
                 Identity.PublicIdentity memberPublicIdentity = Json.fromJson(cursor.getString(1), Identity.PublicIdentity.class);
                 List<String> groupIds = new ArrayList<String>();
@@ -643,7 +643,7 @@ public class Data extends SQLiteOpenHelper {
                         groupCursor.moveToNext();
                     }
                 } catch (SQLiteException e) {
-                    throw new Utils.ApplicationError(LOG_TAG, e);
+                    throw new PloggyError(LOG_TAG, e);
                 } finally {
                     if (groupCursor != null) {
                         groupCursor.close();
@@ -653,7 +653,7 @@ public class Data extends SQLiteOpenHelper {
             }
         };
 
-    public CursorIterator<CandidateFriend> getCandidateFriends() throws Utils.ApplicationError {
+    public CursorIterator<CandidateFriend> getCandidateFriends() throws PloggyError {
         return getObjectCursor(
                 "SELECT DISTINCT memberId, memberPublicIdentity FROM GroupMember " +
                     "WHERE memberId NOT IN (SELECT id FROM Friend) " +
@@ -662,19 +662,19 @@ public class Data extends SQLiteOpenHelper {
                 mRowToCandidateFriend);
     }
 
-    public void putGroup(Protocol.Group group) throws Utils.ApplicationError {
+    public void putGroup(Protocol.Group group) throws PloggyError {
         // *TODO* where is best to generate IDs and set timestamps for groups? caller?
         // *TODO* where validate group: no duplicate members, etc.?
         try {
             mDatabase.beginTransactionNonExclusive();
             if (!group.mPublisherId.equals(getSelfId())) {
-                throw new Utils.ApplicationError(LOG_TAG, "overwriting group not published by self");
+                throw new PloggyError(LOG_TAG, "overwriting group not published by self");
             }
             try {
                 // *TODO* check Group.publisherId == Self
                 if (!Group.State.PUBLISHING.name().equals(
                         getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{group.mId}))) {
-                    throw new Utils.ApplicationError(LOG_TAG, "overwriting group not in publishing state");
+                    throw new PloggyError(LOG_TAG, "overwriting group not in publishing state");
                 }
             } catch (NotFoundError e) {
             }
@@ -688,14 +688,14 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(group.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
     private void replaceGroup(Protocol.Group group, long sequenceNumber, Group.State state)
-            throws Utils.ApplicationError , SQLiteException {
+            throws PloggyError , SQLiteException {
         // Helper used by putGroup and putPullResponse; assumes already in transaction
         ContentValues values = new ContentValues();
         values.put("id", group.mId);
@@ -750,7 +750,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void removeGroup(String groupId) throws Utils.ApplicationError {
+    public void removeGroup(String groupId) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             Group group = getGroup(groupId);
@@ -785,7 +785,7 @@ public class Data extends SQLiteOpenHelper {
                 }
                 values.put("state", newState.name());
                 if (1 != mDatabase.update("Group", values, "id = ?", new String[]{groupId})) {
-                    throw new Utils.ApplicationError(LOG_TAG, "update group state failed");
+                    throw new PloggyError(LOG_TAG, "update group state failed");
                 }
             }
             mDatabase.setTransactionSuccessful();
@@ -797,15 +797,15 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    private void deleteGroup(String groupId) throws Utils.ApplicationError {
+    private void deleteGroup(String groupId) throws PloggyError {
         // Helper used by removeGroup and putPullResponse; assumes already in transaction
         mDatabase.delete("Group", "groupId = ?", new String[]{groupId});
         mDatabase.delete("GroupMember", "groupId = ?", new String[]{groupId});
@@ -818,7 +818,7 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<Group> mRowToGroup =
         new IRowToObject<Group>() {
             @Override
-            public Group rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public Group rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 String groupId = cursor.getString(0);
                 List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
                 Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
@@ -840,7 +840,7 @@ public class Data extends SQLiteOpenHelper {
                         memberCursor.moveToNext();
                     }
                 } catch (SQLiteException e) {
-                    throw new Utils.ApplicationError(LOG_TAG, e);
+                    throw new PloggyError(LOG_TAG, e);
                 } finally {
                     if (memberCursor != null) {
                         memberCursor.close();
@@ -872,26 +872,26 @@ public class Data extends SQLiteOpenHelper {
             }
         };
 
-    public Group getGroup(String groupId) throws Utils.ApplicationError, NotFoundError {
+    public Group getGroup(String groupId) throws PloggyError, NotFoundError {
         return getObject(SELECT_GROUP + " WHERE id = ?", new String[]{groupId}, mRowToGroup);
     }
 
-    public Group getGroupOrThrow(String groupId) throws Utils.ApplicationError {
+    public Group getGroupOrThrow(String groupId) throws PloggyError {
         try {
             return getGroup(groupId);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected group not found");
+            throw new PloggyError(LOG_TAG, "unexpected group not found");
         }
     }
 
-    public CursorIterator<Group> getVisibleGroups() throws Utils.ApplicationError {
+    public CursorIterator<Group> getVisibleGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?, ?)",
                 new String[]{Group.State.PUBLISHING.name(), Group.State.SUBSCRIBING.name(), Group.State.ORPHANED.name()},
                 mRowToGroup);
     }
 
-    public CursorIterator<Group> getHiddenGroups() throws Utils.ApplicationError {
+    public CursorIterator<Group> getHiddenGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?)",
                 new String[]{Group.State.RESIGNING.name(), Group.State.TOMBSTONE.name()},
@@ -899,20 +899,20 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public void putSelfLocation(Protocol.Location location)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         putLocation(getSelfId(), location);
         Events.getInstance(mInstanceName).post(new Events.UpdatedSelfLocation());
     }
 
     public void putPushedLocation(String friendId, Protocol.Location location)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         Protocol.validateLocation(location);
         putLocation(friendId, location);
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriendLocation(friendId));
     }
 
     private void putLocation(String publisherId, Protocol.Location location)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
@@ -924,7 +924,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.replaceOrThrow("Location", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -936,42 +936,42 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<Protocol.Location> mRowToLocation =
         new IRowToObject<Protocol.Location>() {
             @Override
-            public Protocol.Location rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public Protocol.Location rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 return new Protocol.Location(
                         stringToDate(cursor.getString(0)), cursor.getDouble(1), cursor.getDouble(2), cursor.getString(3));
             }
         };
 
-    public Protocol.Location getSelfLocation() throws Utils.ApplicationError, NotFoundError {
+    public Protocol.Location getSelfLocation() throws PloggyError, NotFoundError {
         return getObject(
                 SELECT_LOCATION + " WHERE publisherId = (SELECT id FROM Self)", null, mRowToLocation);
     }
 
-    public Protocol.Location getSelfLocationOrThrow() throws Utils.ApplicationError {
+    public Protocol.Location getSelfLocationOrThrow() throws PloggyError {
         try {
             return getSelfLocation();
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected self location not found");
+            throw new PloggyError(LOG_TAG, "unexpected self location not found");
         }
     }
 
-    public Protocol.Location getFriendLocation(String friendId) throws Utils.ApplicationError, NotFoundError {
+    public Protocol.Location getFriendLocation(String friendId) throws PloggyError, NotFoundError {
         return getObject(
                 SELECT_LOCATION + " WHERE publisherId = ?", new String[]{friendId}, mRowToLocation);
     }
 
     public void addPost(Protocol.Post post, List<LocalResource> attachmentLocalResources)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             try {
                 Group.State groupState =
                         Group.State.valueOf(getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{post.mGroupId}));
                 if (groupState != Group.State.PUBLISHING && groupState != Group.State.SUBSCRIBING) {
-                    throw new Utils.ApplicationError(LOG_TAG, "invalid group state for post");
+                    throw new PloggyError(LOG_TAG, "invalid group state for post");
                 }
             } catch (NotFoundError e) {
-                throw new Utils.ApplicationError(LOG_TAG, "group not found for post");
+                throw new PloggyError(LOG_TAG, "group not found for post");
             }
             long newSequenceNumber = 1;
             try {
@@ -996,10 +996,10 @@ public class Data extends SQLiteOpenHelper {
             int attachmentIndex = 0;
             for (LocalResource localResource : attachmentLocalResources) {
                 if (!post.mAttachments.get(attachmentIndex).mId.equals(localResource.mResourceId)) {
-                    throw new Utils.ApplicationError(LOG_TAG, "invalid local resource id");
+                    throw new PloggyError(LOG_TAG, "invalid local resource id");
                 }
                 if (!post.mGroupId.equals(localResource.mGroupId)) {
-                    throw new Utils.ApplicationError(LOG_TAG, "invalid local resource group");
+                    throw new PloggyError(LOG_TAG, "invalid local resource group");
                 }
                 ContentValues localResourceValues = new ContentValues();
                 localResourceValues.put("resourceId", localResource.mResourceId);
@@ -1014,13 +1014,13 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(post.mGroupId, post.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public void removePost(String postId) throws Utils.ApplicationError {
+    public void removePost(String postId) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             String groupId = null;
@@ -1030,7 +1030,7 @@ public class Data extends SQLiteOpenHelper {
                         "SELECT groupId FROM Post WHERE id = ? AND publisherId = (SELECT id FROM Self)",
                         new String[]{postId});
             } catch (NotFoundError e) {
-                throw new Utils.ApplicationError(LOG_TAG, "removing unpublished post");
+                throw new PloggyError(LOG_TAG, "removing unpublished post");
             }
             // *TODO* check post's group's state?
             long newSequenceNumber = 1;
@@ -1042,7 +1042,7 @@ public class Data extends SQLiteOpenHelper {
                             "AND groupId = (SELECT groupId FROM Post WHERE Post.id = ?)",
                         new String[]{postId});
             } catch (NotFoundError e) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected sequence number not found");
+                throw new PloggyError(LOG_TAG, "unexpected sequence number not found");
             }
             ContentValues values = new ContentValues();
             values.put("sequenceNumber", newSequenceNumber);
@@ -1056,13 +1056,13 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(groupId, postId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public void markAsReadPosts(List<String> postIds) throws Utils.ApplicationError {
+    public void markAsReadPosts(List<String> postIds) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             for (String postId : postIds) {
@@ -1078,7 +1078,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.MarkedAsReadPosts(postIds));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1091,7 +1091,7 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<Post> mRowToPost =
         new IRowToObject<Post>() {
             @Override
-            public Post rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public Post rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 Post.State state = Post.State.valueOf(cursor.getString(9));
                 return new Post(
                         new Protocol.Post(
@@ -1103,19 +1103,19 @@ public class Data extends SQLiteOpenHelper {
             }
         };
 
-    public Post getPost(String postId) throws Utils.ApplicationError, NotFoundError {
+    public Post getPost(String postId) throws PloggyError, NotFoundError {
         return getObject(SELECT_POST + " WHERE id = ?", new String[]{postId}, mRowToPost);
     }
 
-    public Post getPostOrThrow(String postId) throws Utils.ApplicationError {
+    public Post getPostOrThrow(String postId) throws PloggyError {
         try {
             return getPost(postId);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "unexpected post not found");
+            throw new PloggyError(LOG_TAG, "unexpected post not found");
         }
     }
 
-    public CursorIterator<Post> getUnreadPosts() throws Utils.ApplicationError {
+    public CursorIterator<Post> getUnreadPosts() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND unread = 1" +
@@ -1124,7 +1124,7 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public CursorIterator<Post> getPosts(String groupId) throws Utils.ApplicationError {
+    public CursorIterator<Post> getPosts(String groupId) throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND groupId = ?" +
@@ -1133,7 +1133,7 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public CursorIterator<Post> getPostsForUnreceivedGroups() throws Utils.ApplicationError {
+    public CursorIterator<Post> getPostsForUnreceivedGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group)" +
@@ -1143,7 +1143,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public Protocol.PullRequest getPullRequest(String friendId)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         Map<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers =
                 new LinkedHashMap<String, Protocol.SequenceNumbers>();
         List<String> groupsToResignMembership = new ArrayList<String>();
@@ -1197,7 +1197,7 @@ public class Data extends SQLiteOpenHelper {
                 cursor.moveToNext();
             }
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             if (cursor != null) {
                 cursor.close();
@@ -1215,7 +1215,7 @@ public class Data extends SQLiteOpenHelper {
         private String mNext;
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
-                throws Utils.ApplicationError {
+                throws PloggyError {
             mGroupsToSend = getGroupsToSend(friendId, pullRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostIterator = null;
@@ -1268,14 +1268,14 @@ public class Data extends SQLiteOpenHelper {
                 }
             } catch (NotFoundError e) {
                 Log.addEntry(LOG_TAG, "push iterator failed with item not found");
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "push iterator failed");
             }
             return null;
         }
 
         private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.PullRequest pullRequest)
-                throws Utils.ApplicationError {
+                throws PloggyError {
             Map<String, Protocol.SequenceNumbers> groupsToSend =
                     new LinkedHashMap<String, Protocol.SequenceNumbers>();
             Cursor cursor = null;
@@ -1316,7 +1316,7 @@ public class Data extends SQLiteOpenHelper {
                     cursor.moveToNext();
                 }
             } catch (SQLiteException e) {
-                throw new Utils.ApplicationError(LOG_TAG, e);
+                throw new PloggyError(LOG_TAG, e);
             } finally {
                 if (cursor != null) {
                     cursor.close();
@@ -1327,7 +1327,7 @@ public class Data extends SQLiteOpenHelper {
         }
 
         private CursorIterator<Post> getPosts(String groupId, long afterSequenceNumber)
-                throws Utils.ApplicationError {
+                throws PloggyError {
             return getObjectCursor(
                     SELECT_POST +
                         " WHERE publisherId = (SELECT id FROM Self) AND groupId = ? AND sequenceNumber > CAST(? as INTEGER)" +
@@ -1350,7 +1350,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public PullResponseIterator getPullResponse(String friendId, Protocol.PullRequest pullRequest)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         // If publisher of group that friend wants to be removed from, do that now, before
         // sending pull data.
         // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
@@ -1387,7 +1387,7 @@ public class Data extends SQLiteOpenHelper {
                     Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
                 }
             } catch (SQLiteException e) {
-                throw new Utils.ApplicationError(LOG_TAG, e);
+                throw new PloggyError(LOG_TAG, e);
             } finally {
                 mDatabase.endTransaction();
             }
@@ -1398,7 +1398,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private void confirmSentTo(String groupId, String friendId, long lastConfirmedGroupSequenceNumber, long lastConfirmedPostSequenceNumber)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         // Helper used by other confirmSentTo functions; assumes in transaction
         try {
             if (lastConfirmedGroupSequenceNumber != UNASSIGNED_SEQUENCE_NUMBER) {
@@ -1420,11 +1420,11 @@ public class Data extends SQLiteOpenHelper {
                         new String[]{groupId, friendId, Long.toString(lastConfirmedPostSequenceNumber)});
             }
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public void confirmSentTo(String friendId, Protocol.PullRequest pullRequest) throws Utils.ApplicationError {
+    public void confirmSentTo(String friendId, Protocol.PullRequest pullRequest) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             for (Map.Entry<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers :
@@ -1449,7 +1449,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void confirmSentTo(String friendId, Protocol.Group group) throws Utils.ApplicationError {
+    public void confirmSentTo(String friendId, Protocol.Group group) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(group.mId, friendId, group.mSequenceNumber, UNASSIGNED_SEQUENCE_NUMBER);
@@ -1460,7 +1460,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void confirmSentTo(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+    public void confirmSentTo(String friendId, Protocol.Post post) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(post.mGroupId, friendId, UNASSIGNED_SEQUENCE_NUMBER, post.mSequenceNumber);
@@ -1474,7 +1474,7 @@ public class Data extends SQLiteOpenHelper {
     public static final int MAX_PULL_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
 
     public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, List<Protocol.Group> pulledGroups, List<Protocol.Post> pulledPosts)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         // NOTE: writing would be fastest if the entire "push" PUT request stream were written in one transaction,
         // but that would block other database access. As a compromise, we support writing chunks of objects. This
         // has the benefit of writing a few objects per transaction, plus advancing the last received sequence number
@@ -1525,13 +1525,13 @@ public class Data extends SQLiteOpenHelper {
             }
 
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public void putPushedGroup(String friendId, Protocol.Group group) throws Utils.ApplicationError {
+    public void putPushedGroup(String friendId, Protocol.Group group) throws PloggyError {
         // Unlike putPushedObject, there's no pull trigger since all we would
         // know is we missed an older version of the group object itself.
         try {
@@ -1540,13 +1540,13 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
-    public boolean putPushedPost(String friendId, Protocol.Post post) throws Utils.ApplicationError {
+    public boolean putPushedPost(String friendId, Protocol.Post post) throws PloggyError {
         boolean triggerPull = false;
         try {
             mDatabase.beginTransactionNonExclusive();
@@ -1562,7 +1562,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1570,7 +1570,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private void putReceivedGroup(String friendId, Protocol.Group group)
-            throws Utils.ApplicationError, SQLiteException {
+            throws PloggyError, SQLiteException {
         // Helper used by putPullResponse and putPushedGroup; assumes in transaction
         long previousSequenceNumber = 0;
         Group.State previousState = Group.State.SUBSCRIBING;
@@ -1584,7 +1584,7 @@ public class Data extends SQLiteOpenHelper {
             // Check that friend is publisher
             if (!publisherId.equals(group.mPublisherId) ||
                     !publisherId.equals(friendId)) {
-                throw new Utils.ApplicationError(LOG_TAG, "invalid group publisher");
+                throw new PloggyError(LOG_TAG, "invalid group publisher");
             }
         } catch (NotFoundError e) {
             // This is a new group
@@ -1620,15 +1620,15 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private void putReceivedPost(String friendId, Protocol.Post post)
-            throws Utils.ApplicationError, SQLiteException {
+            throws PloggyError, SQLiteException {
         // Helper used by putPullResponse and putPushedGroup; assumes in transaction
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId <> ?",
                 new String[]{post.mId, friendId})) {
-            throw new Utils.ApplicationError(LOG_TAG, "invalid post publisher");
+            throw new PloggyError(LOG_TAG, "invalid post publisher");
         }
         if (!post.mPublisherId.equals(friendId)) {
-            throw new Utils.ApplicationError(LOG_TAG, "mismatched post publisher");
+            throw new PloggyError(LOG_TAG, "mismatched post publisher");
         }
         // Check group state as well as post publisher's membership
         try {
@@ -1648,7 +1648,7 @@ public class Data extends SQLiteOpenHelper {
                 return;
             }
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "invalid post from non-group member");
+            throw new PloggyError(LOG_TAG, "invalid post from non-group member");
         }
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post " +
@@ -1682,7 +1682,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void addLocalResource(LocalResource localResource) throws Utils.ApplicationError {
+    public void addLocalResource(LocalResource localResource) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
@@ -1695,7 +1695,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.insertOrThrow("LocalResource", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1707,7 +1707,7 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<LocalResource> mRowToLocalResource =
         new IRowToObject<LocalResource>() {
             @Override
-            public LocalResource rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public LocalResource rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 return new LocalResource(
                         cursor.getString(0), cursor.getString(1), LocalResource.Type.valueOf(cursor.getString(2)),
                         cursor.getString(3), cursor.getString(4), cursor.getString(5));
@@ -1715,7 +1715,7 @@ public class Data extends SQLiteOpenHelper {
         };
 
     public LocalResource getLocalResource(String friendId, String resourceId)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         // Reports NotFound when friend is not a member of group that resource belongs to
         return getObject(
                 SELECT_LOCAL_RESOURCE + " WHERE resourceid = ? AND groupId IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
@@ -1724,7 +1724,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public void addDownload(String friendId, Protocol.Resource resource)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
@@ -1737,25 +1737,25 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.AddedDownload(friendId, resource.mId));
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
     }
 
     public void updateDownloadState(String friendId, String resourceId, Download.State state)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         try {
             mDatabase.beginTransactionNonExclusive();
             ContentValues values = new ContentValues();
             values.put("state", state.name());
             if (1 != mDatabase.update(
                     "Download", values, "publisherId = ? AND resourceId = ?", new String[]{friendId, resourceId})) {
-                throw new Utils.ApplicationError(LOG_TAG, "update download failed");
+                throw new PloggyError(LOG_TAG, "update download failed");
             }
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1767,7 +1767,7 @@ public class Data extends SQLiteOpenHelper {
     private static final IRowToObject<Download> mRowToDownload =
         new IRowToObject<Download>() {
             @Override
-            public Download rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError {
+            public Download rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 return new Download(
                         cursor.getString(0), cursor.getString(1), cursor.getString(2),
                         cursor.getLong(3), Download.State.valueOf(cursor.getString(4)));
@@ -1775,7 +1775,7 @@ public class Data extends SQLiteOpenHelper {
         };
 
     public Download getDownload(String friendId, String resourceId)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         return getObject(
                 SELECT_DOWNLOAD + " WHERE publisherId = ? AND resourceid = ?",
                 new String[]{friendId, resourceId},
@@ -1783,7 +1783,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public Download getNextInProgressDownload(String friendId)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         // *TODO* ORDER BY...?
         return getObject(
                 SELECT_DOWNLOAD + " WHERE publisherId = ? AND state = ?",
@@ -1791,16 +1791,16 @@ public class Data extends SQLiteOpenHelper {
                 mRowToDownload);
     }
 
-    private long getCount(String query, String[] args) throws Utils.ApplicationError {
+    private long getCount(String query, String[] args) throws PloggyError {
         // Helper for SELECT COUNT, which should not throw NotFoundError
         try {
             return getLongColumn(query, args);
         } catch (NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    private static long getLongColumn(SQLiteDatabase database, String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+    private static long getLongColumn(SQLiteDatabase database, String query, String[] args) throws PloggyError, NotFoundError {
         Cursor cursor = null;
         try {
             cursor = database.rawQuery(query, args);
@@ -1809,7 +1809,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return cursor.getLong(0);
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
         finally {
             if (cursor != null) {
@@ -1818,11 +1818,11 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private long getLongColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+    private long getLongColumn(String query, String[] args) throws PloggyError, NotFoundError {
         return getLongColumn(mDatabase, query, args);
     }
 
-    private String getStringColumn(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+    private String getStringColumn(String query, String[] args) throws PloggyError, NotFoundError {
         Cursor cursor = null;
         try {
             cursor = mDatabase.rawQuery(query, args);
@@ -1831,7 +1831,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return cursor.getString(0);
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
         finally {
             if (cursor != null) {
@@ -1840,7 +1840,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private String[] getRow(String query, String[] args) throws Utils.ApplicationError, NotFoundError {
+    private String[] getRow(String query, String[] args) throws PloggyError, NotFoundError {
         Cursor cursor = null;
         try {
             cursor = mDatabase.rawQuery(query, args);
@@ -1853,7 +1853,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return columns;
         } catch (SQLiteException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
         finally {
             if (cursor != null) {
@@ -1863,11 +1863,11 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static interface IRowToObject<T> {
-        public T rowToObject(SQLiteDatabase database, Cursor cursor) throws Utils.ApplicationError;
+        public T rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError;
     }
 
     private <T> T getObject(String query, String[] args, IRowToObject<T> rowToObject)
-            throws Utils.ApplicationError, NotFoundError {
+            throws PloggyError, NotFoundError {
         Cursor cursor = null;
         try {
             cursor = mDatabase.rawQuery(query, args);
@@ -1879,12 +1879,12 @@ public class Data extends SQLiteOpenHelper {
             if (cursor != null) {
                 cursor.close();
             }
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     private <T> CursorIterator<T> getObjectCursor(String query, String[] args, IRowToObject<T> rowToObject)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         Cursor cursor = null;
         try {
             cursor = mDatabase.rawQuery(query, args);
@@ -1893,7 +1893,7 @@ public class Data extends SQLiteOpenHelper {
             if (cursor != null) {
                 cursor.close();
             }
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
@@ -1943,7 +1943,7 @@ public class Data extends SQLiteOpenHelper {
                     mCursor.close();
                 }
                 return next;
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to get next cursor object");
                 return null;
             }

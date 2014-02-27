@@ -89,7 +89,7 @@ public class ExportIdentity {
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
                                 Log.addEntry(LOG_TAG, "failed to compose email with identity link");
-                            } catch (Utils.ApplicationError e) {
+                            } catch (PloggyError e) {
                                 Log.addEntry(LOG_TAG, "failed to compose email with identity link");
                             }
                         }
@@ -128,7 +128,7 @@ public class ExportIdentity {
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
                                 Log.addEntry(LOG_TAG, "failed to save identity to file");
-                            } catch (Utils.ApplicationError e) {
+                            } catch (PloggyError e) {
                                 Log.addEntry(LOG_TAG, "failed to save identity to file");
                             }
                         }

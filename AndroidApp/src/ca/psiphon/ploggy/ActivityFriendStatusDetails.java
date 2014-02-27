@@ -209,7 +209,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             Toast toast = Toast.makeText(this, getString(R.string.prompt_status_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
             finish();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to display friend status details");
             finish();
         }

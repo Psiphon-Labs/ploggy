@@ -65,11 +65,11 @@ public class Json {
         return mSerializer.toJson(object);
     }
 
-    public static <T> T fromJson(String json, Class<T> type) throws Utils.ApplicationError {
+    public static <T> T fromJson(String json, Class<T> type) throws PloggyError {
         try {
             return mSerializer.fromJson(json, type);
         } catch (JsonSyntaxException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
@@ -77,7 +77,7 @@ public class Json {
 
         private final JsonReader mJsonReader;
 
-        public PayloadIterator(InputStream inputStream) throws Utils.ApplicationError {
+        public PayloadIterator(InputStream inputStream) throws PloggyError {
             // *TODO* double check mJsonReader.close() closes input stream
             try {
                 mJsonReader = new JsonReader(new InputStreamReader(inputStream, "UTF-8"));
@@ -85,11 +85,11 @@ public class Json {
                 // other, in the same stream
                 mJsonReader.setLenient(true);
             } catch (UnsupportedEncodingException e) {
-                throw new Utils.ApplicationError(LOG_TAG, e);
+                throw new PloggyError(LOG_TAG, e);
             }
         }
 
-        public PayloadIterator(String input) throws Utils.ApplicationError {
+        public PayloadIterator(String input) throws PloggyError {
             this(Utils.makeInputStream(input));
         }
 

@@ -58,7 +58,7 @@ public class PloggyService extends Service {
             Events.getInstance().register(this);
             mEngine = new Engine(this);
             mEngine.start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to start Engine");
             stopSelf();
             return;
@@ -110,7 +110,7 @@ public class PloggyService extends Service {
                         post.mPost.mContent,
                         data.getFriendByIdOrThrow(post.mPost.mPublisherId).mPublicIdentity.mNickname));
             }
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to update notification");
             return;
         } finally {

@@ -59,7 +59,7 @@ public class FragmentFriendList extends ListFragment {
         View view = super.onCreateView(inflater, container, savedInstanceState);
         try {
             mFriendAdapter = new FriendAdapter(getActivity());
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
         }
 
@@ -135,7 +135,7 @@ public class FragmentFriendList extends ListFragment {
                                     Data.getInstance().removeFriend(finalFriend.mId);
                                 } catch (Data.DataNotFoundError e) {
                                     // Ignore
-                                } catch (Utils.ApplicationError e) {
+                                } catch (PloggyError e) {
                                     Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
                                 }
                             }
@@ -177,7 +177,7 @@ public class FragmentFriendList extends ListFragment {
     private void updateFriends() {
         try {
             mFriendAdapter.updateFriends();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to update friend list");
         }
     }
@@ -186,12 +186,12 @@ public class FragmentFriendList extends ListFragment {
         private final Context mContext;
         private List<Data.Friend> mFriends;
 
-        public FriendAdapter(Context context) throws Utils.ApplicationError {
+        public FriendAdapter(Context context) throws PloggyError {
             mContext = context;
             mFriends = Data.getInstance().getFriends();
         }
 
-        public void updateFriends() throws Utils.ApplicationError {
+        public void updateFriends() throws PloggyError {
             mFriends = Data.getInstance().getFriends();
             notifyDataSetChanged();
         }
@@ -280,7 +280,7 @@ public class FragmentFriendList extends ListFragment {
                     }
                 } catch (Data.DataNotFoundError e) {
                     messageTimestampText.setText(R.string.prompt_no_status_updates_received);
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "failed to display friend");
                 }
             }

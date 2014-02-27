@@ -58,7 +58,7 @@ public class TransportSecurity {
 
     public static ServerSocket makeServerSocket(
             X509.KeyMaterial transportKeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
         try {
             SSLContext sslContext = TransportSecurity.getSSLContext(transportKeyMaterial, friendCertificates);
             SSLServerSocket sslServerSocket = (SSLServerSocket)(sslContext.getServerSocketFactory().createServerSocket());
@@ -67,9 +67,9 @@ public class TransportSecurity {
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
             return sslServerSocket;
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
@@ -125,7 +125,7 @@ public class TransportSecurity {
             try {
                 Data.Friend friend = mData.getFriendByCertificateOrThrow(certificate);
                 return hostname.equals(friend.mPublicIdentity.mHiddenServiceHostname);
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
             }
             return false;
         }
@@ -162,7 +162,7 @@ public class TransportSecurity {
 
     public static SSLContext getSSLContext(
             X509.KeyMaterial x509KeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
         try {
             KeyManager[] keyManagers = null;
             if (x509KeyMaterial != null) {
@@ -185,9 +185,9 @@ public class TransportSecurity {
             sslContext.init(keyManagers, trustManagers, new SecureRandom());
             return sslContext;
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 

@@ -147,7 +147,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
                 resetPicture();
                 Utils.hideKeyboard(getActivity());
             }
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to update self message");
         }
     }

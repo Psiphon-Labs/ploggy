@@ -93,12 +93,12 @@ public class WebClientRequest {
         return this;
     }
 
-    public WebClientRequest requestBody(String requestBody) throws Utils.ApplicationError {
+    public WebClientRequest requestBody(String requestBody) throws PloggyError {
         byte[] body;
         try {
             body = requestBody.getBytes("UTF-8");
         } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
         return requestBody("application/json", body.length, new ByteArrayInputStream(body));
     }
@@ -115,7 +115,7 @@ public class WebClientRequest {
     }
 
     public interface ResponseBodyHandler {
-        void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError;
+        void consume(InputStream responseBodyInputStream) throws PloggyError;
     }
 
     public WebClientRequest responseBodyHandler(ResponseBodyHandler responseBodyHandler) {
@@ -124,17 +124,17 @@ public class WebClientRequest {
         return this;
     }
 
-    public String makeRequestAndLoadResponse() throws Utils.ApplicationError {
+    public String makeRequestAndLoadResponse() throws PloggyError {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         responseBodyOutputStream(outputStream);
         try {
             return new String(outputStream.toByteArray(), "UTF-8");
         } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public void makeRequest() throws Utils.ApplicationError {
+    public void makeRequest() throws PloggyError {
         HttpRequestBase request = null;
         ClientConnectionManager connectionManager = null;
         try {
@@ -180,7 +180,7 @@ public class WebClientRequest {
             HttpResponse response = client.execute(request);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != HttpStatus.SC_OK) {
-                throw new Utils.ApplicationError(LOG_TAG, String.format("HTTP request failed with %d", statusCode));
+                throw new PloggyError(LOG_TAG, String.format("HTTP request failed with %d", statusCode));
             }
             HttpEntity responseEntity = response.getEntity();
             if (mResponseBodyOutputStream != null) {
@@ -193,17 +193,17 @@ public class WebClientRequest {
                 Utils.discardStream(responseEntity.getContent());
             }
         } catch (URISyntaxException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (UnsupportedOperationException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IllegalStateException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (NullPointerException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             if (request != null && !request.isAborted()) {
                 request.abort();

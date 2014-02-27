@@ -80,7 +80,7 @@ public class Pictures {
             }
             target.setImageBitmap(bitmap);
             return true;
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             target.setImageResource(R.drawable.ic_picture_load_error);
         }
         return false;
@@ -90,13 +90,13 @@ public class Pictures {
         try {
             target.setImageBitmap(loadScaledBitmap(source, MAX_PICTURE_SIZE_IN_PIXELS));
             return true;
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             target.setImageResource(R.drawable.ic_picture_load_error);
             return false;
         }
     }
 
-    public static void copyScaledBitmapWithoutMetadata(File source, File target) throws Utils.ApplicationError {
+    public static void copyScaledBitmapWithoutMetadata(File source, File target) throws PloggyError {
         FileOutputStream outputStream = null;
         try {
             // Extracting a bitmap from the file omits EXIF and other metadata, regardless of
@@ -107,7 +107,7 @@ public class Pictures {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
             bitmap.recycle();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } finally {
             if (outputStream != null) {
                 try {
@@ -119,7 +119,7 @@ public class Pictures {
     }
 
     private static Bitmap loadScaledBitmap(File source, int targetWidth, int targetHeight)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         BitmapFactory.Options options = new BitmapFactory.Options();
         decodeBitmapBounds(source, options);
         options.inSampleSize =
@@ -129,7 +129,7 @@ public class Pictures {
 
 
     private static Bitmap loadScaledBitmap(File source, int maxSizeInPixels)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         BitmapFactory.Options options = new BitmapFactory.Options();
         decodeBitmapBounds(source, options);
         options.inSampleSize =
@@ -145,16 +145,16 @@ public class Pictures {
     }
 
     private static Bitmap decodeBitmap(File source, BitmapFactory.Options options)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         try {
             Bitmap bitmap = BitmapFactory.decodeFile(source.getAbsolutePath(), options);
             if (bitmap == null) {
-                throw new Utils.ApplicationError(LOG_TAG, "cannot decode image");
+                throw new PloggyError(LOG_TAG, "cannot decode image");
             }
             return bitmap;
         } catch (OutOfMemoryError e) {
             // Expected condition due to bitmap loading; friend will eventually retry download
-            throw new Utils.ApplicationError(LOG_TAG, "out of memory error");
+            throw new PloggyError(LOG_TAG, "out of memory error");
         }
     }
 

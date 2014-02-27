@@ -93,7 +93,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 Robohash.setRobohashImage(this, mAvatarImage, false, null);
             }
             mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to show self");
         }
     }
@@ -172,7 +172,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 Utils.hideKeyboard(this);
 
                 finish();
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to update self");
             }
         }
@@ -203,7 +203,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial(hiddenServiceKeyMaterial.mHostname);
                 Log.addEntry(LOG_TAG, "generated X.509 key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to generate key material");
                 return null;
             }
@@ -234,7 +234,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                                     mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
                                     mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                     null));
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                 }
                 mNicknameEdit.setEnabled(true);
             }
@@ -278,7 +278,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                                                         mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
                                                         mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
                                                         null));
-                                    } catch (Utils.ApplicationError e) {
+                                    } catch (PloggyError e) {
                                     }
                                 }
                             }
@@ -294,7 +294,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         Data.Self self = null;
         try {
             self = Data.getInstance(context).getSelfOrThrow();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
         }
         return self;
     }

@@ -95,7 +95,7 @@ public class Nominatim {
 
             response = webClientRequest.makeRequestAndLoadResponse();
         }
-        catch (Utils.ApplicationError e) {
+        catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
             return address;
         }

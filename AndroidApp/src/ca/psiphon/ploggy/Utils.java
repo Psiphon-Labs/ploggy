@@ -64,27 +64,6 @@ public class Utils {
 
     private static final String LOG_TAG = "Utils";
 
-    public static class ApplicationError extends Exception {
-        private static final long serialVersionUID = -3656367025650685613L;
-
-        public ApplicationError(String tag, String message) {
-            if (tag != null) {
-                Log.addEntry(tag, message);
-            }
-        }
-
-        public ApplicationError(String tag, Exception e) {
-            // TODO: require message param as well?
-            // TODO: log stack trace?
-            super(e);
-            String message = e.getLocalizedMessage();
-            if (message == null) {
-                message = "(null)";
-            }
-            Log.addEntry(tag, String.format("%s: %s", e.getClass().toString(), message));
-        }
-    }
-
     public static void writeStringToFile(String data, File file) throws IOException {
         FileOutputStream fileOutputStream = new FileOutputStream(file);
         try {
@@ -168,11 +147,11 @@ public class Utils {
         copyStream(inputStream, new NullOutputStream());
     }
 
-    public static InputStream makeInputStream(String input) throws Utils.ApplicationError {
+    public static InputStream makeInputStream(String input) throws PloggyError {
         try {
             return new ByteArrayInputStream(input.getBytes("UTF-8"));
         } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
@@ -225,11 +204,11 @@ public class Utils {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
 
-    public static byte[] decodeBase64(String data) throws Utils.ApplicationError {
+    public static byte[] decodeBase64(String data) throws PloggyError {
         try {
             return Base64.decode(data, Base64.DEFAULT);
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 

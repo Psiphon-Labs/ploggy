@@ -97,7 +97,7 @@ public class Robohash {
                 imageView.setImageBitmap(Robohash.getRobohash(
                         context, cacheCandidate, publicIdentity.getFingerprint()));
                 return;
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to create image");
             }
         }
@@ -107,7 +107,7 @@ public class Robohash {
     public static Bitmap getRobohash(
             Context context,
             boolean cacheCandidate,
-            byte[] data) throws Utils.ApplicationError {
+            byte[] data) throws PloggyError {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             byte[] digest = sha1.digest(data);
@@ -156,11 +156,11 @@ public class Robohash {
             return robotBitmap;
 
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (JSONException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (NoSuchAlgorithmException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 

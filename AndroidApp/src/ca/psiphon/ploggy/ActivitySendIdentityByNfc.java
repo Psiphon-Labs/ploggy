@@ -75,7 +75,7 @@ public class ActivitySendIdentityByNfc extends FragmentActivity implements NfcAd
                     new NdefRecord[] {
                             NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),
                             NdefRecord.createApplicationRecord(NFC_AAR_PACKAGE_NAME) });
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to create outbound NFC message");
         }
         return null;

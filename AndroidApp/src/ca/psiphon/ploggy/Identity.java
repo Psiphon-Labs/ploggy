@@ -53,7 +53,7 @@ public class Identity {
                 String x509Certificate,
                 String hiddenServiceHostname,
                 String hiddenServicAuthCookie,
-                String signature) throws Utils.ApplicationError {
+                String signature) throws PloggyError {
             mId = Utils.encodeBase64(getFingerprint());
             mNickname = nickname;
             mX509Certificate = x509Certificate;
@@ -62,7 +62,7 @@ public class Identity {
             mSignature = signature;
         }
 
-        public byte[] getFingerprint() throws Utils.ApplicationError {
+        public byte[] getFingerprint() throws PloggyError {
             // Note: Fingerprint excludes hidden service auth cookies, since those may change.
             // (Those values *are* included in signatures to ensure a false value isn't swapped in, denying service.)
             return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
@@ -83,7 +83,7 @@ public class Identity {
             String nickname,
             String rootCertificate,
             String hiddenServiceHostname,
-            String hiddenServiceAuthCookie) throws Utils.ApplicationError {
+            String hiddenServiceAuthCookie) throws PloggyError {
         try {
             ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
             byteArray.write(nickname.getBytes("UTF-8"));
@@ -92,14 +92,14 @@ public class Identity {
             byteArray.write(hiddenServiceAuthCookie.getBytes("UTF-8"));
             return byteArray.toByteArray();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     public static PublicIdentity makeSignedPublicIdentity(
             String nickname,
             X509.KeyMaterial x509KeyMaterial,
-            HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws Utils.ApplicationError {
+            HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws PloggyError {
         String signature = X509.sign(
                 x509KeyMaterial,
                 getPublicSigningData(

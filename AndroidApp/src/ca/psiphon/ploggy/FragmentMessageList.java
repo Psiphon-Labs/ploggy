@@ -58,7 +58,7 @@ public class FragmentMessageList extends Fragment {
 
         try {
             mMessageAdapter = new MessageAdapter(getActivity(), MessageAdapter.Mode.ALL_MESSAGES);
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to initialize message adapter");
         }
 
@@ -126,7 +126,7 @@ public class FragmentMessageList extends Fragment {
     private void updateMessages() {
         try {
             mMessageAdapter.updateMessages();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to update message list");
         }
     }

@@ -201,24 +201,24 @@ public class Protocol {
         return nickname.length() > 0;
     }
 
-    public static void validatePublicIdentity(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
+    public static void validatePublicIdentity(Identity.PublicIdentity publicIdentity) throws PloggyError {
         // TODO: Nickname valid, cert valid, hostname valid
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
     }
 
-    public static void validatePullRequest(PullRequest pullRequest) throws Utils.ApplicationError {
+    public static void validatePullRequest(PullRequest pullRequest) throws PloggyError {
         // TODO: ...
     }
 
-    public static void validateGroup(Group group) throws Utils.ApplicationError {
+    public static void validateGroup(Group group) throws PloggyError {
         // TODO: ...
     }
 
-    public static void validateLocation(Location location) throws Utils.ApplicationError {
+    public static void validateLocation(Location location) throws PloggyError {
         // TODO: ...
     }
 
-    public static void validatePost(Post post) throws Utils.ApplicationError {
+    public static void validatePost(Post post) throws PloggyError {
         // TODO: ...
     }
 }

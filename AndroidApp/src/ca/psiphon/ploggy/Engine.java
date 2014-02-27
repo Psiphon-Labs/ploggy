@@ -125,7 +125,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mStopped = true;
     }
 
-    public synchronized void start() throws Utils.ApplicationError {
+    public synchronized void start() throws PloggyError {
         if (!mStopped) {
             stop();
         }
@@ -193,7 +193,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     try {
                         stop();
                         start();
-                    } catch (Utils.ApplicationError e) {
+                    } catch (PloggyError e) {
                         Log.addEntry(LOG_TAG, "failed to restart engine after preference change");
                     }
                 }
@@ -214,7 +214,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             // ...and pull changes from friends
             pullFromFriends();
             startDownloadRetryTask();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to start friend poll after Tor circuit established");
         }
     }
@@ -224,7 +224,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // Apply new transport and hidden service credentials
         try {
             start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to restart hidden service after self updated");
         }
     }
@@ -237,7 +237,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
         try {
             start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
         }
     }
@@ -247,7 +247,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // Full stop/start to clear friend task cache
         try {
             start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
         }
     }
@@ -267,7 +267,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             newSelfLocation.mLocation.getLatitude(),
                             newSelfLocation.mLocation.getLongitude(),
                             streetAddress));
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to update self status with new location");
         }
     }
@@ -276,7 +276,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized void onUpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
         try {
             pushToFriends(mData.getGroupOrThrow(updatedSelfGroup.mGroupId).mGroup);
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self group update");
         }
     }
@@ -285,7 +285,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized void onUpdatedSelfLocation(Events.UpdatedSelfLocation updatedSelfLocation) {
         try {
             pushToFriends(mData.getSelfLocationOrThrow());
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self location update");
         }
     }
@@ -294,7 +294,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public synchronized void onUpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
         try {
             pushToFriends(mData.getPostOrThrow(updatedSelfPost.mPostId).mPost);
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed push to friends after self post update");
         }
     }
@@ -331,7 +331,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void startHiddenService() throws Utils.ApplicationError {
+    private void startHiddenService() throws PloggyError {
         stopHiddenService();
 
         Data.Self self = mData.getSelfOrThrow();
@@ -346,7 +346,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         try {
             mWebServer.start();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
 
         List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
@@ -381,7 +381,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void startWebClientConnectionPool() throws Utils.ApplicationError {
+    private void startWebClientConnectionPool() throws PloggyError {
         stopWebClientConnectionPool();
         mWebClientConnectionPool = new WebClientConnectionPool(mData, getTorSocksProxyPort());
     }
@@ -393,34 +393,34 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
+    public synchronized int getTorSocksProxyPort() throws PloggyError {
         if (mTorWrapper != null) {
             return mTorWrapper.getSocksProxyPort();
         }
-        throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
+        throw new PloggyError(LOG_TAG, "no Tor socks proxy");
     }
 
-    private void askPullFromFriends() throws Utils.ApplicationError {
+    private void askPullFromFriends() throws PloggyError {
         for (Data.Friend friend : mData.getFriends()) {
             triggerFriendTask(FriendTaskType.ASK_PULL, friend.mId);
         }
     }
 
-    public void askLocationFromFriend(String friendId) throws Utils.ApplicationError {
+    public void askLocationFromFriend(String friendId) throws PloggyError {
         triggerFriendTask(FriendTaskType.ASK_LOCATION, friendId);
     }
 
-    private void pullFromFriends() throws Utils.ApplicationError {
+    private void pullFromFriends() throws PloggyError {
         for (Data.Friend friend : mData.getFriends()) {
             triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
         }
     }
 
-    private void pushToFriends(Protocol.Group group) throws Utils.ApplicationError {
+    private void pushToFriends(Protocol.Group group) throws PloggyError {
         pushToGroup(group, new Protocol.Payload(Protocol.Payload.Type.GROUP, group));
     }
 
-    private void pushToFriends(Protocol.Location location) throws Utils.ApplicationError {
+    private void pushToFriends(Protocol.Location location) throws PloggyError {
         // *TODO* group location sharing preferences
         for (Data.Friend friend : mData.getFriends()) {
             enqueueFriendPushPayload(friend.mId, new Protocol.Payload(Protocol.Payload.Type.LOCATION, location));
@@ -428,19 +428,19 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void pushToFriends(Protocol.Post post) throws Utils.ApplicationError {
+    private void pushToFriends(Protocol.Post post) throws PloggyError {
         Data.Group group = mData.getGroupOrThrow(post.mGroupId);
         pushToGroup(group.mGroup, new Protocol.Payload(Protocol.Payload.Type.POST, post));
     }
 
-    private void pushToGroup(Protocol.Group group, Protocol.Payload payload) throws Utils.ApplicationError {
+    private void pushToGroup(Protocol.Group group, Protocol.Payload payload) throws PloggyError {
         for (Identity.PublicIdentity member : group.mMembers) {
             enqueueFriendPushPayload(member.mId, payload);
             triggerFriendTask(FriendTaskType.PUSH_TO, member.mId);
         }
     }
 
-    private void startDownloadRetryTask() throws Utils.ApplicationError {
+    private void startDownloadRetryTask() throws PloggyError {
         stopDownloadRetryTask();
         // Start a recurring timer with initial delay
         // FRIEND_REQUEST_DELAY_IN_MILLISECONDS and subsequent delay
@@ -454,7 +454,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         for (Data.Friend friend : mData.getFriends()) {
                             triggerFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
                         }
-                    } catch (Utils.ApplicationError e) {
+                    } catch (PloggyError e) {
                         Log.addEntry(LOG_TAG, "failed to poll friends");
                     } finally {
                         mHandler.postDelayed(this, DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS);
@@ -567,13 +567,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     webClientRequest.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     try {
                         Log.addEntry(
                                 LOG_TAG,
                                 "failed to ask pull to: " +
                                     mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
+                    } catch (PloggyError e2) {
                         Log.addEntry(LOG_TAG, "failed to ask pull");
                     }
                 } finally {
@@ -604,13 +604,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     webClientRequest.makeRequest();
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     try {
                         Log.addEntry(
                                 LOG_TAG,
                                 "failed to ask location to: " +
                                     mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
+                    } catch (PloggyError e2) {
                         Log.addEntry(LOG_TAG, "failed to ask location");
                     }
                 } finally {
@@ -659,13 +659,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     }
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     try {
                         Log.addEntry(
                                 LOG_TAG,
                                 "failed to push to: " +
                                     mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
+                    } catch (PloggyError e2) {
                         Log.addEntry(LOG_TAG, "failed to push");
                     }
                 } finally {
@@ -696,7 +696,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         final Protocol.PullRequest finalPullRequest = mData.getPullRequest(finalFriendId);
                         WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
                             @Override
-                            public void consume(InputStream responseBodyInputStream) throws Utils.ApplicationError {
+                            public void consume(InputStream responseBodyInputStream) throws PloggyError {
                                 Protocol.PullRequest pullRequest = finalPullRequest;
                                 List<Protocol.Group> groups = new ArrayList<Protocol.Group>();
                                 List<Protocol.Post> posts = new ArrayList<Protocol.Post>();
@@ -741,13 +741,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                     // RemovedFriend should eventually cancel schedule.
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     try {
                         Log.addEntry(
                                 LOG_TAG,
                                 "failed to pull from: " +
                                     mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
+                    } catch (PloggyError e2) {
                         Log.addEntry(LOG_TAG, "failed to pull");
                     }
                 } finally {
@@ -811,13 +811,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
                     // RemovedFriend should eventually cancel schedule.
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     try {
                         Log.addEntry(
                                 LOG_TAG,
                                 "failed to download from: " +
                                     mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
+                    } catch (PloggyError e2) {
                         Log.addEntry(LOG_TAG, "failed to download status");
                     }
                 } finally {
@@ -830,7 +830,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public String getFriendNicknameByCertificate(String friendCertificate) throws Utils.ApplicationError {
+    public String getFriendNicknameByCertificate(String friendCertificate) throws PloggyError {
         Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
         return friend.mPublicIdentity.mNickname;
     }
@@ -838,7 +838,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // Note: WebServer callbacks not synchronized
     @Override
     public void updateFriendSent(String friendCertificate, Date lastSentToTimestamp, long additionalBytesSentTo)
-            throws Utils.ApplicationError  {
+            throws PloggyError  {
         Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
         mData.updateFriendSentOrThrow(friend.mId, lastSentToTimestamp, additionalBytesSentTo);
     }
@@ -846,38 +846,38 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // Note: WebServer callbacks not synchronized
     @Override
     public void updateFriendReceived(String friendCertificate, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
-            throws Utils.ApplicationError {
+            throws PloggyError {
         Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
         mData.updateFriendReceivedOrThrow(friend.mId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public void handleAskPullRequest(String friendCertificate) throws Utils.ApplicationError {
+    public void handleAskPullRequest(String friendCertificate) throws PloggyError {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
             Log.addEntry(LOG_TAG, "served ask pull request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle ask pull request: friend not found");
+            throw new PloggyError(LOG_TAG, "failed to handle ask pull request: friend not found");
         }
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public void handleAskLocationRequest(String friendCertificate) throws Utils.ApplicationError {
+    public void handleAskLocationRequest(String friendCertificate) throws PloggyError {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             // *TODO* check location ACL; trigger fix (if not in progress: see spec)
             Log.addEntry(LOG_TAG, "served ask location request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle ask location request: friend not found");
+            throw new PloggyError(LOG_TAG, "failed to handle ask location request: friend not found");
         }
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public void handlePushRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError  {
+    public void handlePushRequest(String friendCertificate, String requestBody) throws PloggyError  {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             // TODO: stream requestBody instead of loading entirely into memory
@@ -913,13 +913,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Log.addEntry(LOG_TAG, "served push request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
             // *TODO* use XYZOrThrow instead?
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle push request: friend not found");
+            throw new PloggyError(LOG_TAG, "failed to handle push request: friend not found");
         }
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
-    public WebServer.RequestHandler.PullResponse handlePullRequest(String friendCertificate, String requestBody) throws Utils.ApplicationError {
+    public WebServer.RequestHandler.PullResponse handlePullRequest(String friendCertificate, String requestBody) throws PloggyError {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             Protocol.PullRequest pullRequest = Json.fromJson(requestBody, Protocol.PullRequest.class);
@@ -931,14 +931,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     new Utils.StringIteratorInputStream(pullResponseIterator));
         } catch (Data.NotFoundError e) {
             // *TODO* use XYZOrThrow instead?
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle pull status request: friend not found");
+            throw new PloggyError(LOG_TAG, "failed to handle pull status request: friend not found");
         }
     }
 
     // Note: WebServer callbacks not synchronized
     @Override
     public WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
-            String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
+            String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError  {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             Data.LocalResource localResource = mData.getLocalResource(friend.mId, resourceId);
@@ -953,7 +953,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             return new DownloadResponse(true, localResource.mMimeType, inputStream);
         } catch (Data.NotFoundError e) {
             // *TODO* use XYZOrThrow instead?
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
+            throw new PloggyError(LOG_TAG, "failed to handle download request: friend or resource not found");
         }
     }
 
@@ -961,7 +961,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return mContext;
     }
 
-    public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized boolean getBooleanPreference(int keyResID) throws PloggyError {
         String key = mContext.getString(keyResID);
         // Defaults which are "false" are not present in the preferences file
         // if (!mSharedPreferences.contains(key)) {...}
@@ -969,15 +969,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return mSharedPreferences.getBoolean(key, false);
     }
 
-    public synchronized int getIntPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized int getIntPreference(int keyResID) throws PloggyError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
-            throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
+            throw new PloggyError(LOG_TAG, "missing preference default: " + key);
         }
         return mSharedPreferences.getInt(key, 0);
     }
 
-    public synchronized boolean currentlySharingLocation() throws Utils.ApplicationError {
+    public synchronized boolean currentlySharingLocation() throws PloggyError {
         if (!getBooleanPreference(R.string.preferenceAutomaticLocationSharing)) {
             return false;
         }

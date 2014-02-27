@@ -62,7 +62,7 @@ public class Resources {
             String postContent,
             Data.LocalResource.Type localResourceType,
             String attachmentMimeType,
-            String attachmentFilePath) throws Utils.ApplicationError {
+            String attachmentFilePath) throws PloggyError {
          // Create a resource with a random ID and add it to the post
          // Friends only see the random ID, not the local resource file name
          // Note: never reusing resource IDs, even if same local e.g., file, has been published previously
@@ -95,7 +95,7 @@ public class Resources {
      }
 
     public static InputStream openLocalResourceForReading(
-            Data.LocalResource localResource, Pair<Long, Long> range) throws Utils.ApplicationError {
+            Data.LocalResource localResource, Pair<Long, Long> range) throws PloggyError {
         InputStream inputStream = null;
         try {
             File file = new File(localResource.mFilePath);
@@ -105,7 +105,7 @@ public class Resources {
             inputStream = new FileInputStream(file);
             // TODO: ignoring endAt (range.second)!
             if (range != null && range.first != inputStream.skip(range.first)) {
-                throw new Utils.ApplicationError(LOG_TAG, "failed to seek to requested offset");
+                throw new PloggyError(LOG_TAG, "failed to seek to requested offset");
             }
             return inputStream;
         } catch (IOException e) {
@@ -115,7 +115,7 @@ public class Resources {
                 } catch (IOException e1) {
                 }
             }
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
@@ -125,7 +125,7 @@ public class Resources {
         return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, resourceId));
     }
 
-    private static File makeScaledDownPictureFileCopy(String sourceFilePath, String resourceId) throws Utils.ApplicationError {
+    private static File makeScaledDownPictureFileCopy(String sourceFilePath, String resourceId) throws PloggyError {
         File file = new File(sourceFilePath);
         File temporaryCopyFile = getTemporaryCopyFile(resourceId);
         // TODO: date check sufficient?

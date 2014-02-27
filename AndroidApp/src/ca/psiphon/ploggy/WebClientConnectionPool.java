@@ -65,7 +65,7 @@ public class WebClientConnectionPool {
     private final SocksProxyPoolingClientConnectionManager mConnectionManager;
 
     // Creates a connection pool with mutual authentication for all friend hidden services
-    public WebClientConnectionPool(Data data, int localSocksProxyPort) throws Utils.ApplicationError {
+    public WebClientConnectionPool(Data data, int localSocksProxyPort) throws PloggyError {
         Data.Self self = data.getSelfOrThrow();
         X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey);
         List<String> friendCertificates = new ArrayList<String>();
@@ -78,7 +78,7 @@ public class WebClientConnectionPool {
 
     // Creates a connection pool with server authentication only for the specified server
     // certificate only -- no hostname verification
-    public WebClientConnectionPool(String serverCertificate, int localSocksProxyPort) throws Utils.ApplicationError {
+    public WebClientConnectionPool(String serverCertificate, int localSocksProxyPort) throws PloggyError {
         mConnectionManager =
                 makePoolingClientConnectionManager(null, localSocksProxyPort, null, Arrays.asList(serverCertificate));
     }
@@ -87,7 +87,7 @@ public class WebClientConnectionPool {
             Data data,
             int localSocksProxyPort,
             X509.KeyMaterial x509KeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
         SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, friendCertificates);
         SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext, data);
         SchemeRegistry registry = new SchemeRegistry();

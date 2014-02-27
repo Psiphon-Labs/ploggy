@@ -25,7 +25,6 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
-import ca.psiphon.ploggy.Utils.ApplicationError;
 
 /**
  * Schedule and monitor location events from Android OS.
@@ -59,7 +58,7 @@ public class LocationMonitor implements android.location.LocationListener {
         initRunnables();
     }
 
-    public void start() throws Utils.ApplicationError {
+    public void start() throws PloggyError {
         // Using a Handler for LocationManager calls, which need to run on a Looper thread. StartLocationFixTask
         // kicks off location updates and schedules FinishLocationFixTask which reports the "best" location fix
         // and stops updates after a set time period. FinishLocationFixTask also schedules the next location fix.
@@ -107,7 +106,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     mHandler.postDelayed(
                             mFinishLocationFixTask,
                             1000*mEngine.getIntPreference(R.string.preferenceLocationFixPeriodInSeconds));
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "start location fix failed");
                 }
             }
@@ -126,7 +125,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     mHandler.postDelayed(
                             mStartLocationFixTask,
                             60*1000*mEngine.getIntPreference(R.string.preferenceLocationFixFrequencyInMinutes));
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "finish location fix failed");
                 }
             }
@@ -141,7 +140,7 @@ public class LocationMonitor implements android.location.LocationListener {
         };
     }
 
-    public void reportLocation() throws Utils.ApplicationError {
+    public void reportLocation() throws PloggyError {
         if (mCurrentLocation == null) {
             return;
         }
@@ -158,7 +157,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     try {
                         torSocksProxyPort = mEngine.getTorSocksProxyPort();
                     }
-                    catch (ApplicationError e) {
+                    catch (PloggyError e) {
                         Log.addEntry(LOG_TAG, "failed to get Tor SOCKS port: " + e.getMessage());
                         Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, null));
                         return;
@@ -204,7 +203,7 @@ public class LocationMonitor implements android.location.LocationListener {
         try {
             stop();
             start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to restart");
         }
     }
