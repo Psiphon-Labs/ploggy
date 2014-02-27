@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
@@ -61,29 +62,34 @@ public class WebClientConnectionPool {
     public static final int MAX_TOTAL_POOL_CONNECTIONS = 100;
     public static final int MAX_PER_ROUTE_POOL_CONNECTIONS = 4;
 
-    private final SocksProxyPoolingClientConnectionManager mMutualAuthenticationPoolingClientConnectionManager;
-    private final SocksProxyPoolingClientConnectionManager mPoolingClientConnectionManager;
+    private final SocksProxyPoolingClientConnectionManager mConnectionManager;
 
-    public WebClientConnectionPool(Data data, int localSocksProxyPort)
-            throws Utils.ApplicationError {
+    // Creates a connection pool with mutual authentication for all friend hidden services
+    public WebClientConnectionPool(Data data, int localSocksProxyPort) throws Utils.ApplicationError {
         Data.Self self = data.getSelfOrThrow();
         X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey);
         List<String> friendCertificates = new ArrayList<String>();
         for (Data.Friend friend : data.getFriends()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
-        mMutualAuthenticationPoolingClientConnectionManager =
-                makePoolingClientConnectionManager(localSocksProxyPort, x509KeyMaterial, friendCertificates);
-        mPoolingClientConnectionManager =
-                makePoolingClientConnectionManager(localSocksProxyPort, null, friendCertificates);
+        mConnectionManager =
+                makePoolingClientConnectionManager(data, localSocksProxyPort, x509KeyMaterial, friendCertificates);
+    }
+
+    // Creates a connection pool with server authentication only for the specified server
+    // certificate only -- no hostname verification
+    public WebClientConnectionPool(String serverCertificate, int localSocksProxyPort) throws Utils.ApplicationError {
+        mConnectionManager =
+                makePoolingClientConnectionManager(null, localSocksProxyPort, null, Arrays.asList(serverCertificate));
     }
 
     private SocksProxyPoolingClientConnectionManager makePoolingClientConnectionManager(
+            Data data,
             int localSocksProxyPort,
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws Utils.ApplicationError {
         SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, friendCertificates);
-        SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext);
+        SSLSocketFactory sslSocketFactory = TransportSecurity.getClientSSLSocketFactory(sslContext, data);
         SchemeRegistry registry = new SchemeRegistry();
         registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
         SocksProxyPoolingClientConnectionManager poolingClientConnectionManager =
@@ -94,19 +100,14 @@ public class WebClientConnectionPool {
     }
 
     public void shutdown() {
-        mMutualAuthenticationPoolingClientConnectionManager.shutdown();
-        mPoolingClientConnectionManager.shutdown();
+        mConnectionManager.shutdown();
     }
 
-    public ClientConnectionManager getMutualAuthenticationPoolingClientConnectionManager() {
-        return mMutualAuthenticationPoolingClientConnectionManager;
+    public ClientConnectionManager getConnectionManager() {
+        return mConnectionManager;
     }
 
-    public ClientConnectionManager getPoolingClientConnectionManager() {
-        return mPoolingClientConnectionManager;
-    }
-
-    private static class SocksProxyPoolingClientConnectionManager extends PoolingClientConnectionManager {
+    public static class SocksProxyPoolingClientConnectionManager extends PoolingClientConnectionManager {
 
         private final int mLocalSocksProxyPort;
 

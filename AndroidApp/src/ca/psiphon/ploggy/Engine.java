@@ -77,6 +77,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private static final String LOG_TAG = "Engine";
 
+    public static final String DEFAULT_PLOGGY_INSTANCE_NAME = "ploggy";
+
     private final String mInstanceName;
     private final Context mContext;
     private final Data mData;
@@ -107,10 +109,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // start up, or when a friend is added, for example).
     private static final int FRIEND_REQUEST_DELAY_IN_MILLISECONDS = 30*1000;
 
-    private static final String DEFAULT_ENGINE_NAME = "ploggy";
-
     public Engine(Context context) {
-        this(context, DEFAULT_ENGINE_NAME);
+        this(context, Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
     }
 
     public Engine(Context context, String instanceName) {
@@ -150,8 +150,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.getInstance(mInstanceName).unregister(this);
-        stopDownloadRetryTask();
-        stopHiddenService();
         if (mLocationMonitor != null) {
             mLocationMonitor.stop();
             mLocationMonitor = null;
@@ -176,6 +174,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Utils.shutdownExecutorService(mPeerRequestThreadPool);
             mPeerRequestThreadPool = null;
         }
+        stopDownloadRetryTask();
+        stopWebClientConnectionPool();
+        stopHiddenService();
         mStopped = true;
         Log.addEntry(LOG_TAG, "stopped");
     }
@@ -207,7 +208,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
         try {
-            initializeWebClientConnectionPool();
+            startWebClientConnectionPool();
             // Ask friends to pull local, self changes...
             askPullFromFriends();
             // ...and pull changes from friends
@@ -380,11 +381,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void initializeWebClientConnectionPool() throws Utils.ApplicationError {
+    private void startWebClientConnectionPool() throws Utils.ApplicationError {
+        stopWebClientConnectionPool();
+        mWebClientConnectionPool = new WebClientConnectionPool(mData, getTorSocksProxyPort());
+    }
+
+    private void stopWebClientConnectionPool() {
         if (mWebClientConnectionPool != null) {
             mWebClientConnectionPool.shutdown();
+            mWebClientConnectionPool = null;
         }
-        mWebClientConnectionPool = new WebClientConnectionPool(mData, getTorSocksProxyPort());
     }
 
     public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
@@ -549,7 +555,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
-                    Data.Self self = mData.getSelf();
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask pull to: " + friend.mPublicIdentity.mNickname);
                     WebClientRequest webClientRequest =
@@ -587,7 +592,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
-                    Data.Self self = mData.getSelf();
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "ask location to: " + friend.mPublicIdentity.mNickname);
                     WebClientRequest webClientRequest =
@@ -625,7 +629,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
-                    Data.Self self = mData.getSelf();
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     while (true) {
                         Protocol.Payload payload = dequeueFriendPushPayload(finalFriendId);
@@ -681,7 +684,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
-                    Data.Self self = mData.getSelf();
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     Log.addEntry(LOG_TAG, "pull from: " + friend.mPublicIdentity.mNickname);
                     // Pull twice. The first pull is to actually get data. The second pull
@@ -769,7 +771,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         // Will retry after next delay period
                         return;
                     }
-                    Data.Self self = mData.getSelf();
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     while (true) {
                         Data.Download download = null;

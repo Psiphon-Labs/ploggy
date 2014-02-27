@@ -84,6 +84,15 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
+    public static class AlreadyExistsError extends Exception {
+        private static final long serialVersionUID = 5983221790752098494L;
+
+        public AlreadyExistsError() {
+        }
+    }
+
+    public static final long UNASSIGNED_SEQUENCE_NUMBER = -1;
+
     public static class Self {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
@@ -123,6 +132,12 @@ public class Data extends SQLiteOpenHelper {
         public final long mBytesReceivedFrom;
         public final Date mLastSentToTimestamp;
         public final long mBytesSentTo;
+
+        public Friend(
+                Identity.PublicIdentity publicIdentity,
+                Date addedTimestamp) throws Utils.ApplicationError {
+            this(publicIdentity, addedTimestamp, null, 0, null, 0);
+        }
 
         public Friend(
                 Identity.PublicIdentity publicIdentity,
@@ -333,6 +348,10 @@ public class Data extends SQLiteOpenHelper {
 
     private static Map<String, Data> mInstances = new HashMap<String, Data>();
 
+    public static synchronized Data getInstance(Context context) {
+        return getInstance(context, Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    }
+
     public static synchronized Data getInstance(Context context, String name) {
         if (!mInstances.containsKey(name)) {
             mInstances.put(name, new Data(context, name));
@@ -443,9 +462,14 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void addFriend(Friend friend) throws Utils.ApplicationError {
+    public void addFriend(Friend friend) throws AlreadyExistsError, Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
+            if (0 < getCount(
+                    "SELECT COUNT(*) FROM Friend WHERE nickname = ?",
+                    new String[]{friend.mPublicIdentity.mNickname})) {
+                throw new AlreadyExistsError();
+            }
             ContentValues values = new ContentValues();
             values.put("id", friend.mId);
             values.put("publicIdentity", Json.toJson(friend.mPublicIdentity));
@@ -1377,7 +1401,7 @@ public class Data extends SQLiteOpenHelper {
             throws Utils.ApplicationError {
         // Helper used by other confirmSentTo functions; assumes in transaction
         try {
-            if (lastConfirmedGroupSequenceNumber != -1) {
+            if (lastConfirmedGroupSequenceNumber != UNASSIGNED_SEQUENCE_NUMBER) {
                 ContentValues values = new ContentValues();
                 values.put("lastConfirmedGroupSequenceNumber", lastConfirmedGroupSequenceNumber);
                 mDatabase.update(
@@ -1386,7 +1410,7 @@ public class Data extends SQLiteOpenHelper {
                         "groupId = ? AND memberId = ? AND lastConfirmedGroupSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(lastConfirmedGroupSequenceNumber)});
             }
-            if (lastConfirmedPostSequenceNumber != -1) {
+            if (lastConfirmedPostSequenceNumber != UNASSIGNED_SEQUENCE_NUMBER) {
                 ContentValues values = new ContentValues();
                 values.put("lastConfirmedPostSequenceNumber", lastConfirmedPostSequenceNumber);
                 mDatabase.update(
@@ -1413,7 +1437,7 @@ public class Data extends SQLiteOpenHelper {
                 if (1 != getCount(
                         "SELECT COUNT(*) FROM Group WHERE id = ? AND publisherId = (SELECT id FROM Self)",
                         new String[]{groupId})) {
-                    lastConfirmedGroupSequenceNumber = -1;
+                    lastConfirmedGroupSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
                 }
 
                 confirmSentTo(friendId, groupId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
@@ -1428,7 +1452,7 @@ public class Data extends SQLiteOpenHelper {
     public void confirmSentTo(String friendId, Protocol.Group group) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            confirmSentTo(group.mId, friendId, group.mSequenceNumber, -1);
+            confirmSentTo(group.mId, friendId, group.mSequenceNumber, UNASSIGNED_SEQUENCE_NUMBER);
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } finally {
@@ -1439,7 +1463,7 @@ public class Data extends SQLiteOpenHelper {
     public void confirmSentTo(String friendId, Protocol.Post post) throws Utils.ApplicationError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            confirmSentTo(post.mGroupId, friendId, -1, post.mSequenceNumber);
+            confirmSentTo(post.mGroupId, friendId, UNASSIGNED_SEQUENCE_NUMBER, post.mSequenceNumber);
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } finally {

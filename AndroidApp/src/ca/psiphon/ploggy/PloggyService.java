@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Notification;
@@ -29,6 +30,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.text.Html;
+import android.util.Pair;
 
 import com.squareup.otto.Subscribe;
 
@@ -53,7 +55,7 @@ public class PloggyService extends Service {
     @Override
     public void onCreate() {
         try {
-            Events.register(this);
+            Events.getInstance().register(this);
             mEngine = new Engine(this);
             mEngine.start();
         } catch (Utils.ApplicationError e) {
@@ -66,7 +68,7 @@ public class PloggyService extends Service {
 
     @Override
     public void onDestroy() {
-        Events.unregister(this);
+        Events.getInstance().unregister(this);
         if (mEngine != null) {
             mEngine.stop();
             mEngine = null;
@@ -74,13 +76,48 @@ public class PloggyService extends Service {
     }
 
     private void doForeground() {
-        updateNotification(null);
+        updateNotification();
         startForeground(R.string.foregroundServiceNotificationId, mNotification);
     }
 
-    private void updateNotification(List<Data.AnnotatedMessage> newMessages) {
+
+    @Subscribe
+    public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
+        // Update the service notification with new posts
+        updateNotification();
+    }
+
+    @Subscribe
+    public void UpdatedFriendPost(Events.MarkedAsReadPosts markedAsReadPosts) {
+        // Update the service notification after posts are read
+        updateNotification();
+    }
+
+    private synchronized void updateNotification() {
         // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
         final int MAX_LINES = 5;
+
+        List<Pair<String, String>> unreadPosts = new ArrayList<Pair<String, String>>();
+        Data data = Data.getInstance(this);
+        Data.CursorIterator<Data.Post> unreadPostsCursor = null;
+
+        try {
+            unreadPostsCursor = data.getUnreadPosts();
+            for (int i = 0; i < MAX_LINES && unreadPostsCursor.hasNext(); i++) {
+                Data.Post post = unreadPostsCursor.next();
+                unreadPosts.add(
+                    new Pair<String, String>(
+                        post.mPost.mContent,
+                        data.getFriendByIdOrThrow(post.mPost.mPublisherId).mPublicIdentity.mNickname));
+            }
+        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to update notification");
+            return;
+        } finally {
+            if (unreadPostsCursor != null) {
+                unreadPostsCursor.close();
+            }
+        }
 
         // Invoke main Activity when notification is clicked
         Intent intent = new Intent(this, ActivityMain.class);
@@ -88,14 +125,14 @@ public class PloggyService extends Service {
 
         int iconResourceId;
         String contentTitle;
-        if (newMessages != null && newMessages.size() > 0) {
+        if (unreadPosts.size() > 0) {
             intent.setAction(ActivityMain.ACTION_DISPLAY_MESSAGES);
             iconResourceId = R.drawable.ic_notification_with_new_messages;
             contentTitle =
                     getResources().getQuantityString(
                         R.plurals.foreground_service_notification_content_title_with_new_messages,
-                        newMessages.size(),
-                        newMessages.size());
+                        unreadPosts.size(),
+                        unreadPosts.size());
         } else {
             intent.setAction("android.intent.action.MAIN");
             iconResourceId = R.drawable.ic_notification_without_new_messages;
@@ -112,26 +149,26 @@ public class PloggyService extends Service {
                 .setSmallIcon(iconResourceId);
 
         Notification notification;
-        if (newMessages != null && newMessages.size() > 0) {
+        if (unreadPosts.size() > 0) {
             // Use default (system) sound, lights, and vibrate
             notificationBuilder.setDefaults(Notification.DEFAULT_ALL);
 
             // Build email-style big view with summary of new messages
             Notification.InboxStyle inboxStyleBuilder =
                 new Notification.InboxStyle(notificationBuilder);
-            for (int i = 0; i < MAX_LINES && i < newMessages.size(); i++) {
+            for (int i = 0; i < unreadPosts.size(); i++) {
                 inboxStyleBuilder.addLine(
                     Html.fromHtml(
                         getString(
                             R.string.foreground_service_notification_inbox_line,
-                            newMessages.get(i).mPublicIdentity.mNickname,
-                            newMessages.get(i).mMessage.mContent)));
+                            unreadPosts.get(i).first,
+                            unreadPosts.get(i).second)));
             }
-            if (newMessages.size() > MAX_LINES) {
+            if (unreadPosts.size() > MAX_LINES) {
                 inboxStyleBuilder.setSummaryText(
                     getString(
                         R.string.foreground_service_notification_inbox_summary,
-                        newMessages.size() - MAX_LINES));
+                        unreadPosts.size() - MAX_LINES));
             }
             notification = inboxStyleBuilder.build();
         } else {
@@ -150,21 +187,11 @@ public class PloggyService extends Service {
             mNotification.largeIcon = notification.largeIcon;
             mNotification.defaults = notification.defaults;
         }
-    }
 
-    @Subscribe
-    public synchronized void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
-        try {
-            // Update the service notification with new messages
-            updateNotification(Data.getInstance().getNewMessages());
-
-            NotificationManager notificationManager =
-                    (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-            if (notificationManager != null) {
-                notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
-            }
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to create new messages notification");
+        NotificationManager notificationManager =
+                (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
         }
     }
 }

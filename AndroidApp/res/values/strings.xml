@@ -65,13 +65,13 @@
     <string name="label_status_details_location_street_address">Street address:</string>
     <string name="label_status_details_location_distance">Approximate distance from your location:</string>
     <string name="label_status_details_location_coordinates">Coordinates:</string>
-    <string name="label_status_details_location_precision">Location precision:</string>
     <string name="label_status_details_location_timestamp">Location updated at:</string>
-    <string name="label_status_details_last_received_status_timestamp">Last update received from friend:</string>
-    <string name="label_status_details_last_sent_status_timestamp">Last update sent to friend:</string>
+    <string name="label_status_details_last_received_from_timestamp">Last message received from friend:</string>
+    <string name="label_status_details_bytes_received_from">Data transfer from friend:</string>
+    <string name="label_status_details_last_sent_to_timestamp">Last message sent to friend:</string>
+    <string name="label_status_details_bytes_sent_to">Data transfer to friend:</string>
     <string name="label_status_details_added_timestamp">Friend added at:</string>
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>
-    <string name="format_status_details_precision">%1$d meters</string>
     <string name="prompt_status_details_data_not_found">Status details not found</string>
     <string name="format_download_progress">%1$.1f%%</string>
     <string name="preference_privacy_title">Privacy</string>

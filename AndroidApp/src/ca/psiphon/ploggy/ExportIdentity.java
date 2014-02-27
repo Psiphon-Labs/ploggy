@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -70,7 +70,8 @@ public class ExportIdentity {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             try {
-                                String json = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
+                                String json =
+                                        Json.toJson(Data.getInstance(finalContext).getSelfOrThrow().mPublicIdentity);
                                 String payload = URLEncoder.encode(json, "UTF-8");
 
                                 String link = ActivityAddFriend.IDENTITY_LINK_PREFIX + payload;
@@ -111,7 +112,10 @@ public class ExportIdentity {
                                 directory.mkdirs();
                                 File attachmentFile = new File(directory, IDENTITY_FILENAME);
 
-                                Utils.writeStringToFile(Json.toJson(Data.getInstance().getSelf().mPublicIdentity), attachmentFile);
+                                Utils.writeStringToFile(
+                                        Json.toJson(
+                                                Data.getInstance(finalContext).getSelfOrThrow().mPublicIdentity),
+                                        attachmentFile);
 
                                 String toast = finalContext.getString(
                                                     R.string.toast_identity_saved_to_file,

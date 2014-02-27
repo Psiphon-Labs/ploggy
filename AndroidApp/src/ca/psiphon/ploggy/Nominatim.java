@@ -80,17 +80,20 @@ public class Nominatim {
 
         String response;
         try {
-            WebClient client =
-                new WebClient(
-                    null,
-                    SERVER_CERT,
-                    SERVER_ADDRESS,
-                    SERVER_PORT,
-                    WebClient.RequestType.GET,
-                    REQUEST_PATH).
-                        localSocksProxyPort(torSocksProxyPort).
-                        requestParameters(requestParameters);
-            response = client.makeRequestAndLoadResponse();
+            // TODO: reuse this pool (for as long as the current Tor connection is up)
+            WebClientConnectionPool connectionPool =
+                    new WebClientConnectionPool(SERVER_CERT, torSocksProxyPort);
+
+            WebClientRequest webClientRequest =
+                    new WebClientRequest(
+                            connectionPool,
+                        SERVER_ADDRESS,
+                        SERVER_PORT,
+                        WebClientRequest.RequestType.GET,
+                        REQUEST_PATH).
+                            requestParameters(requestParameters);
+
+            response = webClientRequest.makeRequestAndLoadResponse();
         }
         catch (Utils.ApplicationError e) {
             Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
@@ -169,5 +172,4 @@ public class Nominatim {
 
         return address;
     }
-
 }

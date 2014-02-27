@@ -189,7 +189,7 @@ public class Tests {
 
         public void start() throws Utils.ApplicationError {
             Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
-            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial();
+            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial(mInstanceName);
             X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
             Data.Self self = new Data.Self(
                     Identity.makeSignedPublicIdentity(
@@ -222,8 +222,12 @@ public class Tests {
         }
 
         void addFriend(Identity.PublicIdentity publicIdentity) throws Utils.ApplicationError {
-            Data.Friend friend = new Data.Friend(publicIdentity, new Date(), null, 0, null, 0);
-            mData.addFriend(friend);
+            Data.Friend friend = new Data.Friend(publicIdentity, new Date());
+            try {
+                mData.addFriend(friend);
+            } catch (Data.AlreadyExistsError e) {
+                throw new Utils.ApplicationError(LOG_TAG, e);
+            }
             Log.addEntry(LOG_TAG, mInstanceName + " added friend " + publicIdentity.mNickname);
         }
 

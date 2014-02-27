@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -198,11 +198,11 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 return;
             }
             try {
-                Data.getInstance().addFriend(mReceivedFriend);
+                Data.getInstance(this).addFriend(mReceivedFriend);
                 String prompt = getString(R.string.prompt_add_friend_friend_added, mReceivedFriend.mPublicIdentity.mNickname);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
                 finish();
-            } catch (Data.DataAlreadyExistsError e) {
+            } catch (Data.AlreadyExistsError e) {
                 String prompt = getString(R.string.prompt_add_friend_friend_already_exists, mReceivedFriend.mPublicIdentity.mNickname);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
             } catch (Utils.ApplicationError e) {

@@ -75,13 +75,13 @@ public class Utils {
 
         public ApplicationError(String tag, Exception e) {
             // TODO: require message param as well?
+            // TODO: log stack trace?
             super(e);
             String message = e.getLocalizedMessage();
             if (message == null) {
                 message = "(null)";
             }
             Log.addEntry(tag, String.format("%s: %s", e.getClass().toString(), message));
-            // TODO: log stack trace?
         }
     }
 

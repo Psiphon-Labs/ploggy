@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -39,7 +39,11 @@ public class HiddenService {
     }
 
     public static KeyMaterial generateKeyMaterial() throws Utils.ApplicationError {
-        TorWrapper tor = new TorWrapper(TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
+        return generateKeyMaterial(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    }
+
+    public static KeyMaterial generateKeyMaterial(String instanceName) throws Utils.ApplicationError {
+        TorWrapper tor = new TorWrapper(instanceName, TorWrapper.Mode.MODE_GENERATE_KEY_MATERIAL);
         // Note: MODE_GENERATE_KEY_MATERIAL stops its Tor process
         tor.start();
         tor.awaitStarted();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -70,7 +70,7 @@ public class ActivitySendIdentityByNfc extends FragmentActivity implements NfcAd
     @Override
     public NdefMessage createNdefMessage(NfcEvent event) {
         try {
-            String payload = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
+            String payload = Json.toJson(Data.getInstance(this).getSelfOrThrow().mPublicIdentity);
             return new NdefMessage(
                     new NdefRecord[] {
                             NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),

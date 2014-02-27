@@ -82,27 +82,6 @@
     </RelativeLayout>
 
     <TextView
-        android:id="@+id/friend_status_details_message_label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dip"
-        android:layout_marginBottom="8dip"
-        android:gravity="center"
-        android:text="@string/label_status_details_message"
-        android:typeface="sans"
-        android:textSize="24dip"
-        android:textStyle="bold"
-        android:textColor="#F0F0F0"
-        android:background="#687C97" />
-
-    <ListView
-        android:id="@+id/friend_status_details_messages_list"
-        android:layout_width="match_parent"
-        android:layout_height="150dip"
-        android:typeface="sans"
-        android:textSize="12dip" />
- 
-    <TextView
         android:id="@+id/friend_status_details_location_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -165,22 +144,6 @@
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_status_details_location_precision_label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/label_status_details_location_precision"
-        android:typeface="sans"
-        android:textSize="12dip"
-        android:textStyle="bold" />
- 
-    <TextView
-        android:id="@+id/friend_status_details_location_precision_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:typeface="sans"
-        android:textSize="12dip" />
-            
-    <TextView
         android:id="@+id/friend_status_details_location_timestamp_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -211,32 +174,64 @@
         android:background="#687C97" />
 
     <TextView
-        android:id="@+id/friend_status_details_last_received_status_timestamp_label"
+        android:id="@+id/friend_status_details_last_received_from_timestamp_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/label_status_details_last_received_status_timestamp"
+        android:text="@string/label_status_details_last_received_from_timestamp"
         android:typeface="sans"
         android:textSize="12dip"
         android:textStyle="bold" />
  
     <TextView
-        android:id="@+id/friend_status_details_last_received_status_timestamp_text"
+        android:id="@+id/friend_status_details_last_received_from_timestamp_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:typeface="sans"
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_status_details_last_sent_status_timestamp_label"
+        android:id="@+id/friend_status_details_bytes_received_from_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/label_status_details_last_sent_status_timestamp"
+        android:text="@string/label_status_details_bytes_received_from"
         android:typeface="sans"
         android:textSize="12dip"
         android:textStyle="bold" />
  
     <TextView
-        android:id="@+id/friend_status_details_last_sent_status_timestamp_text"
+        android:id="@+id/friend_status_details_bytes_received_from_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/friend_status_details_last_sent_to_timestamp_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_status_details_last_sent_to_timestamp"
+        android:typeface="sans"
+        android:textSize="12dip"
+        android:textStyle="bold" />
+ 
+    <TextView
+        android:id="@+id/friend_status_details_last_sent_to_timestamp_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/friend_status_details_bytes_sent_to_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_status_details_bytes_sent_to"
+        android:typeface="sans"
+        android:textSize="12dip"
+        android:textStyle="bold" />
+ 
+    <TextView
+        android:id="@+id/friend_status_details_bytes_sent_to_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:typeface="sans"

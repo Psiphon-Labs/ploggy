@@ -45,6 +45,9 @@ public class Events {
 
     private static Map<String, Events> mInstances = new HashMap<String, Events>();
 
+    public static synchronized Events getInstance() {
+        return getInstance(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    }
     public static synchronized Events getInstance(String name) {
         if (!mInstances.containsKey(name)) {
             mInstances.put(name, new Events(name));

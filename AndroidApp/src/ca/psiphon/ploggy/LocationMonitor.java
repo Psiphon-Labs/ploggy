@@ -160,7 +160,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     }
                     catch (ApplicationError e) {
                         Log.addEntry(LOG_TAG, "failed to get Tor SOCKS port: " + e.getMessage());
-                        Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+                        Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, null));
                         return;
                     }
 
@@ -170,13 +170,13 @@ public class LocationMonitor implements android.location.LocationListener {
                             mLastReportedLocation.getLongitude());
 
                     // TODO: get map
-                    Events.post(new Events.NewSelfLocation(mLastReportedLocation, address));
+                    Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, address));
                 }
             };
             mEngine.submitTask(task);
 
         } else {
-            Events.post(new Events.NewSelfLocation(mLastReportedLocation, null));
+            Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, null));
         }
     }
 

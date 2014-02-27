@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,6 +34,5 @@ public class PloggyApplication extends Application {
         // e.g., setDefaultValues("persona1");
         PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
         Log.initialize();
-        Events.initialize();
     }
 }

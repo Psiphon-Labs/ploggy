@@ -150,7 +150,7 @@ public class WebClientRequest {
                 }
             }
             URI uri = uriBuilder.build();
-            connectionManager = mWebClientConnectionPool.getPoolingClientConnectionManager();
+            connectionManager = mWebClientConnectionPool.getConnectionManager();
             HttpParams params = new BasicHttpParams();
             HttpConnectionParams.setConnectionTimeout(params, WebClientConnectionPool.CONNECT_TIMEOUT_MILLISECONDS);
             HttpConnectionParams.setSoTimeout(params, WebClientConnectionPool.READ_TIMEOUT_MILLISECONDS);

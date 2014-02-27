@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -53,6 +53,6 @@ public class Downloads {
     public static File getDownloadFile(Data.Download download) {
         File directory = Utils.getApplicationContext().getDir(DOWNLOADS_DIRECTORY, Context.MODE_PRIVATE);
         directory.mkdirs();
-        return new File(directory, String.format(DOWNLOAD_FILENAME_FORMAT_STRING, download.mFriendId, download.mResourceId));
+        return new File(directory, String.format(DOWNLOAD_FILENAME_FORMAT_STRING, download.mPublisherId, download.mResourceId));
     }
 }

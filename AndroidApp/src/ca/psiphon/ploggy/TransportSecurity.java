@@ -76,6 +76,12 @@ public class TransportSecurity {
     // Checks that server hostname (.onion domain) and presented certificate matches friend record
     private static class PloggyHiddenServiceHostnameVerifier implements X509HostnameVerifier {
 
+        private final Data mData;
+
+        PloggyHiddenServiceHostnameVerifier(Data data) {
+            mData = data;
+        }
+
         @Override
         public boolean verify(String hostname, SSLSession sslSession) {
             try {
@@ -117,7 +123,7 @@ public class TransportSecurity {
 
         private boolean verify(String hostname, String certificate) {
             try {
-                Data.Friend friend = Data.getInstance().getFriendByCertificateOrThrow(certificate);
+                Data.Friend friend = mData.getFriendByCertificateOrThrow(certificate);
                 return hostname.equals(friend.mPublicIdentity.mHiddenServiceHostname);
             } catch (Utils.ApplicationError e) {
             }
@@ -127,8 +133,16 @@ public class TransportSecurity {
 
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
 
+        // This mode expects all friend certificates to be loaded and uses a custom
+        // verifier that checks the presented server certificate matches the friend's hidden
+        // service hostname
+        public ClientSSLSocketFactory(SSLContext sslContext, Data data) {
+            super(sslContext, new PloggyHiddenServiceHostnameVerifier(data));
+        }
+
+        // This mode should be used only when a single expected server certificate is loaded
         public ClientSSLSocketFactory(SSLContext sslContext) {
-            super(sslContext, new PloggyHiddenServiceHostnameVerifier());
+            super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
         }
 
         @Override
@@ -136,6 +150,10 @@ public class TransportSecurity {
             socket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             socket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
         }
+    }
+
+    public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext, Data data) {
+        return new ClientSSLSocketFactory(sslContext, data);
     }
 
     public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext) {

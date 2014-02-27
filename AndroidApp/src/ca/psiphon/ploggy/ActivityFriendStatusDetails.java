@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,14 +19,9 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.Date;
-
 import android.os.Bundle;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.ListView;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -46,13 +41,9 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
     private String mFriendId;
-    private ScrollView mScrollView;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
     private TextView mFingerprintText;
-    private TextView mMessageLabel;
-    private ListView mMessagesList;
-    private MessageAdapter mMessageAdapter;
     private TextView mLocationLabel;
     private TextView mLocationStreetAddressLabel;
     private TextView mLocationStreetAddressText;
@@ -60,12 +51,12 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     private TextView mLocationDistanceText;
     private TextView mLocationCoordinatesLabel;
     private TextView mLocationCoordinatesText;
-    private TextView mLocationPrecisionLabel;
-    private TextView mLocationPrecisionText;
     private TextView mLocationTimestampLabel;
     private TextView mLocationTimestampText;
-    private TextView mLastReceivedStatusTimestampText;
-    private TextView mLastSentStatusTimestampText;
+    private TextView mLastReceivedFromTimestampText;
+    private TextView mBytesReceivedFromText;
+    private TextView mLastSentToTimestampText;
+    private TextView mBytesSentToText;
     private TextView mAddedTimestampText;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
@@ -87,12 +78,9 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             return;
         }
 
-        mScrollView = (ScrollView)findViewById(R.id.friend_status_details_scroll_view);
         mAvatarImage = (ImageView)findViewById(R.id.friend_status_details_avatar_image);
         mNicknameText = (TextView)findViewById(R.id.friend_status_details_nickname_text);
         mFingerprintText = (TextView)findViewById(R.id.friend_status_details_fingerprint_text);
-        mMessageLabel = (TextView)findViewById(R.id.friend_status_details_message_label);
-        mMessagesList = (ListView)findViewById(R.id.friend_status_details_messages_list);
         mLocationLabel = (TextView)findViewById(R.id.friend_status_details_location_label);
         mLocationStreetAddressLabel = (TextView)findViewById(R.id.friend_status_details_location_street_address_label);
         mLocationStreetAddressText = (TextView)findViewById(R.id.friend_status_details_location_street_address_text);
@@ -100,39 +88,13 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mLocationDistanceText = (TextView)findViewById(R.id.friend_status_details_location_distance_text);
         mLocationCoordinatesLabel = (TextView)findViewById(R.id.friend_status_details_location_coordinates_label);
         mLocationCoordinatesText = (TextView)findViewById(R.id.friend_status_details_location_coordinates_text);
-        mLocationPrecisionLabel = (TextView)findViewById(R.id.friend_status_details_location_precision_label);
-        mLocationPrecisionText = (TextView)findViewById(R.id.friend_status_details_location_precision_text);
         mLocationTimestampLabel = (TextView)findViewById(R.id.friend_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_text);
-        mLastReceivedStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_received_status_timestamp_text);
-        mLastSentStatusTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_status_timestamp_text);
+        mLastReceivedFromTimestampText = (TextView)findViewById(R.id.friend_status_details_last_received_from_timestamp_text);
+        mBytesReceivedFromText = (TextView)findViewById(R.id.friend_status_details_bytes_received_from_text);
+        mLastSentToTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_to_timestamp_text);
+        mBytesSentToText = (TextView)findViewById(R.id.friend_status_details_bytes_sent_to_text);
         mAddedTimestampText = (TextView)findViewById(R.id.friend_status_details_added_timestamp_text);
-
-        // TODO: use header/footer of listview instead of hack embedding of listview in scrollview
-        // from: http://stackoverflow.com/questions/4490821/scrollview-inside-scrollview/11554823#11554823
-        mScrollView.setOnTouchListener(
-            new View.OnTouchListener() {
-                @Override
-                public boolean onTouch(View view, MotionEvent event) {
-                    mMessagesList.requestDisallowInterceptTouchEvent(false);
-                    return false;
-                }
-            });
-        mMessagesList.setOnTouchListener(
-            new View.OnTouchListener() {
-                @Override
-                public boolean onTouch(View view, MotionEvent event) {
-                    view.getParent().requestDisallowInterceptTouchEvent(true);
-                    return false;
-                }
-            });
-
-        try {
-            mMessageAdapter = new MessageAdapter(this, MessageAdapter.Mode.FRIEND_MESSAGES, mFriendId);
-            mMessagesList.setAdapter(mMessageAdapter);
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to load friend messages");
-        }
 
         show();
 
@@ -140,7 +102,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
 
-        Events.register(this);
+        Events.getInstance().register(this);
     }
 
     @Override
@@ -157,40 +119,42 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
 
     @Override
     public void onDestroy() {
-        Events.unregister(this);
+        Events.getInstance().unregister(this);
         super.onDestroy();
     }
 
     @Subscribe
-    public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
+    public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
+        show();
+    }
+
+    @Subscribe
+    public void onUpdatedFriendLocation(Events.UpdatedFriendLocation updatedFriendLocation) {
         show();
     }
 
     private void show() {
         try {
-            Data data = Data.getInstance();
+            Data data = Data.getInstance(this);
             Data.Friend friend = data.getFriendById(mFriendId);
-            Data.Status friendStatus = data.getFriendStatus(mFriendId);
-            Data.Location selfLocation = null;
+            Protocol.Location selfLocation = null;
             try {
-                selfLocation = data.getCurrentSelfLocation();
-            } catch (Data.DataNotFoundError e) {
+                selfLocation = data.getSelfLocation();
+            } catch (Data.NotFoundError e) {
                 // Won't be able to compute distance
             }
-            Date lastSentStatusTimestamp = data.getFriendLastSentStatusTimestamp(friend.mId);
-            Date lastReceivedStatusTimestamp = data.getFriendLastReceivedStatusTimestamp(friend.mId);
+            Protocol.Location friendLocation = null;
+            try {
+                friendLocation = data.getFriendLocation(mFriendId);
+            } catch (Data.NotFoundError e) {
+                // Won't be able to display friend location
+            }
 
             Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
 
-            int messageVisibility = (friendStatus.mMessages.size() > 0) ? View.VISIBLE : View.GONE;
-            mMessageLabel.setVisibility(messageVisibility);
-            mMessagesList.setVisibility(messageVisibility);
-            if (mMessageAdapter != null) {
-                mMessageAdapter.updateMessages();
-            }
-            int locationVisibility = (friendStatus.mLocation.mTimestamp != null) ? View.VISIBLE : View.GONE;
+            int locationVisibility = (friendLocation != null) ? View.VISIBLE : View.GONE;
             mLocationLabel.setVisibility(locationVisibility);
             mLocationStreetAddressLabel.setVisibility(locationVisibility);
             mLocationStreetAddressText.setVisibility(locationVisibility);
@@ -198,13 +162,11 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             mLocationDistanceText.setVisibility(locationVisibility);
             mLocationCoordinatesLabel.setVisibility(locationVisibility);
             mLocationCoordinatesText.setVisibility(locationVisibility);
-            mLocationPrecisionLabel.setVisibility(locationVisibility);
-            mLocationPrecisionText.setVisibility(locationVisibility);
             mLocationTimestampLabel.setVisibility(locationVisibility);
             mLocationTimestampText.setVisibility(locationVisibility);
-            if (friendStatus.mLocation.mTimestamp != null) {
-                if (friendStatus.mLocation.mStreetAddress.length() > 0) {
-                    mLocationStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
+            if (friendLocation != null) {
+                if (friendLocation.mStreetAddress.length() > 0) {
+                    mLocationStreetAddressText.setText(friendLocation.mStreetAddress);
                 } else {
                     mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
@@ -212,8 +174,8 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                     int distance = Utils.calculateLocationDistanceInMeters(
                             selfLocation.mLatitude,
                             selfLocation.mLongitude,
-                            friendStatus.mLocation.mLatitude,
-                            friendStatus.mLocation.mLongitude);
+                            friendLocation.mLatitude,
+                            friendLocation.mLongitude);
                     mLocationDistanceText.setText(Utils.formatDistance(this, distance));
                 } else {
                     mLocationDistanceText.setText(R.string.prompt_unknown_distance);
@@ -221,27 +183,29 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 mLocationCoordinatesText.setText(
                         getString(
                                 R.string.format_status_details_coordinates,
-                                friendStatus.mLocation.mLatitude,
-                                friendStatus.mLocation.mLongitude));
-                mLocationPrecisionText.setText(
-                        getString(
-                                R.string.format_status_details_precision,
-                                friendStatus.mLocation.mPrecision));
-                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friendStatus.mLocation.mTimestamp, true));
+                                friendLocation.mLatitude,
+                                friendLocation.mLongitude));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friendLocation.mTimestamp, true));
             }
 
-            if (lastReceivedStatusTimestamp != null) {
-                mLastReceivedStatusTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, lastReceivedStatusTimestamp, true));
+            if (friend.mLastReceivedFromTimestamp != null) {
+                mLastReceivedFromTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mLastReceivedFromTimestamp, true));
             } else {
-                mLastReceivedStatusTimestampText.setText(R.string.prompt_no_status_updates_received);
+                mLastReceivedFromTimestampText.setText(R.string.prompt_no_status_updates_received);
             }
-            if (lastSentStatusTimestamp != null) {
-                mLastSentStatusTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, lastSentStatusTimestamp, true));
+
+            mBytesReceivedFromText.setText(Utils.byteCountToDisplaySize(friend.mBytesReceivedFrom, false));
+
+            if (friend.mLastSentToTimestamp != null) {
+                mLastSentToTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mLastSentToTimestamp, true));
             } else {
-                mLastSentStatusTimestampText.setText(R.string.prompt_no_status_updates_sent);
+                mLastSentToTimestampText.setText(R.string.prompt_no_status_updates_sent);
             }
+
+            mBytesSentToText.setText(Utils.byteCountToDisplaySize(friend.mBytesSentTo, false));
+
             mAddedTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mAddedTimestamp, true));
-        } catch (Data.DataNotFoundError e) {
+        } catch (Data.NotFoundError e) {
             Toast toast = Toast.makeText(this, getString(R.string.prompt_status_details_data_not_found), Toast.LENGTH_SHORT);
             toast.show();
             finish();

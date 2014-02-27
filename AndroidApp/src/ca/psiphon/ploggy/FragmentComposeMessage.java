@@ -136,7 +136,7 @@ public class FragmentComposeMessage extends Fragment implements View.OnClickList
             String messageContent = mContentEdit.getText().toString();
             if (mPicturePath != null || messageContent.length() > 0) {
                 // TODO: Use AsyncTask? Could be slow as it copies/scales the picture.
-                Resources.MessageWithAttachments message = Resources.createMessageWithAttachment(
+                Resources.PostWithAttachments message = Resources.createMessageWithAttachment(
                         new Date(),
                         messageContent,
                         Data.LocalResource.Type.PICTURE,

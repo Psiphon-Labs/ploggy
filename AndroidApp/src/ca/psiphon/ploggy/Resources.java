@@ -43,41 +43,55 @@ public class Resources {
 
     private static final String LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING = "%s.ploggyLocalResource";
 
-    public static class MessageWithAttachments {
-        public final Data.Message mMessage;
+    public static class PostWithAttachments {
+        public final Protocol.Post mPost;
         public final List<Data.LocalResource> mLocalResources;
 
-        public MessageWithAttachments(
-                Data.Message message,
+        public PostWithAttachments(
+                Protocol.Post post,
                 List<Data.LocalResource> localResources) {
-            mMessage = message;
+            mPost = post;
             mLocalResources = localResources;
         }
     }
 
-    public static MessageWithAttachments createMessageWithAttachment(
-            Date messageTimestamp,
-            String messageContent,
+    public static PostWithAttachments createPostWithAttachment(
+            Data data,
+            String postGroupId,
+            Date postTimestamp,
+            String postContent,
             Data.LocalResource.Type localResourceType,
             String attachmentMimeType,
             String attachmentFilePath) throws Utils.ApplicationError {
-         // Create a resource with a random ID and add it to the message
+         // Create a resource with a random ID and add it to the post
          // Friends only see the random ID, not the local resource file name
          // Note: never reusing resource IDs, even if same local e.g., file, has been published previously
-         String id = Utils.makeId();
-         List<Data.Resource> messageAttachments = new ArrayList<Data.Resource>();
+         String resourceId = Utils.makeId();
+         List<Protocol.Resource> attachments = new ArrayList<Protocol.Resource>();
          List<Data.LocalResource> localResources = new ArrayList<Data.LocalResource>();
          if (attachmentMimeType != null || attachmentFilePath != null) {
              File file = new File(attachmentFilePath);
              if (localResourceType == Data.LocalResource.Type.PICTURE) {
                  // If the resource is transformed (e.g., picture is auto-scaled-down and has no metadata)
                  // then we need to do that now, to get the correct size
-                 file = makeScaledDownPictureFileCopy(attachmentFilePath, id);
+                 file = makeScaledDownPictureFileCopy(attachmentFilePath, resourceId);
              }
-             messageAttachments.add(new Data.Resource(id, attachmentMimeType, file.length()));
-             localResources.add(new Data.LocalResource(localResourceType, id, attachmentMimeType, attachmentFilePath, null));
+             attachments.add(new Protocol.Resource(resourceId, attachmentMimeType, file.length()));
+             localResources.add(new Data.LocalResource(resourceId, postGroupId, localResourceType, attachmentMimeType, attachmentFilePath, null));
          }
-         return new MessageWithAttachments(new Data.Message(messageTimestamp, messageContent, messageAttachments), localResources);
+         return new PostWithAttachments(
+                 new Protocol.Post(
+                         Utils.makeId(),
+                         postGroupId,
+                         data.getSelfOrThrow().mId,
+                         Protocol.POST_CONTENT_TYPE_DEFAULT,
+                         postContent,
+                         attachments,
+                         postTimestamp,
+                         postTimestamp,
+                         Data.UNASSIGNED_SEQUENCE_NUMBER,
+                         false),
+                 localResources);
      }
 
     public static InputStream openLocalResourceForReading(
