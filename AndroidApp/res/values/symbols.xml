@@ -24,7 +24,5 @@
     <string name="preferenceExchangeFilesWifiOnly">preferenceExchangeFilesWifiOnly</string>
     <string name="preferenceEnableBatterySaver">preferenceEnableBatterySaver</string>
     <string name="preferenceBatterySaverLevel">preferenceBatterySaverLevel</string>
-    <string name="preferenceLocationFixFrequencyInMinutes">preferenceLocationFixFrequencyInMinutes</string>
     <string name="preferenceLocationFixPeriodInSeconds">preferenceLocationFixPeriodInSeconds</string>
-    <string name="preferenceLocationPullFrequencyInMinutes">preferenceLocationPullFrequencyInMinutes</string>
 </resources>

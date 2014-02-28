@@ -102,15 +102,9 @@
     <string name="preference_battery_saver_level_title">Battery Saver Level</string>
     <string name="preference_battery_saver_level_summary"></string>
     <string name="preferences_battery_saver_level_units">%</string>
-    <string name="preference_location_fix_frequency_title">Location Fix Frequency</string>
-    <string name="preference_location_fix_frequency_summary">How often your current location is updated</string>
-    <string name="preference_location_fix_frequency_units">minutes</string>
     <string name="preference_location_fix_period_title">Location Fix Period</string>
     <string name="preference_location_fix_period_summary">How long to run location services when obtaining a new location fix (longer period is more accurate but uses more battery)</string>
     <string name="preference_location_fix_period_units">seconds</string>
-    <string name="preference_location_pull_frequency_title">Location Pull Frequency</string>
-    <string name="preference_location_pull_frequency_summary">How often to check for friend location updates</string>
-    <string name="preference_location_pull_frequency_units">minutes</string>
     <string-array name="weekday_names">
         <item>"Sunday"</item>
         <item>"Monday"</item>

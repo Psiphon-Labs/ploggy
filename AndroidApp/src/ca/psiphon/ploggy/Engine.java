@@ -93,7 +93,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private Map<FriendTaskType, HashMap<String, Runnable>> mFriendTaskObjects;
     private Map<FriendTaskType, HashMap<String, Future<?>>> mFriendTaskFutures;
     private Map<String, ArrayList<Protocol.Payload>> mFriendPushQueue;
-    private LocationMonitor mLocationMonitor;
+    private Set<String> mLocationRecipients;
+    private LocationFixer mLocationFixer;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
     private WebClientConnectionPool mWebClientConnectionPool;
@@ -139,8 +140,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mFriendTaskObjects = new EnumMap<FriendTaskType, HashMap<String, Runnable>>(FriendTaskType.class);
         mFriendTaskFutures = new EnumMap<FriendTaskType, HashMap<String, Future<?>>>(FriendTaskType.class);
         mFriendPushQueue = new HashMap<String, ArrayList<Protocol.Payload>>();
-        mLocationMonitor = new LocationMonitor(this);
-        mLocationMonitor.start();
+        mLocationRecipients = new HashSet<String>();
+        mLocationFixer = new LocationFixer(this);
+        mLocationFixer.start();
         startHiddenService();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
         Log.addEntry(LOG_TAG, "started");
@@ -150,9 +152,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.getInstance(mInstanceName).unregister(this);
-        if (mLocationMonitor != null) {
-            mLocationMonitor.stop();
-            mLocationMonitor = null;
+        if (mLocationFixer != null) {
+            mLocationFixer.stop();
+            mLocationFixer = null;
         }
         if (mFriendTaskObjects != null) {
             mFriendTaskObjects.clear();
@@ -400,6 +402,19 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         throw new PloggyError(LOG_TAG, "no Tor socks proxy");
     }
 
+    private synchronized void addFriendToReceiveLocation(String friendId) throws PloggyError {
+        mLocationRecipients.add(friendId);
+        mLocationFixer.start();
+    }
+
+    private synchronized void pushToFriends(Protocol.Location location) throws PloggyError {
+        for (String friendId : mLocationRecipients) {
+            enqueueFriendPushPayload(friendId, new Protocol.Payload(Protocol.Payload.Type.LOCATION, location));
+            triggerFriendTask(FriendTaskType.PUSH_TO, friendId);
+        }
+        mLocationRecipients.clear();
+    }
+
     private void askPullFromFriends() throws PloggyError {
         for (Data.Friend friend : mData.getFriends()) {
             triggerFriendTask(FriendTaskType.ASK_PULL, friend.mId);
@@ -418,14 +433,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void pushToFriends(Protocol.Group group) throws PloggyError {
         pushToGroup(group, new Protocol.Payload(Protocol.Payload.Type.GROUP, group));
-    }
-
-    private void pushToFriends(Protocol.Location location) throws PloggyError {
-        // *TODO* group location sharing preferences
-        for (Data.Friend friend : mData.getFriends()) {
-            enqueueFriendPushPayload(friend.mId, new Protocol.Payload(Protocol.Payload.Type.LOCATION, location));
-            triggerFriendTask(FriendTaskType.PUSH_TO, friend.mId);
-        }
     }
 
     private void pushToFriends(Protocol.Post post) throws PloggyError {
@@ -827,7 +834,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         };
     }
 
-
     // Note: WebServer callbacks not synchronized
     @Override
     public String getFriendNicknameByCertificate(String friendCertificate) throws PloggyError {
@@ -868,7 +874,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     public void handleAskLocationRequest(String friendCertificate) throws PloggyError {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
-            // *TODO* check location ACL; trigger fix (if not in progress: see spec)
+            if (!currentlySharingLocation()) {
+                throw new PloggyError(LOG_TAG, "rejected ask location request for " + friend.mPublicIdentity.mNickname);
+            }
+            addFriendToReceiveLocation(friend.mId);
             Log.addEntry(LOG_TAG, "served ask location request for " + friend.mPublicIdentity.mNickname);
         } catch (Data.NotFoundError e) {
             throw new PloggyError(LOG_TAG, "failed to handle ask location request: friend not found");

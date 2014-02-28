@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ import android.os.Bundle;
 import android.os.Handler;
 
 /**
- * Schedule and monitor location events from Android OS.
+ * Asynchronously obtain location fixes from Android OS.
  *
  * Implements best practices from:
  * - http://developer.android.com/guide/topics/location/strategies.html
@@ -37,44 +37,51 @@ import android.os.Handler;
  * not available on open source Android builds and its source is not available
  * to review (e.g., verify that location isn't sent to 3rd party).
  */
-public class LocationMonitor implements android.location.LocationListener {
+public class LocationFixer implements android.location.LocationListener {
 
     private static final String LOG_TAG = "Location Monitor";
 
     Engine mEngine;
     Handler mHandler;
+    boolean mFixInProgress;
     Runnable mStartLocationFixTask;
     Runnable mFinishLocationFixTask;
-    Runnable mStopLocationUpdatesTask;
+    Runnable mCleanupLocationUpdatesTask;
     Location mLastReportedLocation;
     Location mCurrentLocation;
 
-    LocationMonitor(Engine engine) {
-
-        // TODO: use Utils.FixedDelayExecutor
-
+    LocationFixer(Engine engine) {
         mEngine = engine;
         mHandler = new Handler();
+        mFixInProgress = false;
         initRunnables();
     }
 
-    public void start() throws PloggyError {
-        // Using a Handler for LocationManager calls, which need to run on a Looper thread. StartLocationFixTask
-        // kicks off location updates and schedules FinishLocationFixTask which reports the "best" location fix
-        // and stops updates after a set time period. FinishLocationFixTask also schedules the next location fix.
-        mHandler.post(mStartLocationFixTask);
+    // Start getting a fresh fix (unless already in progress). Ultimately results in Events.NewSelfLocationFix.
+    public synchronized void start() throws PloggyError {
+        // StartLocationFixTask kicks off location updates and schedules FinishLocationFixTask which reports the "best" location fix.
+        // Extra complexity: using a Handler for LocationManager calls, which need to run on a Looper thread.
+        if (!mFixInProgress) {
+            mFixInProgress = true;
+            mHandler.post(mStartLocationFixTask);
+        }
     }
 
-    public void stop() {
+    // Stop/abort getting fix and cleanup resources
+    public synchronized void stop() {
         mHandler.removeCallbacks(mStartLocationFixTask);
         mHandler.removeCallbacks(mFinishLocationFixTask);
-        // Ensure removeUpdates is called
+        // Ensure removeUpdates is always called
         // TODO: ok that posting this task makes stop() asynchronous?
-        mHandler.post(mStopLocationUpdatesTask);
+        mHandler.post(mCleanupLocationUpdatesTask);
+    }
+
+    public synchronized void setNotFixInProgress() {
+        mFixInProgress = false;
     }
 
     private void initRunnables() {
-        final LocationMonitor finalLocationMonitor = this;
+        final LocationFixer finalLocationFixer = this;
 
         mStartLocationFixTask = new Runnable() {
             @Override
@@ -88,11 +95,11 @@ public class LocationMonitor implements android.location.LocationListener {
                     }
 
                     if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 1, finalLocationMonitor);
+                        locationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1000, 1, finalLocationFixer);
                     }
 
                     if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, finalLocationMonitor);
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, finalLocationFixer);
                     }
 
                     // TODO: previously had a preference to allow use of Network location provider, since this provider
@@ -100,7 +107,7 @@ public class LocationMonitor implements android.location.LocationListener {
                     // benefit to not using it if it's available?
 
                     if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1, finalLocationMonitor);
+                        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 1, finalLocationFixer);
                     }
 
                     mHandler.postDelayed(
@@ -115,27 +122,23 @@ public class LocationMonitor implements android.location.LocationListener {
         mFinishLocationFixTask = new Runnable() {
             @Override
             public void run() {
+                LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
+                locationManager.removeUpdates(finalLocationFixer);
                 try {
-                    LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-                    locationManager.removeUpdates(finalLocationMonitor);
-
                     reportLocation();
-
-                    // TODO: simulate scheduleAtFixedrate by adjusting next fix delay to account for elapsed fix time period
-                    mHandler.postDelayed(
-                            mStartLocationFixTask,
-                            60*1000*mEngine.getIntPreference(R.string.preferenceLocationFixFrequencyInMinutes));
                 } catch (PloggyError e) {
-                    Log.addEntry(LOG_TAG, "finish location fix failed");
+                    Log.addEntry(LOG_TAG, "report location fix failed");
                 }
+                finalLocationFixer.setNotFixInProgress();
             }
         };
 
-        mStopLocationUpdatesTask = new Runnable() {
+        mCleanupLocationUpdatesTask = new Runnable() {
             @Override
             public void run() {
+                // This task is for final cleanup only
                 LocationManager locationManager = (LocationManager)mEngine.getContext().getSystemService(Context.LOCATION_SERVICE);
-                locationManager.removeUpdates(finalLocationMonitor);
+                locationManager.removeUpdates(finalLocationFixer);
             }
         };
     }
@@ -186,26 +189,14 @@ public class LocationMonitor implements android.location.LocationListener {
 
     @Override
     public void onProviderDisabled(String provider) {
-        restart();
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-        restart();
     }
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-        restart();
-    }
-
-    private void restart() {
-        try {
-            stop();
-            start();
-        } catch (PloggyError e) {
-            Log.addEntry(LOG_TAG, "failed to restart");
-        }
     }
 
     private void updateCurrentLocation(Location location) {
