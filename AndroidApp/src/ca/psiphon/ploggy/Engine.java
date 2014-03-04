@@ -338,7 +338,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
         Data.Self self = mData.getSelfOrThrow();
         List<String> friendCertificates = new ArrayList<String>();
-        for (Data.Friend friend : mData.getFriends()) {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mWebServer = new WebServer(
@@ -352,7 +352,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
 
         List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
-        for (Data.Friend friend : mData.getFriends()) {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
             hiddenServiceAuths.add(
                     new TorWrapper.HiddenServiceAuth(
                             friend.mPublicIdentity.mHiddenServiceHostname,
@@ -416,7 +416,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void askPullFromFriends() throws PloggyError {
-        for (Data.Friend friend : mData.getFriends()) {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
             triggerFriendTask(FriendTaskType.ASK_PULL, friend.mId);
         }
     }
@@ -426,7 +426,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void pullFromFriends() throws PloggyError {
-        for (Data.Friend friend : mData.getFriends()) {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
             triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
         }
     }
@@ -458,7 +458,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 @Override
                 public void run() {
                     try {
-                        for (Data.Friend friend : mData.getFriends()) {
+                        for (Data.Friend friend : mData.getFriendsIterator()) {
                             triggerFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
                         }
                     } catch (PloggyError e) {

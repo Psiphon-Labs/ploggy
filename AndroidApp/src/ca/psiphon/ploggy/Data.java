@@ -620,8 +620,12 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public CursorIterator<Friend> getFriends() throws PloggyError {
+    public ObjectCursor<Friend> getFriends() throws PloggyError {
         return getObjectCursor(SELECT_FRIEND, null, mRowToFriend);
+    }
+
+    public ObjectIterator<Friend> getFriendsIterator() throws PloggyError {
+        return new ObjectIterator<Friend>(getFriends());
     }
 
     private static final IRowToObject<CandidateFriend> mRowToCandidateFriend =
@@ -653,13 +657,17 @@ public class Data extends SQLiteOpenHelper {
             }
         };
 
-    public CursorIterator<CandidateFriend> getCandidateFriends() throws PloggyError {
+    public ObjectCursor<CandidateFriend> getCandidateFriends() throws PloggyError {
         return getObjectCursor(
                 "SELECT DISTINCT memberId, memberPublicIdentity FROM GroupMember " +
                     "WHERE memberId NOT IN (SELECT id FROM Friend) " +
                     "ORDER BY memberNickname ASC, memberId ASC",
                 null,
                 mRowToCandidateFriend);
+    }
+
+    public ObjectIterator<CandidateFriend> getCandidateFriendsIterator() throws PloggyError {
+        return new ObjectIterator<CandidateFriend>(getCandidateFriends());
     }
 
     public void putGroup(Protocol.Group group) throws PloggyError {
@@ -884,14 +892,14 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public CursorIterator<Group> getVisibleGroups() throws PloggyError {
+    public ObjectCursor<Group> getVisibleGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?, ?)",
                 new String[]{Group.State.PUBLISHING.name(), Group.State.SUBSCRIBING.name(), Group.State.ORPHANED.name()},
                 mRowToGroup);
     }
 
-    public CursorIterator<Group> getHiddenGroups() throws PloggyError {
+    public ObjectCursor<Group> getHiddenGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?)",
                 new String[]{Group.State.RESIGNING.name(), Group.State.TOMBSTONE.name()},
@@ -1115,7 +1123,7 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public CursorIterator<Post> getUnreadPosts() throws PloggyError {
+    public ObjectCursor<Post> getUnreadPosts() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND unread = 1" +
@@ -1124,7 +1132,7 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public CursorIterator<Post> getPosts(String groupId) throws PloggyError {
+    public ObjectCursor<Post> getPosts(String groupId) throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND groupId = ?" +
@@ -1133,7 +1141,7 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public CursorIterator<Post> getPostsForUnreceivedGroups() throws PloggyError {
+    public ObjectCursor<Post> getPostsForUnreceivedGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
                     " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group)" +
@@ -1211,14 +1219,14 @@ public class Data extends SQLiteOpenHelper {
 
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
-        private CursorIterator<Post> mPostIterator;
+        private ObjectCursor<Post> mPostCursor;
         private String mNext;
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
                 throws PloggyError {
             mGroupsToSend = getGroupsToSend(friendId, pullRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
-            mPostIterator = null;
+            mPostCursor = null;
             mNext = getNext();
         }
 
@@ -1244,8 +1252,8 @@ public class Data extends SQLiteOpenHelper {
 
         private String getNext() {
             try {
-                if (mPostIterator != null && mPostIterator.hasNext()) {
-                    return Json.toJson(mPostIterator.next());
+                if (mPostCursor != null && mPostCursor.hasNext()) {
+                    return Json.toJson(mPostCursor.next());
                 } else {
                     // Loop through PullRequest until there's something to send: either a group or a post
                     while (mGroupsToSendIterator.hasNext()) {
@@ -1254,13 +1262,13 @@ public class Data extends SQLiteOpenHelper {
                         Protocol.SequenceNumbers lastReceivedSequenceNumbers = groupToSend.getValue();
                         // TODO: re-check membership/group state?
                         Group group = getGroup(groupId);
-                        mPostIterator = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
+                        mPostCursor = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
                             return Json.toJson(group.mGroup);
-                        } else if (mPostIterator.hasNext()) {
-                            Protocol.Post post = mPostIterator.next().mPost;
+                        } else if (mPostCursor.hasNext()) {
+                            Protocol.Post post = mPostCursor.next().mPost;
                             return Json.toJson(post);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
@@ -1326,7 +1334,7 @@ public class Data extends SQLiteOpenHelper {
             return groupsToSend;
         }
 
-        private CursorIterator<Post> getPosts(String groupId, long afterSequenceNumber)
+        private ObjectCursor<Post> getPosts(String groupId, long afterSequenceNumber)
                 throws PloggyError {
             return getObjectCursor(
                     SELECT_POST +
@@ -1342,9 +1350,9 @@ public class Data extends SQLiteOpenHelper {
         }
 
         public void close() {
-            if (mPostIterator != null) {
-                mPostIterator.close();
-                mPostIterator = null;
+            if (mPostCursor != null) {
+                mPostCursor.close();
+                mPostCursor = null;
             }
         }
     }
@@ -1883,12 +1891,12 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private <T> CursorIterator<T> getObjectCursor(String query, String[] args, IRowToObject<T> rowToObject)
+    private <T> ObjectCursor<T> getObjectCursor(String query, String[] args, IRowToObject<T> rowToObject)
             throws PloggyError {
         Cursor cursor = null;
         try {
             cursor = mDatabase.rawQuery(query, args);
-            return new CursorIterator<T>(mDatabase, cursor, rowToObject);
+            return new ObjectCursor<T>(mDatabase, cursor, rowToObject);
         } catch (SQLiteException e) {
             if (cursor != null) {
                 cursor.close();
@@ -1897,20 +1905,57 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public static class CursorIterator<T> implements Iterable<T>, Iterator<T> {
+    public static class ObjectCursor<T> {
 
         private final SQLiteDatabase mDatabase;
         private final Cursor mCursor;
         private final IRowToObject<T> mRowToObject;
-        private T mNext;
 
-        public CursorIterator(
+        public ObjectCursor(
                 SQLiteDatabase database, Cursor cursor, IRowToObject<T> rowToObject) {
             mDatabase = database;
             mCursor = cursor;
+            mRowToObject = rowToObject;
+        }
+
+        public int getCount() {
+            return mCursor.getCount();
+        }
+
+        public void moveToFirst() {
+            mCursor.moveToFirst();
+        }
+
+        public boolean hasNext() {
+            return !mCursor.isAfterLast();
+        }
+
+        public T next() throws PloggyError {
+            T item = mRowToObject.rowToObject(mDatabase, mCursor);
+            mCursor.moveToNext();
+            return item;
+        }
+
+        public T get(int position) throws PloggyError {
+            mCursor.moveToPosition(position);
+            return mRowToObject.rowToObject(mDatabase, mCursor);
+        }
+
+        public void close() {
+            mCursor.close();
+        }
+    }
+
+    // Iterator wrapper for "for each" compatibility.
+    public static class ObjectIterator<T> implements Iterable<T>, Iterator<T> {
+
+        private final ObjectCursor<T> mCursor;
+        private T mNext;
+
+        public ObjectIterator(ObjectCursor<T> cursor) {
+            mCursor = cursor;
             mCursor.moveToFirst();
             mNext = getNext();
-            mRowToObject = rowToObject;
         }
 
         @Override
@@ -1923,6 +1968,9 @@ public class Data extends SQLiteOpenHelper {
             return mNext != null;
         }
 
+        // Iterator next() can't throw PloggyError -- that's why this
+        // wrapper prefetches the mNext item; so it can correctly report
+        // hasNext knowing next() will dewfinitely succeed.
         @Override
         public T next() {
             if (!hasNext()) {
@@ -1934,17 +1982,20 @@ public class Data extends SQLiteOpenHelper {
         }
 
         private T getNext() {
-            if (mCursor.isClosed() || mCursor.isAfterLast()) {
+            if (!mCursor.hasNext()) {
+                // Auto-close
+                mCursor.close();
                 return null;
             }
             try {
-                T next = mRowToObject.rowToObject(mDatabase, mCursor);
-                if (!mCursor.moveToNext()) {
+                T next = mCursor.next();
+                if (!mCursor.hasNext()) {
+                    // Auto-close
                     mCursor.close();
                 }
                 return next;
             } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "failed to get next cursor object");
+                Log.addEntry(LOG_TAG, "failed to get next cursor iterator object");
                 return null;
             }
         }
@@ -1952,14 +2003,6 @@ public class Data extends SQLiteOpenHelper {
         @Override
         public void remove() {
             throw new UnsupportedOperationException();
-        }
-
-        public int getCount() {
-            return mCursor.getCount();
-        }
-
-        public void close() {
-            mCursor.close();
         }
     }
 

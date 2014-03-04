@@ -43,7 +43,7 @@ public class FragmentMessageList extends Fragment {
     private boolean mIsResumed = false;
     private Fragment mFragmentComposeMessage;
     private ListView mMessagesListView;
-    private MessageAdapter mMessageAdapter;
+    private Adapters mMessageAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
@@ -57,7 +57,7 @@ public class FragmentMessageList extends Fragment {
         mMessagesListView = (ListView)view.findViewById(R.id.message_list_messages);
 
         try {
-            mMessageAdapter = new MessageAdapter(getActivity(), MessageAdapter.Mode.ALL_MESSAGES);
+            mMessageAdapter = new Adapters(getActivity(), Adapters.Mode.ALL_MESSAGES);
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to initialize message adapter");
         }

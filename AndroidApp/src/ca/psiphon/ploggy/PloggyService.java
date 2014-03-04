@@ -99,7 +99,7 @@ public class PloggyService extends Service {
 
         List<Pair<String, String>> unreadPosts = new ArrayList<Pair<String, String>>();
         Data data = Data.getInstance();
-        Data.CursorIterator<Data.Post> unreadPostsCursor = null;
+        Data.ObjectCursor<Data.Post> unreadPostsCursor = null;
 
         try {
             unreadPostsCursor = data.getUnreadPosts();

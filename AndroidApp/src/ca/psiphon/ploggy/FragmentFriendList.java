@@ -19,10 +19,7 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.List;
-
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
@@ -33,10 +30,10 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.BaseAdapter;
-import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.TextView;
+import ca.psiphon.ploggy.Adapters.FriendAdapter;
+import ca.psiphon.ploggy.Data.Friend;
+import ca.psiphon.ploggy.Data.ObjectCursor;
 
 import com.squareup.otto.Subscribe;
 
@@ -50,22 +47,26 @@ public class FragmentFriendList extends ListFragment {
 
     private static final String LOG_TAG = "Friend List";
 
-    private boolean mIsResumed = false;
     private FriendAdapter mFriendAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        try {
-            mFriendAdapter = new FriendAdapter(getActivity());
-        } catch (PloggyError e) {
-            Log.addEntry(LOG_TAG, "failed to initialize friend adapter");
-        }
+
+        mFriendAdapter = new FriendAdapter(
+                getActivity(),
+                new Adapters.CursorFactory<Data.Friend>() {
+                    @Override
+                    public ObjectCursor<Friend> makeCursor() throws PloggyError {
+                        return Data.getInstance().getFriends();
+                    }
+                });
 
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
-        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {updateFriends();}}, 5000);
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(
+                new Runnable() {@Override public void run() {updateFriends(false);}}, 5000);
 
         return view;
     }
@@ -77,27 +78,24 @@ public class FragmentFriendList extends ListFragment {
             setListAdapter(mFriendAdapter);
         }
         registerForContextMenu(getListView());
-        Events.register(this);
+        Events.getInstance().register(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        mIsResumed = true;
         mRefreshUIExecutor.start();
-        Events.post(new Events.DisplayedFriends());
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mIsResumed = false;
         mRefreshUIExecutor.stop();
     }
 
     @Override
     public void onDestroyView() {
-        Events.unregister(this);
+        Events.getInstance().unregister(this);
         super.onDestroyView();
     }
 
@@ -121,6 +119,7 @@ public class FragmentFriendList extends ListFragment {
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
+        // *TODO* use CAB for long-press actions (https://developer.android.com/design/patterns/selection.html)
         AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)item.getMenuInfo();
         if (item.getItemId() == R.id.action_friend_list_delete_friend) {
             final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
@@ -133,8 +132,6 @@ public class FragmentFriendList extends ListFragment {
                             public void onClick(DialogInterface dialog, int which) {
                                 try {
                                     Data.getInstance().removeFriend(finalFriend.mId);
-                                } catch (Data.DataNotFoundError e) {
-                                    // Ignore
                                 } catch (PloggyError e) {
                                     Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
                                 }
@@ -148,158 +145,37 @@ public class FragmentFriendList extends ListFragment {
     }
 
     @Subscribe
+    public void onUpdatedSelfLocation(Events.UpdatedFriendLocation updatedSelfLocation) {
+        // Distance calculation may change in this case
+        updateFriends(true);
+    }
+
+    @Subscribe
     public void onAddedFriend(Events.AddedFriend addedFriend) {
-        updateFriends();
+        updateFriends(true);
     }
 
     @Subscribe
     public void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
-        updateFriends();
+        updateFriends(true);
     }
 
     @Subscribe
-    public void onUpdatedFriendStatus(Events.UpdatedFriendStatus updatedFriendStatus) {
-        updateFriends();
+    public void onUpdatedFriendLocation(Events.UpdatedFriendLocation updatedFriendLocation) {
+        updateFriends(true);
     }
 
     @Subscribe
     public void onDeletedFriend(Events.RemovedFriend removedFriend) {
-        updateFriends();
+        updateFriends(true);
     }
 
     @Subscribe
-    public void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
-        if (mIsResumed) {
-            Events.post(new Events.DisplayedFriends());
-        }
+    public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
+        updateFriends(true);
     }
 
-    private void updateFriends() {
-        try {
-            mFriendAdapter.updateFriends();
-        } catch (PloggyError e) {
-            Log.addEntry(LOG_TAG, "failed to update friend list");
-        }
-    }
-
-    private static class FriendAdapter extends BaseAdapter {
-        private final Context mContext;
-        private List<Data.Friend> mFriends;
-
-        public FriendAdapter(Context context) throws PloggyError {
-            mContext = context;
-            mFriends = Data.getInstance().getFriends();
-        }
-
-        public void updateFriends() throws PloggyError {
-            mFriends = Data.getInstance().getFriends();
-            notifyDataSetChanged();
-        }
-
-        @Override
-        public View getView(int position, View view, ViewGroup parent) {
-            if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.friend_list_row, null);
-            }
-            Data.Friend friend = mFriends.get(position);
-            if (friend != null) {
-                ImageView avatarImage = (ImageView)view.findViewById(R.id.friend_list_avatar_image);
-                TextView nicknameText = (TextView)view.findViewById(R.id.friend_list_nickname_text);
-                TextView lastTimestampText = (TextView)view.findViewById(R.id.friend_list_last_timestamp_text);
-                TextView messageTimestampText = (TextView)view.findViewById(R.id.friend_list_message_timestamp_text);
-                TextView messageContentText = (TextView)view.findViewById(R.id.friend_list_message_content_text);
-                TextView locationTimestampText = (TextView)view.findViewById(R.id.friend_list_location_timestamp_text);
-                TextView locationStreetAddressText = (TextView)view.findViewById(R.id.friend_list_location_street_address_text);
-                TextView locationDistanceText = (TextView)view.findViewById(R.id.friend_list_location_distance_text);
-
-                // Not hiding missing fields
-                lastTimestampText.setText("");
-                messageTimestampText.setText("");
-                messageContentText.setText("");
-                locationTimestampText.setText("");
-                locationStreetAddressText.setText("");
-                locationDistanceText.setText("");
-
-                Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
-                nicknameText.setText(friend.mPublicIdentity.mNickname);
-                try {
-                    Data data = Data.getInstance();
-                    Data.Location selfLocation = null;
-                    try {
-                        selfLocation = data.getCurrentSelfLocation();
-                    } catch (Data.DataNotFoundError e) {
-                        // Won't be able to compute distance
-                    }
-
-                    Data.Status friendStatus = data.getFriendStatus(friend.mId);
-
-                    // Display most recent successful communication timestamp
-                    String lastTimestamp = "";
-                    if (friend.mLastReceivedStatusTimestamp != null &&
-                            (friend.mLastSentStatusTimestamp == null ||
-                             friend.mLastReceivedStatusTimestamp.after(friend.mLastSentStatusTimestamp))) {
-                        lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastReceivedStatusTimestamp, true);
-                    } else if (friend.mLastSentStatusTimestamp != null) {
-                        lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastSentStatusTimestamp, true);
-                    }
-                    lastTimestampText.setText(lastTimestamp);
-                    if (lastTimestamp.length() > 0) {
-                        // On touch, show log entries
-                        lastTimestampText.setOnClickListener(
-                            new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    mContext.startActivity(new Intent(mContext, ActivityLogEntries.class));
-                                }
-                            });
-                    }
-
-                    if (friendStatus.mMessages.size() > 0) {
-                        Data.Message message = friendStatus.mMessages.get(0);
-                        messageContentText.setText(message.mContent);
-                        messageTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, message.mTimestamp, true));
-                    }
-                    if (friendStatus.mLocation.mTimestamp != null) {
-                        locationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, friendStatus.mLocation.mTimestamp, true));
-                        if (friendStatus.mLocation.mStreetAddress.length() > 0) {
-                            locationStreetAddressText.setText(friendStatus.mLocation.mStreetAddress);
-                        } else {
-                            locationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
-                        }
-                        if (selfLocation != null && selfLocation.mTimestamp != null) {
-                            int distance = Utils.calculateLocationDistanceInMeters(
-                                    selfLocation.mLatitude,
-                                    selfLocation.mLongitude,
-                                    friendStatus.mLocation.mLatitude,
-                                    friendStatus.mLocation.mLongitude);
-                            locationDistanceText.setText(Utils.formatDistance(mContext, distance));
-                        } else {
-                            locationDistanceText.setText(R.string.prompt_unknown_distance);
-                        }
-                    }
-                } catch (Data.DataNotFoundError e) {
-                    messageTimestampText.setText(R.string.prompt_no_status_updates_received);
-                } catch (PloggyError e) {
-                    Log.addEntry(LOG_TAG, "failed to display friend");
-                }
-            }
-            return view;
-        }
-
-        @Override
-        public int getCount() {
-            return mFriends.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return mFriends.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return position;
-        }
+    private void updateFriends(boolean requery) {
+        mFriendAdapter.update(requery);
     }
 }

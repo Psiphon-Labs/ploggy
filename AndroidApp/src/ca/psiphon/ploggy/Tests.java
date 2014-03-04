@@ -337,8 +337,8 @@ public class Tests {
             if (!selfGroup.equals(friendGroup)) {
                 throw new PloggyError(LOG_TAG, "compareGroupData - group mismatch");
             }
-            Data.CursorIterator<Data.Post> selfIterator = mData.getPosts(groupId);
-            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
+            Data.ObjectCursor<Data.Post> selfIterator = mData.getPosts(groupId);
+            Data.ObjectCursor<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
             while (selfIterator.hasNext()) {
                 if (!friendIterator.hasNext()) {
                     throw new PloggyError(LOG_TAG, "compareGroupData - friend has fewer posts");
@@ -355,7 +355,7 @@ public class Tests {
         }
 
         void logFriendsDataTransfer() throws PloggyError {
-            for (Data.Friend friend : mData.getFriends()) {
+            for (Data.Friend friend : mData.getFriendsIterator()) {
                 Log.addEntry(
                         LOG_TAG,
                         mInstanceName + " data usage for friend " + friend.mPublicIdentity.mNickname + ": " +
@@ -365,7 +365,7 @@ public class Tests {
         }
 
         void addCandidateFriends() throws PloggyError {
-            for (Data.CandidateFriend friend : mData.getCandidateFriends()) {
+            for (Data.CandidateFriend friend : mData.getCandidateFriendsIterator()) {
                 addFriend(friend.mPublicIdentity);
             }
         }
