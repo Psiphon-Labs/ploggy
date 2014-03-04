@@ -117,7 +117,7 @@ public class FragmentSelfStatusDetails extends Fragment {
 
     private void show(View view) {
         try {
-            Data data = Data.getInstance(getActivity());
+            Data data = Data.getInstance();
             Data.Self self = data.getSelfOrThrow();
             Protocol.Location selfLocation = null;
             try {

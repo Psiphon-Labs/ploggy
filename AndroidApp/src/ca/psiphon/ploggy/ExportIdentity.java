@@ -71,7 +71,7 @@ public class ExportIdentity {
                         public void onClick(DialogInterface dialog, int which) {
                             try {
                                 String json =
-                                        Json.toJson(Data.getInstance(finalContext).getSelfOrThrow().mPublicIdentity);
+                                        Json.toJson(Data.getInstance().getSelfOrThrow().mPublicIdentity);
                                 String payload = URLEncoder.encode(json, "UTF-8");
 
                                 String link = ActivityAddFriend.IDENTITY_LINK_PREFIX + payload;
@@ -114,7 +114,7 @@ public class ExportIdentity {
 
                                 Utils.writeStringToFile(
                                         Json.toJson(
-                                                Data.getInstance(finalContext).getSelfOrThrow().mPublicIdentity),
+                                                Data.getInstance().getSelfOrThrow().mPublicIdentity),
                                         attachmentFile);
 
                                 String toast = finalContext.getString(

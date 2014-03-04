@@ -348,24 +348,24 @@ public class Data extends SQLiteOpenHelper {
 
     private static Map<String, Data> mInstances = new HashMap<String, Data>();
 
-    public static synchronized Data getInstance(Context context) {
-        return getInstance(context, Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    public static synchronized Data getInstance() {
+        return getInstance(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
     }
 
-    public static synchronized Data getInstance(Context context, String name) {
+    public static synchronized Data getInstance(String name) {
         if (!mInstances.containsKey(name)) {
-            mInstances.put(name, new Data(context, name));
+            mInstances.put(name, new Data(Utils.getApplicationContext(), name));
         }
         return mInstances.get(name);
     }
 
-    public static synchronized void deleteDatabase(Context context, String name)
+    public static synchronized void deleteDatabase(String name)
             throws PloggyError {
         if (mInstances.containsKey(name)) {
             mInstances.get(name).close();
             mInstances.remove(name);
         }
-        if (!context.deleteDatabase(name)) {
+        if (!Utils.getApplicationContext().deleteDatabase(name)) {
             throw new PloggyError(LOG_TAG, "failed to delete database");
         }
     }

@@ -158,7 +158,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 return;
             }
             try {
-                Data.getInstance(this).putSelf(
+                Data.getInstance().putSelf(
                         new Data.Self(
                                 Identity.makeSignedPublicIdentity(
                                         nickname,
@@ -293,7 +293,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
     static private Data.Self getSelf(Context context) {
         Data.Self self = null;
         try {
-            self = Data.getInstance(context).getSelfOrThrow();
+            self = Data.getInstance().getSelfOrThrow();
         } catch (PloggyError e) {
         }
         return self;

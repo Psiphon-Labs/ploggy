@@ -135,7 +135,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
 
     private void show() {
         try {
-            Data data = Data.getInstance(this);
+            Data data = Data.getInstance();
             Data.Friend friend = data.getFriendById(mFriendId);
             Protocol.Location selfLocation = null;
             try {

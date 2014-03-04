@@ -198,7 +198,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 return;
             }
             try {
-                Data.getInstance(this).addFriend(mReceivedFriend);
+                Data.getInstance().addFriend(mReceivedFriend);
                 String prompt = getString(R.string.prompt_add_friend_friend_added, mReceivedFriend.mPublicIdentity.mNickname);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
                 finish();

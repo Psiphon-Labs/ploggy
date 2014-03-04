@@ -110,15 +110,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // start up, or when a friend is added, for example).
     private static final int FRIEND_REQUEST_DELAY_IN_MILLISECONDS = 30*1000;
 
-    public Engine(Context context) {
-        this(context, Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    public Engine() {
+        this(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
     }
 
-    public Engine(Context context, String instanceName) {
+    public Engine(String instanceName) {
         Utils.initSecureRandom();
-        mContext = context;
+        mContext = Utils.getApplicationContext();
         mInstanceName = instanceName;
-        mData = Data.getInstance(mContext, mInstanceName);
+        mData = Data.getInstance(mInstanceName);
         mHandler = new Handler();
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");

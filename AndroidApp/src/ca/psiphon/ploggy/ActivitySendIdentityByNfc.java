@@ -70,7 +70,7 @@ public class ActivitySendIdentityByNfc extends FragmentActivity implements NfcAd
     @Override
     public NdefMessage createNdefMessage(NfcEvent event) {
         try {
-            String payload = Json.toJson(Data.getInstance(this).getSelfOrThrow().mPublicIdentity);
+            String payload = Json.toJson(Data.getInstance().getSelfOrThrow().mPublicIdentity);
             return new NdefMessage(
                     new NdefRecord[] {
                             NdefRecord.createMime(NFC_MIME_TYPE, payload.getBytes()),

@@ -181,9 +181,9 @@ public class Tests {
         public PloggyInstance(String instanceName) throws PloggyError {
             mContext = Utils.getApplicationContext();
             mInstanceName = instanceName;
-            Data.deleteDatabase(mContext, mInstanceName);
-            mData = Data.getInstance(mContext, mInstanceName);
-            mEngine = new Engine(mContext, mInstanceName);
+            Data.deleteDatabase(mInstanceName);
+            mData = Data.getInstance(mInstanceName);
+            mEngine = new Engine(mInstanceName);
         }
 
         public void start() throws PloggyError {
@@ -333,12 +333,12 @@ public class Tests {
         void compareGroupData(String groupId, PloggyInstance ploggyInstance)
                 throws PloggyError {
             String selfGroup = Json.toJson(mData.getGroupOrThrow(groupId).mGroup);
-            String friendGroup = Json.toJson(Data.getInstance(mContext, ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
+            String friendGroup = Json.toJson(Data.getInstance(ploggyInstance.mInstanceName).getGroupOrThrow(groupId).mGroup);
             if (!selfGroup.equals(friendGroup)) {
                 throw new PloggyError(LOG_TAG, "compareGroupData - group mismatch");
             }
             Data.CursorIterator<Data.Post> selfIterator = mData.getPosts(groupId);
-            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(mContext, ploggyInstance.mInstanceName).getPosts(groupId);
+            Data.CursorIterator<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
             while (selfIterator.hasNext()) {
                 if (!friendIterator.hasNext()) {
                     throw new PloggyError(LOG_TAG, "compareGroupData - friend has fewer posts");

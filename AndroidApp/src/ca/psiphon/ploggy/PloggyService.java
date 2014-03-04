@@ -56,7 +56,7 @@ public class PloggyService extends Service {
     public void onCreate() {
         try {
             Events.getInstance().register(this);
-            mEngine = new Engine(this);
+            mEngine = new Engine();
             mEngine.start();
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to start Engine");
@@ -98,7 +98,7 @@ public class PloggyService extends Service {
         final int MAX_LINES = 5;
 
         List<Pair<String, String>> unreadPosts = new ArrayList<Pair<String, String>>();
-        Data data = Data.getInstance(this);
+        Data data = Data.getInstance();
         Data.CursorIterator<Data.Post> unreadPostsCursor = null;
 
         try {
