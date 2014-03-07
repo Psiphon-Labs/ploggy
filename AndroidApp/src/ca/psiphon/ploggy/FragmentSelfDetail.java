@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,8 +19,9 @@
 
 package ca.psiphon.ploggy;
 
+import android.app.Fragment;
+import android.content.Context;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,9 +38,9 @@ import com.squareup.otto.Subscribe;
  * while in the foreground (e.g., location data updated
  * the the engine).
  */
-public class FragmentSelfStatusDetails extends Fragment {
+public class FragmentSelfDetail extends Fragment {
 
-    private static final String LOG_TAG = "Self Status Details";
+    private static final String LOG_TAG = "Self Detail";
 
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -55,7 +56,7 @@ public class FragmentSelfStatusDetails extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.self_status_details, container, false);
+        View view = inflater.inflate(R.layout.self_detail, container, false);
 
         mAvatarImage = (ImageView)view.findViewById(R.id.self_status_details_avatar_image);
         mNicknameText = (TextView)view.findViewById(R.id.self_status_details_nickname_text);
@@ -117,7 +118,9 @@ public class FragmentSelfStatusDetails extends Fragment {
 
     private void show(View view) {
         try {
+            Context context = getActivity();
             Data data = Data.getInstance();
+
             Data.Self self = data.getSelfOrThrow();
             Protocol.Location selfLocation = null;
             try {
@@ -126,7 +129,7 @@ public class FragmentSelfStatusDetails extends Fragment {
                 // Won't be able to compute distance
             }
 
-            Robohash.setRobohashImage(getActivity(), mAvatarImage, true, self.mPublicIdentity);
+            Robohash.setRobohashImage(context, mAvatarImage, true, self.mPublicIdentity);
             mNicknameText.setText(self.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
 
@@ -149,11 +152,11 @@ public class FragmentSelfStatusDetails extends Fragment {
                                 R.string.format_status_details_coordinates,
                                 selfLocation.mLatitude,
                                 selfLocation.mLongitude));
-                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(getActivity(), selfLocation.mTimestamp, true));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, selfLocation.mTimestamp, true));
             }
         } catch (PloggyError e) {
             // TODO: hide identity/message views?
-            Log.addEntry(LOG_TAG, "failed to display self status details");
+            Log.addEntry(LOG_TAG, "failed to display self detail");
         }
     }
 }

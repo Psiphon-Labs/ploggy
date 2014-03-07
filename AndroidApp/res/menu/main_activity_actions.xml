@@ -3,12 +3,9 @@
           android:icon="@drawable/ic_action_generate_self"
           android:title="@string/action_generate_self"
           android:showAsAction="withText" />
-    <item android:id="@+id/action_email_self"
+    <item android:id="@+id/action_email_identity"
           android:icon="@drawable/ic_action_email_self"
           android:title="@string/action_email_self"
-          android:showAsAction="withText" />
-    <item android:id="@+id/action_activity_log"
-          android:title="@string/action_activity_log"
           android:showAsAction="withText" />
     <item android:id="@+id/action_save_identity_to_file"
           android:icon="@drawable/ic_action_content_save"

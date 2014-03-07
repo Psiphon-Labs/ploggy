@@ -297,7 +297,7 @@ public class Tests {
         @SuppressWarnings("unused")
         void loadPosts(String groupId) throws PloggyError {
             int count = 0;
-            for (Data.Post post : mData.getPosts(groupId)) {
+            for (Data.Post post : mData.getPostsIterator(groupId)) {
                 count++;
             }
             Log.addEntry(

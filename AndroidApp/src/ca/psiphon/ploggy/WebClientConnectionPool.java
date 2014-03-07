@@ -69,7 +69,7 @@ public class WebClientConnectionPool {
         Data.Self self = data.getSelfOrThrow();
         X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey);
         List<String> friendCertificates = new ArrayList<String>();
-        for (Data.Friend friend : data.getFriends()) {
+        for (Data.Friend friend : data.getFriendsIterator()) {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mConnectionManager =

@@ -41,10 +41,6 @@
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityFriendStatusDetails"
-            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
-        </activity>
-        <activity
             android:name="ca.psiphon.ploggy.ActivityAddFriend"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
             <intent-filter>
@@ -100,10 +96,6 @@
         </activity>
         <activity
             android:name="ca.psiphon.ploggy.ActivityShowPicture" 
-            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
-        </activity>
-        <activity
-            android:name="ca.psiphon.ploggy.ActivityLogEntries"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity

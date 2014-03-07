@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -45,9 +45,9 @@ import android.widget.TextView;
 /**
  * Re-usable user interface fragment which implements composing and sending a new message.
  */
-public class FragmentComposeMessage extends Fragment implements View.OnClickListener, TextView.OnEditorActionListener {
+public class FragmentComposePost extends Fragment implements View.OnClickListener, TextView.OnEditorActionListener {
 
-    private static final String LOG_TAG = "Compose Message";
+    private static final String LOG_TAG = "Compose Post";
 
     // TODO: support multiple attachments
 

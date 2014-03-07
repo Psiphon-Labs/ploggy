@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -31,14 +31,11 @@ import android.widget.ListView;
 import com.squareup.otto.Subscribe;
 
 /**
- * User interface which displays all messages.
- *
- * This class subscribes to friend and status events to update displayed data
- * while in the foreground.
+ * User interface which displays group posts.
  */
-public class FragmentMessageList extends Fragment {
+public class FragmentGroupDetail extends Fragment {
 
-    private static final String LOG_TAG = "Message List";
+    private static final String LOG_TAG = "Group Detail";
 
     private boolean mIsResumed = false;
     private Fragment mFragmentComposeMessage;
@@ -48,9 +45,9 @@ public class FragmentMessageList extends Fragment {
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.message_list, container, false);
+        View view = inflater.inflate(R.layout.group_detail, container, false);
 
-        mFragmentComposeMessage = new FragmentComposeMessage();
+        mFragmentComposeMessage = new FragmentComposePost();
         FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
         transaction.add(R.id.fragment_message_list_compose_message, mFragmentComposeMessage).commit();
 

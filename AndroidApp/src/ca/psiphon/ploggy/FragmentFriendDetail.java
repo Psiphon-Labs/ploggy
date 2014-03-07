@@ -19,11 +19,14 @@
 
 package ca.psiphon.ploggy;
 
+import android.content.Context;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.squareup.otto.Subscribe;
 
@@ -34,9 +37,9 @@ import com.squareup.otto.Subscribe;
  * This class subscribes to status events to update displayed data
  * while in the foreground.
  */
-public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
+public class FragmentFriendDetail extends Fragment {
 
-    private static final String LOG_TAG = "Friend Status Details";
+    private static final String LOG_TAG = "Friend Detail";
 
     public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
 
@@ -62,10 +65,11 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
 
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_friend_status_details);
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        View view = inflater.inflate(R.layout.friend_detail, container, false);
 
+        // *TODO* get friendID from fragment args
+        /*
         Bundle bundle = getIntent().getExtras();
         if (bundle == null) {
             finish();
@@ -77,24 +81,25 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             finish();
             return;
         }
+        */
 
-        mAvatarImage = (ImageView)findViewById(R.id.friend_status_details_avatar_image);
-        mNicknameText = (TextView)findViewById(R.id.friend_status_details_nickname_text);
-        mFingerprintText = (TextView)findViewById(R.id.friend_status_details_fingerprint_text);
-        mLocationLabel = (TextView)findViewById(R.id.friend_status_details_location_label);
-        mLocationStreetAddressLabel = (TextView)findViewById(R.id.friend_status_details_location_street_address_label);
-        mLocationStreetAddressText = (TextView)findViewById(R.id.friend_status_details_location_street_address_text);
-        mLocationDistanceLabel = (TextView)findViewById(R.id.friend_status_details_location_distance_label);
-        mLocationDistanceText = (TextView)findViewById(R.id.friend_status_details_location_distance_text);
-        mLocationCoordinatesLabel = (TextView)findViewById(R.id.friend_status_details_location_coordinates_label);
-        mLocationCoordinatesText = (TextView)findViewById(R.id.friend_status_details_location_coordinates_text);
-        mLocationTimestampLabel = (TextView)findViewById(R.id.friend_status_details_location_timestamp_label);
-        mLocationTimestampText = (TextView)findViewById(R.id.friend_status_details_location_timestamp_text);
-        mLastReceivedFromTimestampText = (TextView)findViewById(R.id.friend_status_details_last_received_from_timestamp_text);
-        mBytesReceivedFromText = (TextView)findViewById(R.id.friend_status_details_bytes_received_from_text);
-        mLastSentToTimestampText = (TextView)findViewById(R.id.friend_status_details_last_sent_to_timestamp_text);
-        mBytesSentToText = (TextView)findViewById(R.id.friend_status_details_bytes_sent_to_text);
-        mAddedTimestampText = (TextView)findViewById(R.id.friend_status_details_added_timestamp_text);
+        mAvatarImage = (ImageView)view.findViewById(R.id.friend_status_details_avatar_image);
+        mNicknameText = (TextView)view.findViewById(R.id.friend_status_details_nickname_text);
+        mFingerprintText = (TextView)view.findViewById(R.id.friend_status_details_fingerprint_text);
+        mLocationLabel = (TextView)view.findViewById(R.id.friend_status_details_location_label);
+        mLocationStreetAddressLabel = (TextView)view.findViewById(R.id.friend_status_details_location_street_address_label);
+        mLocationStreetAddressText = (TextView)view.findViewById(R.id.friend_status_details_location_street_address_text);
+        mLocationDistanceLabel = (TextView)view.findViewById(R.id.friend_status_details_location_distance_label);
+        mLocationDistanceText = (TextView)view.findViewById(R.id.friend_status_details_location_distance_text);
+        mLocationCoordinatesLabel = (TextView)view.findViewById(R.id.friend_status_details_location_coordinates_label);
+        mLocationCoordinatesText = (TextView)view.findViewById(R.id.friend_status_details_location_coordinates_text);
+        mLocationTimestampLabel = (TextView)view.findViewById(R.id.friend_status_details_location_timestamp_label);
+        mLocationTimestampText = (TextView)view.findViewById(R.id.friend_status_details_location_timestamp_text);
+        mLastReceivedFromTimestampText = (TextView)view.findViewById(R.id.friend_status_details_last_received_from_timestamp_text);
+        mBytesReceivedFromText = (TextView)view.findViewById(R.id.friend_status_details_bytes_received_from_text);
+        mLastSentToTimestampText = (TextView)view.findViewById(R.id.friend_status_details_last_sent_to_timestamp_text);
+        mBytesSentToText = (TextView)view.findViewById(R.id.friend_status_details_bytes_sent_to_text);
+        mAddedTimestampText = (TextView)view.findViewById(R.id.friend_status_details_added_timestamp_text);
 
         show();
 
@@ -103,6 +108,8 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
 
         Events.getInstance().register(this);
+
+        return view;
     }
 
     @Override
@@ -118,7 +125,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
     }
 
     @Override
-    public void onDestroy() {
+    public void onDestroyView() {
         Events.getInstance().unregister(this);
         super.onDestroy();
     }
@@ -135,9 +142,10 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
 
     private void show() {
         try {
+            Context context = getActivity();
             Data data = Data.getInstance();
 
-            Data.Friend friend = data.getFriendById(mFriendId);
+            Data.Friend friend = data.getFriendByIdOrThrow(mFriendId);
 
             Protocol.Location selfLocation = null;
             try {
@@ -152,7 +160,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                 // Won't be able to display friend location
             }
 
-            Robohash.setRobohashImage(this, mAvatarImage, true, friend.mPublicIdentity);
+            Robohash.setRobohashImage(context, mAvatarImage, true, friend.mPublicIdentity);
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
 
@@ -178,7 +186,7 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                             selfLocation.mLongitude,
                             friendLocation.mLatitude,
                             friendLocation.mLongitude);
-                    mLocationDistanceText.setText(Utils.formatDistance(this, distance));
+                    mLocationDistanceText.setText(Utils.formatDistance(context, distance));
                 } else {
                     mLocationDistanceText.setText(R.string.prompt_unknown_distance);
                 }
@@ -187,11 +195,11 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
                                 R.string.format_status_details_coordinates,
                                 friendLocation.mLatitude,
                                 friendLocation.mLongitude));
-                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friendLocation.mTimestamp, true));
+                mLocationTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, friendLocation.mTimestamp, true));
             }
 
             if (friend.mLastReceivedFromTimestamp != null) {
-                mLastReceivedFromTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mLastReceivedFromTimestamp, true));
+                mLastReceivedFromTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, friend.mLastReceivedFromTimestamp, true));
             } else {
                 mLastReceivedFromTimestampText.setText(R.string.prompt_no_status_updates_received);
             }
@@ -199,21 +207,16 @@ public class ActivityFriendStatusDetails extends ActivitySendIdentityByNfc {
             mBytesReceivedFromText.setText(Utils.byteCountToDisplaySize(friend.mBytesReceivedFrom, false));
 
             if (friend.mLastSentToTimestamp != null) {
-                mLastSentToTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mLastSentToTimestamp, true));
+                mLastSentToTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, friend.mLastSentToTimestamp, true));
             } else {
                 mLastSentToTimestampText.setText(R.string.prompt_no_status_updates_sent);
             }
 
             mBytesSentToText.setText(Utils.byteCountToDisplaySize(friend.mBytesSentTo, false));
 
-            mAddedTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(this, friend.mAddedTimestamp, true));
-        } catch (Data.NotFoundError e) {
-            Toast toast = Toast.makeText(this, getString(R.string.prompt_status_details_data_not_found), Toast.LENGTH_SHORT);
-            toast.show();
-            finish();
+            mAddedTimestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, friend.mAddedTimestamp, true));
         } catch (PloggyError e) {
-            Log.addEntry(LOG_TAG, "failed to display friend status details");
-            finish();
+            Log.addEntry(LOG_TAG, "failed to display friend detail");
         }
     }
 }

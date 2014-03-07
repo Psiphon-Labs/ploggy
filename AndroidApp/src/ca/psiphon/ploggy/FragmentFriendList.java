@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -31,9 +31,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ListView;
-import ca.psiphon.ploggy.Adapters.FriendAdapter;
-import ca.psiphon.ploggy.Data.Friend;
-import ca.psiphon.ploggy.Data.ObjectCursor;
 
 import com.squareup.otto.Subscribe;
 
@@ -47,18 +44,18 @@ public class FragmentFriendList extends ListFragment {
 
     private static final String LOG_TAG = "Friend List";
 
-    private FriendAdapter mFriendAdapter;
+    private Adapters.FriendAdapter mFriendAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
 
-        mFriendAdapter = new FriendAdapter(
+        mFriendAdapter = new Adapters.FriendAdapter(
                 getActivity(),
                 new Adapters.CursorFactory<Data.Friend>() {
                     @Override
-                    public ObjectCursor<Friend> makeCursor() throws PloggyError {
+                    public Data.ObjectCursor<Data.Friend> makeCursor() throws PloggyError {
                         return Data.getInstance().getFriends();
                     }
                 });
@@ -102,9 +99,9 @@ public class FragmentFriendList extends ListFragment {
     @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
-        Intent intent = new Intent(getActivity(), ActivityFriendStatusDetails.class);
+        Intent intent = new Intent(getActivity(), FragmentFriendDetail.class);
         Bundle bundle = new Bundle();
-        bundle.putString(ActivityFriendStatusDetails.FRIEND_ID_BUNDLE_KEY, friend.mId);
+        bundle.putString(FragmentFriendDetail.FRIEND_ID_BUNDLE_KEY, friend.mId);
         intent.putExtras(bundle);
         startActivity(intent);
     }
@@ -166,7 +163,7 @@ public class FragmentFriendList extends ListFragment {
     }
 
     @Subscribe
-    public void onDeletedFriend(Events.RemovedFriend removedFriend) {
+    public void onRemovedFriend(Events.RemovedFriend removedFriend) {
         updateFriends(true);
     }
 
