@@ -66,43 +66,42 @@ public class NavigationDrawerContent {
                     Context context = mAdapter.getContext();
                     List<Row> rows = new ArrayList<Row>();
                     rows.add(new Item(
-                            ItemType.YOUR_STATUS,
-                            R.drawable.ic_navigation_drawer_icon_your_status,
-                            context.getString(R.string.navigation_drawer_item_your_status));
+                            new ActivityMain.ViewTag(ActivityMain.ViewType.SELF_DETAIL),
+                            R.drawable.ic_navigation_drawer_self_detail,
+                            context.getString(R.string.navigation_drawer_item_self_detail));
                     rows.add(new Item(
-                            ItemType.GROUPS,
-                            R.drawable.ic_navigation_drawer_icon_groups,
-                            context.getString(R.string.navigation_drawer_item_groups));
+                            new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_LIST),
+                            R.drawable.ic_navigation_drawer_group_list,
+                            context.getString(R.string.navigation_drawer_item_group_list));
                     rows.add(new Item(
-                            ItemType.FRIENDS,
-                            R.drawable.ic_navigation_drawer_icon_friends,
-                            context.getString(R.string.navigation_drawer_item_friends));
+                            new ActivityMain.ViewTag(ActivityMain.ViewType.FRIEND_LIST),
+                            R.drawable.ic_navigation_drawer_friend_list,
+                            context.getString(R.string.navigation_drawer_item_friend_list));
+                    // *TODO* only show if > 0 candidate friends
                     rows.add(new Item(
-                            ItemType.CANDIDATE_FRIENDS,
-                            R.drawable.ic_navigation_drawer_icon_candidate_friends,
-                            context.getString(R.string.navigation_drawer_item_candidate_friends));
+                            new ActivityMain.ViewTag(ActivityMain.ViewType.CANDIDATE_FRIEND_LIST),
+                            R.drawable.ic_navigation_drawer_candidate_friend_list,
+                            context.getString(R.string.navigation_drawer_item_candidate_friend_list));
                     rows.add(new Item(
-                            ItemType.ACTIVITY_LOG,
-                            R.drawable.ic_navigation_drawer_icon_activity_log,
-                            context.getString(R.string.navigation_drawer_item_activity_log));
+                            new ActivityMain.ViewTag(ActivityMain.ViewType.LOG_ENTRIES),
+                            R.drawable.ic_navigation_drawer_log_entries,
+                            context.getString(R.string.navigation_drawer_item_log_entries));
                     rows.add(
                         new Header(context.getString(R.string.navigation_draw_header_groups)));
                     // TODO: only display N most recent groups/friends
                     // TODO: for groups, display counter with number of unread posts
                     for (Data.Group group : data.getGroupsIterator()) {
                         rows.add(new Item(
-                                ItemType.GROUP,
-                                group.mGroup.mId,
-                                R.drawable.ic_navigation_drawer_icon_group,
+                                new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_DETAIL, group.mGroup.mId),
+                                R.drawable.ic_navigation_drawer_group_detail,
                                 group.mGroup.mName));
                     }
                     rows.add(
                         new Header(context.getString(R.string.navigation_draw_header_friends)));
                     for (Data.Friend friend : data.getFriendsIterator()) {
                         rows.add(new Item(
-                                ItemType.FRIEND,
-                                friend.mId,
-                                R.drawable.ic_navigation_drawer_icon_friend,
+                                new ActivityMain.ViewTag(ActivityMain.ViewType.FRIEND_DETAIL, friend.mId),
+                                R.drawable.ic_navigation_drawer_friend_detail,
                                 friend.mPublicIdentity.mNickname));
                     }
                     return rows;
