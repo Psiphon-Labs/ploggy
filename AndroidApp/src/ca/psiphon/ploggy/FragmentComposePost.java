@@ -51,6 +51,7 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
 
     // TODO: support multiple attachments
 
+    private String mGroupId;
     private ImageButton mSetPictureButton;
     private ImageView mPictureThumbnail;
     private String mPictureMimeType;
@@ -58,16 +59,33 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
     private EditText mContentEdit;
     private ImageButton mSendButton;
 
+    private static final String ARGUMENT_GROUP_ID = "groupId";
+
     private static final int REQUEST_CODE_SELECT_IMAGE = 1;
+
+    public static FragmentComposePost newInstance(String groupId) {
+        FragmentComposePost fragment = new FragmentComposePost();
+        Bundle arguments = new Bundle();
+        arguments.putString(ARGUMENT_GROUP_ID, groupId);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.compose_message, container, false);
+        View view = inflater.inflate(R.layout.compose_post, container, false);
 
-        mSetPictureButton = (ImageButton)view.findViewById(R.id.compose_message_set_picture_button);
-        mPictureThumbnail = (ImageView)view.findViewById(R.id.compose_message_picture_thumbnail);
-        mContentEdit = (EditText)view.findViewById(R.id.compose_message_content_edit);
-        mSendButton = (ImageButton)view.findViewById(R.id.compose_message_send_button);
+        Bundle arguments = getArguments();
+        if (arguments != null && arguments.containsKey(ARGUMENT_GROUP_ID)) {
+            mGroupId = arguments.getString(ARGUMENT_GROUP_ID);
+        } else {
+            throw new RuntimeException("missing expected groupId in FragmentComposePost");
+        }
+
+        mSetPictureButton = (ImageButton)view.findViewById(R.id.compose_post_set_picture_button);
+        mPictureThumbnail = (ImageView)view.findViewById(R.id.compose_post_picture_thumbnail);
+        mContentEdit = (EditText)view.findViewById(R.id.compose_post_content_edit);
+        mSendButton = (ImageButton)view.findViewById(R.id.compose_post_send_button);
 
         mSetPictureButton.setOnClickListener(this);
 
@@ -76,7 +94,7 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
         registerForContextMenu(mPictureThumbnail);
 
         InputFilter[] filters = new InputFilter[1];
-        filters[0] = new InputFilter.LengthFilter(Protocol.MAX_MESSAGE_LENGTH);
+        filters[0] = new InputFilter.LengthFilter(Protocol.MAX_POST_SIZE);
         mContentEdit.setFilters(filters);
         mContentEdit.setOnEditorActionListener(this);
 
@@ -118,13 +136,13 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, view, menuInfo);
         if (view.equals(mPictureThumbnail)) {
-            getActivity().getMenuInflater().inflate(R.menu.compose_message_picture_context, menu);
+            getActivity().getMenuInflater().inflate(R.menu.compose_post_picture_context, menu);
         }
     }
 
     @Override
     public boolean onContextItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_compose_message_remove_picture) {
+        if (item.getItemId() == R.id.action_compose_post_remove_picture) {
             resetPicture();
             return true;
         }
@@ -133,16 +151,19 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
 
     private void addNewMessage() {
         try {
-            String messageContent = mContentEdit.getText().toString();
-            if (mPicturePath != null || messageContent.length() > 0) {
+            String content = mContentEdit.getText().toString();
+            if (mPicturePath != null || content.length() > 0) {
                 // TODO: Use AsyncTask? Could be slow as it copies/scales the picture.
-                Resources.PostWithAttachments message = Resources.createMessageWithAttachment(
+                Data data = Data.getInstance();
+                Resources.PostWithAttachments post = Resources.createPostWithAttachment(
+                        data,
+                        mGroupId,
                         new Date(),
-                        messageContent,
+                        content,
                         Data.LocalResource.Type.PICTURE,
                         mPictureMimeType,
                         mPicturePath);
-                Data.getInstance().addSelfStatusMessage(message.mMessage, message.mLocalResources);
+                data.addPost(post.mPost, post.mLocalResources);
                 mContentEdit.getEditableText().clear();
                 resetPicture();
                 Utils.hideKeyboard(getActivity());
@@ -170,7 +191,7 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
         getParentFragment().startActivityForResult(
                 Intent.createChooser(
                         intent,
-                        getText(R.string.prompt_compose_message_select_picture)),
+                        getText(R.string.prompt_compose_post_select_picture)),
                         REQUEST_CODE_SELECT_IMAGE);
     }
 

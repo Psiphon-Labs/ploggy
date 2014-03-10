@@ -637,6 +637,7 @@ public class Data extends SQLiteOpenHelper {
                 List<String> groupIds = new ArrayList<String>();
                 Cursor groupCursor = null;
                 // TODO: can we avoid this additional-query-per-row "anti-pattern"?
+                //       (extra issue with this: the per-row query isn't done in a background thread)
                 try {
                     String query =
                         "SELECT groupId FROM GroupMember WHERE memberId = ?";
@@ -831,6 +832,8 @@ public class Data extends SQLiteOpenHelper {
                 List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
                 Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
                 Cursor memberCursor = null;
+                // TODO: can we avoid this additional-query-per-row "anti-pattern"?
+                //       (extra issue with this: the per-row query isn't done in a background thread)
                 try {
                     String query =
                         "SELECT memberId, memberPublicIdentity, " +

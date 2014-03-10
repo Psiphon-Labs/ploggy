@@ -26,6 +26,8 @@ import android.os.Bundle;
 import android.support.v4.app.ListFragment;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -65,6 +67,8 @@ public class FragmentFriendList extends ListFragment {
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(
                 new Runnable() {@Override public void run() {updateFriends(false);}}, 5000);
 
+        setHasOptionsMenu(true);
+
         return view;
     }
 
@@ -97,13 +101,29 @@ public class FragmentFriendList extends ListFragment {
     }
 
     @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.friend_list_actions, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_add_friend) {
+            startActivity(new Intent(getActivity(), ActivityAddFriend.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     public void onListItemClick(ListView listView, View view, int position, long id) {
         Data.Friend friend = (Data.Friend)listView.getItemAtPosition(position);
-        Intent intent = new Intent(getActivity(), FragmentFriendDetail.class);
-        Bundle bundle = new Bundle();
-        bundle.putString(FragmentFriendDetail.FRIEND_ID_BUNDLE_KEY, friend.mId);
-        intent.putExtras(bundle);
-        startActivity(intent);
+        startActivity(
+                ActivityMain.makeDisplayViewIntent(
+                        getActivity(),
+                        new ActivityMain.ViewTag(
+                                ActivityMain.ViewType.FRIEND_DETAIL,
+                                friend.mId)));
     }
 
     @Override
@@ -164,6 +184,11 @@ public class FragmentFriendList extends ListFragment {
 
     @Subscribe
     public void onRemovedFriend(Events.RemovedFriend removedFriend) {
+        updateFriends(true);
+    }
+
+    @Subscribe
+    public void UpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
         updateFriends(true);
     }
 

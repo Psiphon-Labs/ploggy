@@ -63,7 +63,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         FRIEND_LIST,
         CANDIDATE_FRIEND_LIST,
         LOG_ENTRIES,
-        GROUP_DETAIL,
+        GROUP_POSTS,
         FRIEND_DETAIL
     };
 
@@ -98,6 +98,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
 
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
+    private int mDrawerState;
     private ListView mDrawerList;
     private NavigationDrawerContent.Adapter mDrawerAdapter;
     private CharSequence mTitle;
@@ -122,16 +123,20 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
                     R.string.navigation_drawer_open,
                     R.string.navigation_drawer_close) {
                 @Override
+                public void onDrawerStateChanged(int state) {
+                    super.onDrawerStateChanged(state);
+                    mDrawerState = state;
+                    invalidateOptionsMenu();
+                }
+                @Override
                 public void onDrawerClosed(View view) {
                     super.onDrawerClosed(view);
                     getActionBar().setTitle(mTitle);
-                    invalidateOptionsMenu();
                 }
                 @Override
                 public void onDrawerOpened(View drawerView) {
                     super.onDrawerOpened(drawerView);
                     getActionBar().setTitle(mDrawerTitle);
-                    invalidateOptionsMenu();
                 }
         };
         mDrawerLayout.setDrawerListener(mDrawerToggle);
@@ -139,12 +144,11 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         mDrawerAdapter = new NavigationDrawerContent.Adapter(this);
         mDrawerList.setAdapter(mDrawerAdapter);
         mTitle = mDrawerTitle = getTitle();
+        mDrawerState = DrawerLayout.STATE_IDLE;
 
         // TODO: use the v7 support ActionBar if want to port to Android < 4
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
-
-        // *TODO* expand navigation drawer on app first run
 
         // *TODO* restore selected view
         //if (savedInstanceState != null) {
@@ -152,7 +156,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         //}
 
         // *TODO* persist the starting view in preferences
-        displayView(...);
+        displayView(new ViewTag(ViewType.SELF_DETAIL));
     }
 
     @Override
@@ -190,6 +194,17 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         super.onResume();
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
 
+        // Animate the navigation drawer on first run
+        // *TODO* check for first run
+        mDrawerLayout.postDelayed(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        mDrawerLayout.openDrawer(mDrawerList);
+                    }
+                },
+                1000);
+
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
@@ -197,7 +212,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
             Bundle extras = getIntent().getExtras();
             if (extras != null) {
                 ViewTag viewTag = new ViewTag(
-                        ViewType.valueOf(extras.getString(ACTION_DISPLAY_VIEW_EXTRA_TAG_TYPE),
+                        ViewType.valueOf(extras.getString(ACTION_DISPLAY_VIEW_EXTRA_TAG_TYPE)),
                         extras.getString(ACTION_DISPLAY_VIEW_EXTRA_TAG_ID));
                 displayView(viewTag);
                 // *TODO* mDrawerList.setItemChecked(position, true); ...?
@@ -228,12 +243,14 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        // *TODO*
-        /*
-        // If the nav drawer is open, hide action items related to the content view
-        boolean drawerOpen = mDrawerLayout.isDrawerOpen(mDrawerList);
-        menu.findItem(R.id.action_websearch).setVisible(!drawerOpen);
-        */
+        // *TODO* keep general items?
+        boolean hideMenuItems =
+                mDrawerLayout.isDrawerOpen(mDrawerList) ||
+                mDrawerState != DrawerLayout.STATE_DRAGGING ||
+                mDrawerState != DrawerLayout.STATE_SETTLING;
+        for (int i = 0; i < menu.size(); i++) {
+            menu.getItem(i).setVisible(!hideMenuItems);
+        }
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -254,7 +271,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
             return true;
         case R.id.action_run_tests:
             Tests.scheduleComponentTests();
-            displayView(ViewType.LOG_ENTRIES);
+            displayView(new ViewTag(ViewType.LOG_ENTRIES));
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));
@@ -270,6 +287,12 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
 
     @Override
     public void onBackPressed() {
+
+        if (mDrawerLayout.isDrawerOpen(mDrawerList)) {
+            super.onBackPressed();
+            return;
+        }
+
         // Custom back stack allows for FIFO max depth and uses
         // our fragment cache. The cache supports multiple instances
         // of the same Fragment subclass but for different data.
@@ -292,7 +315,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         // the back stack synthetically for deep links. Is this acceptable?
 
         if (mFragmentBackStack.size() <= 1) {
-            // *TODO* add one more step, back to open drawer, before back to home screen
+            // *TODO* add one more step, back to open drawer, before back to home screen?
             // There's nothing but the oldest fragment, so let the OS
             // handle it -- goes back to the home screen.
             super.onBackPressed();
@@ -414,13 +437,11 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         case LOG_ENTRIES:
             fragment = new FragmentLogEntries();
             break;
-        case GROUP_DETAIL:
-            fragment = new FragmentGroupDetail();
-            fragment.setArguments(new Bundle().putString(FragmentGroupDetail.ARG_GROUP_ID, viewTag.mId));
+        case GROUP_POSTS:
+            fragment = FragmentGroupPosts.newInstance(viewTag.mId);
             break;
         case FRIEND_DETAIL:
-            fragment = new FragmentFriendDetail();
-            fragment.setArguments(new Bundle().putString(FragmentFriendDetail.ARG_FRIEND_ID, viewTag.mId));
+            fragment = FragmentFriendDetail.newInstance(viewTag.mId);
             break;
         default:
             break;

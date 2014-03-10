@@ -41,8 +41,6 @@ public class FragmentFriendDetail extends Fragment {
 
     private static final String LOG_TAG = "Friend Detail";
 
-    public static final String FRIEND_ID_BUNDLE_KEY = "friendId";
-
     private String mFriendId;
     private ImageView mAvatarImage;
     private TextView mNicknameText;
@@ -63,25 +61,26 @@ public class FragmentFriendDetail extends Fragment {
     private TextView mAddedTimestampText;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
+    private static final String ARGUMENT_FRIEND_ID = "friendId";
+
+    public static FragmentFriendDetail newInstance(String friendId) {
+        FragmentFriendDetail fragment = new FragmentFriendDetail();
+        Bundle arguments = new Bundle();
+        arguments.putString(ARGUMENT_FRIEND_ID, friendId);
+        fragment.setArguments(arguments);
+        return fragment;
+    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.friend_detail, container, false);
 
-        // *TODO* get friendID from fragment args
-        /*
-        Bundle bundle = getIntent().getExtras();
-        if (bundle == null) {
-            finish();
-            return;
+        Bundle arguments = getArguments();
+        if (arguments != null && arguments.containsKey(ARGUMENT_FRIEND_ID)) {
+            mFriendId = arguments.getString(ARGUMENT_FRIEND_ID);
+        } else {
+            throw new RuntimeException("missing expected friendId in FragmentFriendDetail");
         }
-
-        mFriendId = bundle.getString(FRIEND_ID_BUNDLE_KEY);
-        if (mFriendId == null) {
-            finish();
-            return;
-        }
-        */
 
         mAvatarImage = (ImageView)view.findViewById(R.id.friend_status_details_avatar_image);
         mNicknameText = (TextView)view.findViewById(R.id.friend_status_details_nickname_text);

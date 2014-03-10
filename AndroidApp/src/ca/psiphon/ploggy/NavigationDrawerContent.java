@@ -68,32 +68,32 @@ public class NavigationDrawerContent {
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.SELF_DETAIL),
                             R.drawable.ic_navigation_drawer_self_detail,
-                            context.getString(R.string.navigation_drawer_item_self_detail));
+                            context.getString(R.string.navigation_drawer_item_self_detail)));
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_LIST),
                             R.drawable.ic_navigation_drawer_group_list,
-                            context.getString(R.string.navigation_drawer_item_group_list));
+                            context.getString(R.string.navigation_drawer_item_group_list)));
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.FRIEND_LIST),
                             R.drawable.ic_navigation_drawer_friend_list,
-                            context.getString(R.string.navigation_drawer_item_friend_list));
+                            context.getString(R.string.navigation_drawer_item_friend_list)));
                     // *TODO* only show if > 0 candidate friends
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.CANDIDATE_FRIEND_LIST),
                             R.drawable.ic_navigation_drawer_candidate_friend_list,
-                            context.getString(R.string.navigation_drawer_item_candidate_friend_list));
+                            context.getString(R.string.navigation_drawer_item_candidate_friend_list)));
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.LOG_ENTRIES),
                             R.drawable.ic_navigation_drawer_log_entries,
-                            context.getString(R.string.navigation_drawer_item_log_entries));
+                            context.getString(R.string.navigation_drawer_item_log_entries)));
                     rows.add(
                         new Header(context.getString(R.string.navigation_draw_header_groups)));
                     // TODO: only display N most recent groups/friends
                     // TODO: for groups, display counter with number of unread posts
                     for (Data.Group group : data.getGroupsIterator()) {
                         rows.add(new Item(
-                                new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_DETAIL, group.mGroup.mId),
-                                R.drawable.ic_navigation_drawer_group_detail,
+                                new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_POSTS, group.mGroup.mId),
+                                R.drawable.ic_navigation_drawer_group_posts,
                                 group.mGroup.mName));
                     }
                     rows.add(

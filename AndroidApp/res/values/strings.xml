@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Ploggy</string>
-    <string name="foreground_service_notification_content_title_without_new_messages">Ploggy is running</string>
-    <plurals name="foreground_service_notification_content_title_with_new_messages">
-        <item quantity="one">Ploggy has %1$d new message</item>
-        <item quantity="other">Ploggy has %1$d new messages</item>
+    <string name="foreground_service_notification_content_title_without_new_posts">Ploggy is running</string>
+    <plurals name="foreground_service_notification_content_title_with_new_posts">
+        <item quantity="one">Ploggy has %1$d new post</item>
+        <item quantity="other">Ploggy has %1$d new posts</item>
     </plurals>
     <string name="foreground_service_notification_inbox_line"><![CDATA[<b>%1$s</b> %2$s]]></string>
     <string name="foreground_service_notification_inbox_summary">+%1$d more</string>
@@ -17,6 +17,9 @@
     <string name="navigation_drawer_item_log_entries">Activity Log</string>
     <string name="navigation_draw_header_groups">Groups</string>
     <string name="navigation_draw_header_friends">Friends</string>
+    <string name="candidate_friend_list_group_seperator">, </string>
+    <string name="action_add_friend">Add Friend</string>
+    <string name="action_add_group">Add Group</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
     <string name="action_save_identity_to_file">Save Your Identity to a File</string>
@@ -25,7 +28,7 @@
     <string name="action_run_tests">Run Diagnostic Tests</string>
     <string name="action_quit">Quit</string>
     <string name="action_friend_list_delete_friend">Delete friend</string>
-    <string name="action_compose_message_remove_picture">Remove picture from message</string>
+    <string name="action_compose_post_remove_picture">Remove picture from post</string>
     <string name="label_delete_friend_title">Delete Friend</string>
     <string name="label_delete_friend_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_friend_positive">Delete</string>
@@ -34,9 +37,6 @@
     <string name="prompt_no_status_updates_received">No updates received</string>
     <string name="prompt_no_street_address_reported">No street address reported</string>
     <string name="prompt_unknown_distance">Unknown distance</string>
-    <string name="title_self_status_fragment">Your Status</string>
-    <string name="title_friend_list_fragment">Friends</string>
-    <string name="title_message_list_fragment">Messages</string>
     <string name="prompt_nfc_not_enabled">NFC is not enabled</string>
     <string name="prompt_nfc_push_complete">Your identity was beamed to a friend</string>
     <string name="label_email_self_title">Email Your Identity to a Friend</string>
@@ -60,24 +60,21 @@
     <string name="button_add_friend_add">Add</string>
     <string name="prompt_add_friend_friend_already_exists">A friend with the nickname %1$s already exists</string>
     <string name="prompt_add_friend_friend_added">Added friend %1$s</string>
-    <string name="label_compose_message_content_hint">Compose your message</string>
-    <string name="prompt_compose_message_select_picture">Select picture for your message</string>
+    <string name="label_compose_post_content_hint">Compose your post</string>
+    <string name="prompt_compose_post_select_picture">Select picture for your post</string>
     <string name="label_status_details_identity">Identity</string>
-    <string name="label_status_details_message">Messages</string>
     <string name="label_status_details_location">Location</string>
     <string name="label_status_details_history">History</string>
     <string name="label_status_details_fingerprint">Fingerprint:</string>
-    <string name="label_friend_status_details_message_content">Message:</string>
     <string name="format_distance_meters">%1$s meters</string>
     <string name="format_distance_kilometers">%1$s kilometers</string>
-    <string name="label_status_details_message_timestamp">Message updated at:</string>
     <string name="label_status_details_location_street_address">Street address:</string>
     <string name="label_status_details_location_distance">Approximate distance from your location:</string>
     <string name="label_status_details_location_coordinates">Coordinates:</string>
     <string name="label_status_details_location_timestamp">Location updated at:</string>
-    <string name="label_status_details_last_received_from_timestamp">Last message received from friend:</string>
+    <string name="label_status_details_last_received_from_timestamp">Last communication received from friend:</string>
     <string name="label_status_details_bytes_received_from">Data transfer from friend:</string>
-    <string name="label_status_details_last_sent_to_timestamp">Last message sent to friend:</string>
+    <string name="label_status_details_last_sent_to_timestamp">Last communication sent to friend:</string>
     <string name="label_status_details_bytes_sent_to">Data transfer to friend:</string>
     <string name="label_status_details_added_timestamp">Friend added at:</string>
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>

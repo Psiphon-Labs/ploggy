@@ -6,7 +6,7 @@
     android:orientation="horizontal" >
 
     <ImageButton
-        android:id="@+id/compose_message_set_picture_button"
+        android:id="@+id/compose_post_set_picture_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft = "true"
@@ -16,22 +16,22 @@
         android:background="@null" />
 
     <ImageView
-        android:id="@+id/compose_message_picture_thumbnail"
+        android:id="@+id/compose_post_picture_thumbnail"
         android:layout_width="@dimen/picture_thumbnail_width"
         android:layout_height="@dimen/picture_thumbnail_height"
-        android:layout_toRightOf="@+id/compose_message_set_picture_button"
+        android:layout_toRightOf="@+id/compose_post_set_picture_button"
         android:layout_centerVertical="true"
         android:layout_marginRight="4dip" />
 
     <EditText
-        android:id="@+id/compose_message_content_edit"
+        android:id="@+id/compose_post_content_edit"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginRight="4dip"
-        android:layout_toRightOf="@+id/compose_message_picture_thumbnail"
-        android:layout_toLeftOf="@+id/compose_message_send_button"
+        android:layout_toRightOf="@+id/compose_post_picture_thumbnail"
+        android:layout_toLeftOf="@+id/compose_post_send_button"
         android:layout_centerVertical="true"
-        android:hint="@string/label_compose_message_content_hint"
+        android:hint="@string/label_compose_post_content_hint"
         android:imeOptions="actionSend"
         android:inputType="text|textCapSentences|textAutoCorrect"
         android:maxLines="1"
@@ -39,7 +39,7 @@
         android:typeface="sans" />
 
     <ImageButton
-        android:id="@+id/compose_message_send_button"
+        android:id="@+id/compose_post_send_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentRight = "true"

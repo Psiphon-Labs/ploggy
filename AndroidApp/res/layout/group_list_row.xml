@@ -1,0 +1,65 @@
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="4dip" >
+ 
+    <LinearLayout
+        android:id="@+id/group_list_avatar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="4dip"
+        android:layout_alignParentLeft="true"
+        android:layout_marginRight="4dip">
+ 
+        <ImageView
+            android:id="@+id/group_list_avatar_image"
+            android:layout_width="100dip"
+            android:layout_height="100dip" />
+ 
+    </LinearLayout>
+ 
+    <TextView
+        android:id="@+id/group_list_name_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/group_list_avatar"
+        android:layout_toRightOf="@+id/group_list_avatar"
+        android:typeface="sans"
+        android:textSize="24dip"
+        android:textStyle="bold" />
+ 
+    <TextView
+        android:id="@+id/group_list_post_publisher_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/group_list_name_text"
+        android:layout_marginTop="1dip"
+        android:layout_toRightOf="@+id/group_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/group_list_post_content_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/group_list_post_publisher_text"
+        android:layout_marginTop="1dip"
+        android:layout_toRightOf="@+id/group_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
+    <TextView
+        android:id="@+id/group_list_post_timestamp_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/group_list_post_content_text"
+        android:layout_marginTop="1dip"
+        android:layout_marginBottom="4dip"
+        android:layout_toRightOf="@+id/group_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip"
+        android:textColor="#808080" />
+
+</RelativeLayout>

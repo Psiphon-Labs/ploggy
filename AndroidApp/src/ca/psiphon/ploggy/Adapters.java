@@ -57,9 +57,10 @@ public class Adapters {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
             View view = convertView;
             if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
                 view = inflater.inflate(R.layout.friend_list_row, null);
             }
 
@@ -82,12 +83,14 @@ public class Adapters {
             locationDistanceText.setText("");
 
             try {
-                Data.Friend friend = mCursor.get(position);
+                Data.Friend friend = getCursor().get(position);
 
                 Data data = Data.getInstance();
 
-                Robohash.setRobohashImage(mContext, avatarImage, true, friend.mPublicIdentity);
+                Robohash.setRobohashImage(context, avatarImage, true, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
+
+                // *TODO* don't do sub-queries here, do in background thread
 
                 Protocol.Location selfLocation = null;
                 try {
@@ -107,9 +110,9 @@ public class Adapters {
                 if (friend.mLastReceivedFromTimestamp != null &&
                         (friend.mLastSentToTimestamp == null ||
                          friend.mLastReceivedFromTimestamp.after(friend.mLastSentToTimestamp))) {
-                    lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastReceivedFromTimestamp, true);
+                    lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(context, friend.mLastReceivedFromTimestamp, true);
                 } else if (friend.mLastSentToTimestamp != null) {
-                    lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(mContext, friend.mLastSentToTimestamp, true);
+                    lastTimestamp = Utils.DateFormatter.formatRelativeDatetime(context, friend.mLastSentToTimestamp, true);
                 }
                 lastTimestampText.setText(lastTimestamp);
                 if (lastTimestamp.length() > 0) {
@@ -118,7 +121,7 @@ public class Adapters {
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                mContext.startActivity(new Intent(mContext, ActivityLogEntries.class));
+                                context.startActivity(new Intent(context, ActivityLogEntries.class));
                             }
                         });
                 }
@@ -127,20 +130,20 @@ public class Adapters {
 
                 Data.Post mostRecentPost = null;
                 try {
-                    Data.Post post = data.getMostRecentPost(friend.mId);
+                    mostRecentPost = data.getMostRecentPostByFriend(friend.mId);
                 } catch (Data.NotFoundError e) {
                     // No recent post to display
                 }
                 if (mostRecentPost != null) {
-                    postTimestampText.setText(
-                            Utils.DateFormatter.formatRelativeDatetime(mContext, mostRecentPost.mPost.mModifiedTimestamp, true));
-                    postContentText.setText(mostRecentPost.mPost.mContent);
                     postGroupText.setText(mostRecentPost.mGroupName);
+                    postContentText.setText(mostRecentPost.mPost.mContent);
+                    postTimestampText.setText(
+                            Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
                 }
 
                 if (friendLocation.mTimestamp != null) {
                     locationTimestampText.setText(
-                            Utils.DateFormatter.formatRelativeDatetime(mContext, friendLocation.mTimestamp, true));
+                            Utils.DateFormatter.formatRelativeDatetime(context, friendLocation.mTimestamp, true));
                     if (friendLocation.mStreetAddress.length() > 0) {
                         locationStreetAddressText.setText(friendLocation.mStreetAddress);
                     } else {
@@ -152,13 +155,59 @@ public class Adapters {
                                 selfLocation.mLongitude,
                                 friendLocation.mLatitude,
                                 friendLocation.mLongitude);
-                        locationDistanceText.setText(Utils.formatDistance(mContext, distance));
+                        locationDistanceText.setText(Utils.formatDistance(context, distance));
                     } else {
                         locationDistanceText.setText(R.string.prompt_unknown_distance);
                     }
                 }
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display friend");
+                // *TODO* view.<field>.setBlank();
+            }
+
+            return view;
+        }
+    }
+
+    public static class CandidateFriendAdapter extends ObjectCursorAdapter<Data.CandidateFriend> {
+
+        public CandidateFriendAdapter(Context context, CursorFactory<Data.CandidateFriend> cursorFactory) {
+            super(context, cursorFactory);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
+            View view = convertView;
+            if (view == null) {
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                view = inflater.inflate(R.layout.candidate_friend_list_row, null);
+            }
+
+            ImageView avatarImage = (ImageView)view.findViewById(R.id.candidate_friend_list_avatar_image);
+            TextView nicknameText = (TextView)view.findViewById(R.id.candidate_friend_list_nickname_text);
+            TextView groupsText = (TextView)view.findViewById(R.id.candidate_friend_list_groups_text);
+
+            try {
+                Data.CandidateFriend candidateFriend = getCursor().get(position);
+
+                Data data = Data.getInstance();
+
+                Robohash.setRobohashImage(context, avatarImage, true, candidateFriend.mPublicIdentity);
+                nicknameText.setText(candidateFriend.mPublicIdentity.mNickname);
+
+                // *TODO* don't do sub-queries here, do in background thread
+
+                StringBuilder groups = new StringBuilder();
+                for (String groupId : candidateFriend.mGroupIds) {
+                    if (groups.length() > 0) {
+                        groups.append(context.getString(R.string.candidate_friend_list_group_seperator));
+                    }
+                    groups.append(data.getGroupOrThrow(groupId).mGroup.mName);
+                }
+                groupsText.setText(groups.toString());
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display candidate friend");
                 // *TODO* view.<field>.setBlank();
             }
 
@@ -174,14 +223,53 @@ public class Adapters {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
             View view = convertView;
             if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
                 view = inflater.inflate(R.layout.group_list_row, null);
             }
 
-            // *TODO*
-            // ...
+            ImageView avatarImage = (ImageView)view.findViewById(R.id.group_list_avatar_image);
+            TextView nameText = (TextView)view.findViewById(R.id.group_list_name_text);
+            TextView postPublisherText = (TextView)view.findViewById(R.id.group_list_post_publisher_text);
+            TextView postContentText = (TextView)view.findViewById(R.id.group_list_post_content_text);
+            TextView postTimestampText = (TextView)view.findViewById(R.id.group_list_post_timestamp_text);
+
+            // Not hiding missing fields
+            nameText.setText("");
+            postPublisherText.setText("");
+            postContentText.setText("");
+            postTimestampText.setText("");
+
+            try {
+                Data.Group group = getCursor().get(position);
+
+                Data data = Data.getInstance();
+
+                // *TODO* Hangout-like multi-avatar image?
+                avatarImage.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+
+                nameText.setText(group.mGroup.mName);
+
+                // *TODO* don't do sub-queries here, do in background thread
+
+                Data.Post mostRecentPost = null;
+                try {
+                    mostRecentPost = data.getMostRecentPostInGroup(group.mGroup.mId);
+                } catch (Data.NotFoundError e) {
+                    // No recent post to display
+                }
+                if (mostRecentPost != null) {
+                    postPublisherText.setText(mostRecentPost.mPublisherNickName);
+                    postContentText.setText(mostRecentPost.mPost.mContent);
+                    postTimestampText.setText(
+                            Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
+                }
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display group");
+                // *TODO* view.<field>.setBlank();
+            }
 
             return view;
         }
@@ -195,9 +283,10 @@ public class Adapters {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
             View view = convertView;
             if (view == null) {
-                LayoutInflater inflater = (LayoutInflater)mContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
                 view = inflater.inflate(R.layout.post_list_row, null);
             }
 
@@ -209,7 +298,7 @@ public class Adapters {
             TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
 
             try {
-                Data.Post post = mCursor.get(position);
+                Data.Post post = getCursor().get(position);
                 // *TODO* post.mState..?
 
                 Data data = Data.getInstance();
@@ -240,7 +329,7 @@ public class Adapters {
                     }
                 }
 
-                Robohash.setRobohashImage(mContext, avatarImage, true, publisher);
+                Robohash.setRobohashImage(context, avatarImage, true, publisher);
                 nicknameText.setText(publisher.mNickname);
                 contentText.setText(post.mPost.mContent);
 
@@ -249,7 +338,7 @@ public class Adapters {
                     case IN_PROGRESS:
                         pictureDownloadText.setVisibility(View.VISIBLE);
                         pictureThumbnailImage.setVisibility(View.GONE);
-                        pictureDownloadText.setText(mContext.getString(R.string.format_download_progress, downloadProgress));
+                        pictureDownloadText.setText(context.getString(R.string.format_download_progress, downloadProgress));
                         break;
                     case CANCELLED:
                         pictureDownloadText.setVisibility(View.VISIBLE);
@@ -259,19 +348,19 @@ public class Adapters {
                     case COMPLETE:
                         pictureDownloadText.setVisibility(View.GONE);
                         pictureThumbnailImage.setVisibility(View.VISIBLE);
-                        Pictures.loadThumbnailWithClickToShowPicture(mContext, Downloads.getDownloadFile(download), pictureThumbnailImage);
+                        Pictures.loadThumbnailWithClickToShowPicture(context, Downloads.getDownloadFile(download), pictureThumbnailImage);
                         break;
                     }
                 } else if (localResource != null) {
                     pictureDownloadText.setVisibility(View.GONE);
                     pictureThumbnailImage.setVisibility(View.VISIBLE);
-                    Pictures.loadThumbnailWithClickToShowPicture(mContext, new File(localResource.mFilePath), pictureThumbnailImage);
+                    Pictures.loadThumbnailWithClickToShowPicture(context, new File(localResource.mFilePath), pictureThumbnailImage);
                 } else {
                     pictureDownloadText.setVisibility(View.GONE);
                     pictureThumbnailImage.setVisibility(View.GONE);
                 }
 
-                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(mContext, post.mPost.mModifiedTimestamp, true));
+                timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, post.mPost.mModifiedTimestamp, true));
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display post");
                 // *TODO* view.<field>.setBlank();
@@ -283,15 +372,23 @@ public class Adapters {
 
     private static abstract class ObjectCursorAdapter<T> extends BaseAdapter {
 
-        protected final Context mContext;
-        protected final CursorFactory<T> mCursorFactory;
-        protected Data.ObjectCursor<T> mCursor;
+        private final Context mContext;
+        private final CursorFactory<T> mCursorFactory;
+        private Data.ObjectCursor<T> mCursor;
 
         public ObjectCursorAdapter(Context context, CursorFactory<T> cursorFactory) {
             mContext = context;
             mCursorFactory = cursorFactory;
             mCursor = null;
             update(true);
+        }
+
+        public Context getContext() {
+            return mContext;
+        }
+
+        public Data.ObjectCursor<T> getCursor() {
+            return mCursor;
         }
 
         // Execute database query on background thread

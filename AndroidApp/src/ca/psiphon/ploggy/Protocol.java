@@ -54,6 +54,9 @@ public class Protocol {
 
     public static int ID_LENGTH = 32;
 
+    // *TODO* should this limit be enforced?
+    public static int MAX_POST_SIZE = 10000;
+
     public static int MAX_MESSAGE_SIZE = 1000000;
 
     public static class SequenceNumbers {
