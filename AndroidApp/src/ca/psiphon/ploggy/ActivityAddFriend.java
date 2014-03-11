@@ -27,6 +27,7 @@ import java.util.Date;
 
 import android.app.PendingIntent;
 import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
@@ -48,16 +49,25 @@ import android.widget.Toast;
  */
 public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View.OnClickListener {
 
-    public static final String IDENTITY_LINK_PREFIX = "ftp://identity.ploggy/#";
-
     private static final String LOG_TAG = "Add Friend";
+
+    public static final String ACTION_ADD_FRIEND = "ca.psiphon.ploggy.action.DISPLAY_VIEW";
+    public static final String ACTION_ADD_FRIEND_EXTRA_PUBLIC_IDENTITY = "PUBLIC_IDENTITY";
+    public static final String ADD_FRIEND_IDENTITY_LINK_PREFIX = "ftp://identity.ploggy/#";
+
+    public static Intent makeAddFriendIntent(Context context, Identity.PublicIdentity publicIdentity) {
+        Intent intent = new Intent(context, ActivityAddFriend.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setAction(ACTION_ADD_FRIEND);
+        intent.putExtra(ACTION_ADD_FRIEND_EXTRA_PUBLIC_IDENTITY, Json.toJson(publicIdentity));
+        return intent;
+    }
 
     private ImageView mFriendAvatarImage;
     private TextView mFriendNicknameText;
     private TextView mFriendFingerprintText;
     private Button mFriendAddButton;
-
-    protected Data.Friend mReceivedFriend;
+    private Data.Friend mReceivedFriend;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,21 +125,25 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
     public void onResume() {
         super.onResume();
         // TODO: ActivityGenerateSelf.checkLaunchGenerateSelf(this);?
-
         // TODO: foreground dispatch causes onResume to be called?
+
+        Identity.PublicIdentity publicIdentity = null;
         Intent intent = getIntent();
-        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(intent.getAction())) {
-            Parcelable[] ndefMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
-            NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
-            String payload = new String(ndefMessage.getRecords()[0].getPayload());
+        if (intent.getAction().equals(ACTION_ADD_FRIEND)) {
             try {
-                Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
-                Protocol.validatePublicIdentity(publicIdentity);
-                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
-                // TODO: display validation error?
-                mReceivedFriend = friend;
-                showFriend();
-                // TODO: update add_friend_description_text as well?
+                publicIdentity =
+                    Json.fromJson(
+                        intent.getStringExtra(ACTION_ADD_FRIEND_EXTRA_PUBLIC_IDENTITY),
+                        Identity.PublicIdentity.class);
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to parse JSON intent");
+            }
+        } else if (intent.getAction().equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
+            try {
+                Parcelable[] ndefMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+                NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
+                String payload = new String(ndefMessage.getRecords()[0].getPayload());
+                publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
             }
@@ -139,7 +153,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
             try {
                 Uri uri = intent.getData();
 
-                if (uri.toString().startsWith(IDENTITY_LINK_PREFIX)) {
+                if (uri.toString().startsWith(ADD_FRIEND_IDENTITY_LINK_PREFIX)) {
                     inputStream = Utils.makeInputStream(uri.getFragment());
                 }
                 else {
@@ -157,12 +171,7 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
 
                 if (inputStream != null) {
                     String payload = Utils.readInputStreamToString(inputStream);
-                    Identity.PublicIdentity publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
-                    Protocol.validatePublicIdentity(publicIdentity);
-                    Data.Friend friend = new Data.Friend(publicIdentity, new Date());
-                    // TODO: display validation error?
-                    mReceivedFriend = friend;
-                    showFriend();
+                    publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
                 }
             } catch (IOException e) {
                 Log.addEntry(LOG_TAG, e.getMessage());
@@ -178,6 +187,20 @@ public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View
                 }
             }
         }
+
+        // TODO: display validation error message in Activity?
+        // TODO: update add_friend_description_text on success/failure?
+        if (publicIdentity != null) {
+            try {
+                Protocol.validatePublicIdentity(publicIdentity);
+                Data.Friend friend = new Data.Friend(publicIdentity, new Date());
+                mReceivedFriend = friend;
+                showFriend();
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display friend");
+            }
+        }
+
         // Use foreground dispatch to ensure repeated incoming beams don't create new activities
         setupForegroundDispatch();
     }

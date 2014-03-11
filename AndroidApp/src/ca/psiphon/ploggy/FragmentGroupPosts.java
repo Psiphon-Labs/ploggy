@@ -44,7 +44,7 @@ public class FragmentGroupPosts extends Fragment {
     private Adapters.PostAdapter mPostAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
-    private static final String ARGUMENT_GROUP_ID = "groupId";
+    private static final String ARGUMENT_GROUP_ID = "GROUP_ID";
 
     public static FragmentGroupPosts newInstance(String groupId) {
         FragmentGroupPosts fragment = new FragmentGroupPosts();

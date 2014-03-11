@@ -61,7 +61,7 @@ public class FragmentFriendDetail extends Fragment {
     private TextView mAddedTimestampText;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
-    private static final String ARGUMENT_FRIEND_ID = "friendId";
+    private static final String ARGUMENT_FRIEND_ID = "FRIEND_ID";
 
     public static FragmentFriendDetail newInstance(String friendId) {
         FragmentFriendDetail fragment = new FragmentFriendDetail();

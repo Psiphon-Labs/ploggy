@@ -174,6 +174,16 @@ public class FragmentGroupList extends ListFragment {
     }
 
     @Subscribe
+    public void UpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
+        updateGroups(true);
+    }
+
+    @Subscribe
+    public void UpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
+        updateGroups(true);
+    }
+
+    @Subscribe
     public void UpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
         updateGroups(true);
     }

@@ -24,6 +24,9 @@ import android.support.v4.app.ListFragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ListView;
+
+import com.squareup.otto.Subscribe;
 
 /**
  * User interface which displays a list of friends.
@@ -35,11 +38,62 @@ public class FragmentCandidateFriendList extends ListFragment {
 
     private static final String LOG_TAG = "Candidate Friend List";
 
-    // *TODO* implement
+    private Adapters.CandidateFriendAdapter mCandidateFriendAdapter;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
+
+        mCandidateFriendAdapter = new Adapters.CandidateFriendAdapter(
+                getActivity(),
+                new Adapters.CursorFactory<Data.CandidateFriend>() {
+                    @Override
+                    public Data.ObjectCursor<Data.CandidateFriend> makeCursor() throws PloggyError {
+                        return Data.getInstance().getCandidateFriends();
+                    }
+                });
+
         return view;
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        if (mCandidateFriendAdapter != null) {
+            setListAdapter(mCandidateFriendAdapter);
+        }
+        Events.getInstance().register(this);
+    }
+
+    @Override
+    public void onDestroyView() {
+        Events.getInstance().unregister(this);
+        super.onDestroyView();
+    }
+
+    @Override
+    public void onListItemClick(ListView listView, View view, int position, long id) {
+        Data.CandidateFriend candidateFriend = (Data.CandidateFriend)listView.getItemAtPosition(position);
+        startActivity(ActivityAddFriend.makeAddFriendIntent(
+                getActivity(), candidateFriend.mPublicIdentity));
+    }
+
+    @Subscribe
+    public void onAddedFriend(Events.AddedFriend addedFriend) {
+        updateCandidateFriends(true);
+    }
+
+    @Subscribe
+    public void onRemovedFriend(Events.RemovedFriend removedFriend) {
+        updateCandidateFriends(true);
+    }
+
+    @Subscribe
+    public void UpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
+        updateCandidateFriends(true);
+    }
+
+    private void updateCandidateFriends(boolean requery) {
+        mCandidateFriendAdapter.update(requery);
     }
 }

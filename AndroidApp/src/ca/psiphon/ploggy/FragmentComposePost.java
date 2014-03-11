@@ -59,7 +59,7 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
     private EditText mContentEdit;
     private ImageButton mSendButton;
 
-    private static final String ARGUMENT_GROUP_ID = "groupId";
+    private static final String ARGUMENT_GROUP_ID = "GROUP_ID";
 
     private static final int REQUEST_CODE_SELECT_IMAGE = 1;
 
