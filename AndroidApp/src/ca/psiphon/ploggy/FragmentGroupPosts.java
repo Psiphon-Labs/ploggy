@@ -101,7 +101,11 @@ public class FragmentGroupPosts extends Fragment {
         super.onResume();
         mIsResumed = true;
         mRefreshUIExecutor.start();
-        // *TODO* mark as read messages? [was: Events.post(new Events.DisplayedMessages());]
+        try {
+            Data.getInstance().markAsReadPosts(mGroupId);
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to mark as read posts");
+        }
     }
 
     @Override

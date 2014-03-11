@@ -22,7 +22,6 @@ package ca.psiphon.ploggy;
 import java.io.File;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -121,7 +120,11 @@ public class Adapters {
                         new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                context.startActivity(new Intent(context, ActivityLogEntries.class));
+                                Context context = getContext();
+                                context.startActivity(
+                                        ActivityMain.makeDisplayViewIntent(
+                                                context,
+                                                new ActivityMain.ViewTag(ActivityMain.ViewType.LOG_ENTRIES)));
                             }
                         });
                 }

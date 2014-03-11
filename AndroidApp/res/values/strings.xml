@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Ploggy</string>
-    <string name="foreground_service_notification_content_title_without_new_posts">Ploggy is running</string>
-    <plurals name="foreground_service_notification_content_title_with_new_posts">
-        <item quantity="one">Ploggy has %1$d new post</item>
-        <item quantity="other">Ploggy has %1$d new posts</item>
+    <string name="foreground_service_notification_content_title">Ploggy is running</string>
+    <plurals name="unread_posts_notification_content_title">
+        <item quantity="one">%1$d new post</item>
+        <item quantity="other">%1$d new posts</item>
     </plurals>
-    <string name="foreground_service_notification_inbox_line"><![CDATA[<b>%1$s</b> %2$s]]></string>
-    <string name="foreground_service_notification_inbox_summary">+%1$d more</string>
+    <string name="unread_posts_notification_inbox_line"><![CDATA[<b>%1$s</b> %2$s]]></string>
+    <string name="unread_posts_notification_inbox_summary">+%1$d more</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="navigation_drawer_item_self_detail">You</string>

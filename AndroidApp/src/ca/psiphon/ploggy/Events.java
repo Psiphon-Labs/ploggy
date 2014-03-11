@@ -21,7 +21,6 @@ package ca.psiphon.ploggy;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -201,10 +200,10 @@ public class Events {
     }
 
     public static class MarkedAsReadPosts {
-        public final List<String> mPostIds;
+        public final String mGroupId;
 
-        public MarkedAsReadPosts(List<String> postIds) {
-            mPostIds = postIds;
+        public MarkedAsReadPosts(String groupId) {
+            mGroupId = groupId;
         }
     }
 

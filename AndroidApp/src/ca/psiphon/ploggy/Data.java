@@ -1073,21 +1073,19 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void markAsReadPosts(List<String> postIds) throws PloggyError {
+    public void markAsReadPosts(String groupId) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
-            for (String postId : postIds) {
-                ContentValues values = new ContentValues();
-                values.put("state", Post.State.READ.name());
-                // Only updates when state is UNREAD
-                mDatabase.update(
-                        "Post",
-                        values,
-                        "id = ? AND state = ?",
-                        new String[]{postId, Post.State.UNREAD.name()});
-            }
+            ContentValues values = new ContentValues();
+            values.put("state", Post.State.READ.name());
+            // Only updates when state is UNREAD
+            mDatabase.update(
+                    "Post",
+                    values,
+                    "groupId = ? AND state = ?",
+                    new String[]{groupId, Post.State.UNREAD.name()});
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.MarkedAsReadPosts(postIds));
+            Events.getInstance(mInstanceName).post(new Events.MarkedAsReadPosts(groupId));
         } catch (SQLiteException e) {
             throw new PloggyError(LOG_TAG, e);
         } finally {

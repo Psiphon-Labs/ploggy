@@ -43,7 +43,7 @@
         android:textColor="#808080" />
 
     <TextView
-        android:id="@+id/friend_list_message_content_text"
+        android:id="@+id/friend_list_post_content_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/friend_list_nickname_text"
@@ -53,10 +53,22 @@
         android:textSize="12dip" />
 
     <TextView
-        android:id="@+id/friend_list_message_timestamp_text"
+        android:id="@+id/friend_list_post_group_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_message_content_text"
+        android:layout_below="@id/friend_list_post_content_text"
+        android:layout_marginTop="1dip"
+        android:layout_marginBottom="4dip"
+        android:layout_toRightOf="@+id/friend_list_avatar"
+        android:typeface="sans"
+        android:textSize="12dip"
+        android:textColor="#808080" />
+
+    <TextView
+        android:id="@+id/friend_list_post_timestamp_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/friend_list_post_group_text"
         android:layout_marginTop="1dip"
         android:layout_marginBottom="4dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
@@ -68,7 +80,7 @@
         android:id="@+id/friend_list_location_street_address_text"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/friend_list_message_timestamp_text"
+        android:layout_below="@id/friend_list_post_timestamp_text"
         android:layout_marginTop="1dip"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
