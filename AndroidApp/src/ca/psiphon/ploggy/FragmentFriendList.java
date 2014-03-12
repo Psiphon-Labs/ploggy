@@ -24,7 +24,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
-import android.view.ContextMenu;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -42,12 +42,13 @@ import com.squareup.otto.Subscribe;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class FragmentFriendList extends ListFragment {
+public class FragmentFriendList extends ListFragment implements ActionMode.Callback, View.OnLongClickListener {
 
     private static final String LOG_TAG = "Friend List";
 
     private Adapters.FriendAdapter mFriendAdapter;
-    Utils.FixedDelayExecutor mRefreshUIExecutor;
+    private Utils.FixedDelayExecutor mRefreshUIExecutor;
+    private ActionMode mActionMode;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -127,38 +128,62 @@ public class FragmentFriendList extends ListFragment {
     }
 
     @Override
-    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo) {
-        super.onCreateContextMenu(menu, view, menuInfo);
-        if (view.equals(getListView())) {
-            getActivity().getMenuInflater().inflate(R.menu.friend_list_context, menu);
+    public boolean onLongClick(View view) {
+        if (mActionMode == null) {
+            mActionMode = getActivity().startActionMode(this);
+            // *TODO* need setItemChecked + android:background="?android:attr/activatedBackgroundIndicator" ...?
+            view.setSelected(true);
+            return true;
         }
+        return false;
     }
 
     @Override
-    public boolean onContextItemSelected(MenuItem item) {
-        // *TODO* use CAB for long-press actions (https://developer.android.com/design/patterns/selection.html)
-        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo)item.getMenuInfo();
+    public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+        mode.getMenuInflater().inflate(R.menu.friend_list_context, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
         if (item.getItemId() == R.id.action_friend_list_delete_friend) {
-            final Data.Friend finalFriend = (Data.Friend)getListView().getItemAtPosition(info.position);
-            new AlertDialog.Builder(getActivity())
-                .setTitle(getString(R.string.label_delete_friend_title))
-                .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
-                .setPositiveButton(getString(R.string.label_delete_friend_positive),
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                try {
-                                    Data.getInstance().removeFriend(finalFriend.mId);
-                                } catch (PloggyError e) {
-                                    Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
-                                }
-                            }
-                        })
-                .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
-                .show();
+            AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+            promptDeleteFriend((Data.Friend)getListView().getItemAtPosition(info.position));
+            mode.finish();
             return true;
         }
-        return super.onContextItemSelected(item);
+        return false;
+    }
+
+    @Override
+    public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+        return false;
+    }
+
+    @Override
+    public void onDestroyActionMode(ActionMode mode) {
+        mActionMode = null;
+    }
+
+    private void promptDeleteFriend(Data.Friend friend) {
+        // TODO: undo vs. confirmation prompt
+        final Data.Friend finalFriend = friend;
+        new AlertDialog.Builder(getActivity())
+            .setTitle(getString(R.string.label_delete_friend_title))
+            .setMessage(getString(R.string.label_delete_friend_message, finalFriend.mPublicIdentity.mNickname))
+            .setPositiveButton(getString(R.string.label_delete_friend_positive),
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            try {
+                                Data.getInstance().removeFriend(finalFriend.mId);
+                            } catch (PloggyError e) {
+                                Log.addEntry(LOG_TAG, "failed to delete friend: " + finalFriend.mPublicIdentity.mNickname);
+                            }
+                        }
+                    })
+            .setNegativeButton(getString(R.string.label_delete_friend_negative), null)
+            .show();
     }
 
     @Subscribe

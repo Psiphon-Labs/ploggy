@@ -27,8 +27,13 @@
     <string name="action_settings">Settings</string>
     <string name="action_run_tests">Run Diagnostic Tests</string>
     <string name="action_quit">Quit</string>
-    <string name="action_friend_list_delete_friend">Delete friend</string>
+    <string name="action_friend_list_delete_friend">Delete Friend</string>
+    <string name="action_group_list_delete_group">Delete Group</string>
     <string name="action_compose_post_remove_picture">Remove picture from post</string>
+    <string name="label_delete_group_title">Delete Group</string>
+    <string name="label_delete_group_message">Are you sure you want to delete %1$s?</string>
+    <string name="label_delete_group_positive">Delete</string>
+    <string name="label_delete_group_negative">Cancel</string>
     <string name="label_delete_friend_title">Delete Friend</string>
     <string name="label_delete_friend_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_friend_positive">Delete</string>
