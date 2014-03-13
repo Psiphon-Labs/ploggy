@@ -138,7 +138,7 @@ public class Adapters {
                     // No recent post to display
                 }
                 if (mostRecentPost != null) {
-                    postGroupText.setText(mostRecentPost.mGroupName);
+                    postGroupText.setText(data.getGroupOrThrow(mostRecentPost.mPost.mGroupId).mGroup.mName);
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
@@ -264,7 +264,8 @@ public class Adapters {
                     // No recent post to display
                 }
                 if (mostRecentPost != null) {
-                    postPublisherText.setText(mostRecentPost.mPublisherNickName);
+                    postPublisherText.setText(
+                            data.getFriendByIdOrThrow(mostRecentPost.mPost.mPublisherId).mPublicIdentity.mNickname);
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
@@ -306,8 +307,10 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
+                boolean isSelfPublished = post.mPost.mPublisherId.equals(data.getSelfOrThrow().mId);
+
                 Identity.PublicIdentity publisher = null;
-                if (post.mIsSelfPublisher) {
+                if (isSelfPublished) {
                     publisher = data.getSelfOrThrow().mPublicIdentity;
                 } else {
                     publisher = data.getFriendByIdOrThrow(post.mPost.mPublisherId).mPublicIdentity;
@@ -317,19 +320,23 @@ public class Adapters {
                 double downloadProgress = 0.0;
                 Data.LocalResource localResource = null;
 
-                if (post.mPost.mAttachments != null && post.mPost.mAttachments.size() > 0) {
-                    if (post.mIsSelfPublisher) {
-                        localResource = data.getLocalResource(post.mPost.mAttachments.get(0).mId);
-                    } else {
-                        download = data.getDownload(
-                                post.mPost.mPublisherId, post.mPost.mAttachments.get(0).mId);
-                        if (download.mState == Data.Download.State.IN_PROGRESS) {
-                            long downloadedSize = Downloads.getDownloadedSize(download);
-                            if (download.mSize > 0) {
-                                downloadProgress = 100.0*downloadedSize/download.mSize;
+                try {
+                    if (post.mPost.mAttachments != null && post.mPost.mAttachments.size() > 0) {
+                        if (isSelfPublished) {
+                            localResource = data.getLocalResource(post.mPost.mAttachments.get(0).mId);
+                        } else {
+                            download = data.getDownload(
+                                    post.mPost.mPublisherId, post.mPost.mAttachments.get(0).mId);
+                            if (download.mState == Data.Download.State.IN_PROGRESS) {
+                                long downloadedSize = Downloads.getDownloadedSize(download);
+                                if (download.mSize > 0) {
+                                    downloadProgress = 100.0*downloadedSize/download.mSize;
+                                }
                             }
                         }
                     }
+                } catch (Data.NotFoundError e) {
+                    Log.addEntry(LOG_TAG, "failed to load post attachment");
                 }
 
                 Robohash.setRobohashImage(context, avatarImage, true, publisher);

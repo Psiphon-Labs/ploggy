@@ -89,7 +89,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         Intent intent = new Intent(context, ActivityMain.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.setAction(ACTION_DISPLAY_VIEW);
-        intent.putExtra(ACTION_DISPLAY_VIEW_EXTRA_TAG_TYPE, viewTag.mType.toString());
+        intent.putExtra(ACTION_DISPLAY_VIEW_EXTRA_TAG_TYPE, viewTag.mType.name());
         if (viewTag.mId != null) {
             intent.putExtra(ACTION_DISPLAY_VIEW_EXTRA_TAG_ID, viewTag.mId);
         }

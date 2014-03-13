@@ -90,7 +90,7 @@ public class NavigationDrawerContent {
                         new Header(context.getString(R.string.navigation_draw_header_groups)));
                     // TODO: only display N most recent groups/friends
                     // TODO: for groups, display counter with number of unread posts
-                    for (Data.Group group : data.getGroupsIterator()) {
+                    for (Data.Group group : data.getVisibleGroupsIterator()) {
                         rows.add(new Item(
                                 new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_POSTS, group.mGroup.mId),
                                 R.drawable.ic_navigation_drawer_group_posts,

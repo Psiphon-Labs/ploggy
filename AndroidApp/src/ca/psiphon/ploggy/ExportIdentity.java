@@ -74,7 +74,7 @@ public class ExportIdentity {
                                         Json.toJson(Data.getInstance().getSelfOrThrow().mPublicIdentity);
                                 String payload = URLEncoder.encode(json, "UTF-8");
 
-                                String link = ActivityAddFriend.IDENTITY_LINK_PREFIX + payload;
+                                String link = ActivityAddFriend.ADD_FRIEND_IDENTITY_LINK_PREFIX + payload;
 
                                 String body = finalContext.getString(R.string.identity_email_body)
                                                           .replace("href=\"\"", "href=\""+link+"\"");

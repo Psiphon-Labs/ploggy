@@ -902,6 +902,27 @@ public class Data extends SQLiteOpenHelper {
                 mRowToGroup);
     }
 
+    public ObjectIterator<Group> getVisibleGroupsIterator() throws PloggyError {
+        return new ObjectIterator<Group>(getVisibleGroups());
+    }
+
+    public ObjectCursor<Group> getVisibleGroupsWithUnreadPosts() throws PloggyError {
+        return getObjectCursor(
+                SELECT_GROUP +
+                    " WHERE state IN (?, ?)" +
+                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = Group.groupId AND contentType = ? AND unread = 1)",
+                new String[]{
+                        Group.State.RESIGNING.name(),
+                        Group.State.TOMBSTONE.name(),
+                        Protocol.POST_CONTENT_TYPE_DEFAULT},
+                mRowToGroup);
+    }
+
+    public ObjectIterator<Group> getVisibleGroupsWithUnreadPostsIterator() throws PloggyError {
+        return new ObjectIterator<Group>(getVisibleGroupsWithUnreadPosts());
+    }
+
+    // *TODO* no UI for this yet...
     public ObjectCursor<Group> getHiddenGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?)",
@@ -1124,30 +1145,59 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public ObjectCursor<Post> getUnreadPosts() throws PloggyError {
+    public Post getMostRecentPostByFriend(String friendId) throws PloggyError, NotFoundError {
+        return getObject(
+                SELECT_POST +
+                    " WHERE publisherId = ? AND state <> ?" +
+                    " ORDER BY modifiedTimestamp DESC" +
+                    " LIMIT 1",
+                new String[]{friendId, Post.State.TOMBSTONE.name()},
+                mRowToPost);
+    }
+
+    public Post getMostRecentPostInGroup(String groupId) throws PloggyError, NotFoundError {
+        return getObject(
+                SELECT_POST +
+                    " WHERE groupId = ? AND state <> ?" +
+                    " ORDER BY modifiedTimestamp DESC" +
+                    " LIMIT 1",
+                new String[]{groupId, Post.State.TOMBSTONE.name()},
+                mRowToPost);
+    }
+
+    public ObjectCursor<Post> getUnreadPosts(String groupId) throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
-                    " WHERE contentType = ? AND unread = 1" +
+                    " WHERE groupId = ? AND contentType = ? AND state = ?" +
                     " ORDER BY modifiedTimestamp DESC",
-                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT},
+                new String[]{groupId, Protocol.POST_CONTENT_TYPE_DEFAULT, Post.State.UNREAD.name()},
                 mRowToPost);
+    }
+
+    public ObjectIterator<Post> getUnreadPostsIterator(String groupId) throws PloggyError {
+        return new ObjectIterator<Post>(getUnreadPosts(groupId));
     }
 
     public ObjectCursor<Post> getPosts(String groupId) throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
-                    " WHERE contentType = ? AND groupId = ?" +
+                    " WHERE contentType = ? AND groupId = ? AND state <> ?" +
                     " ORDER BY modifiedTimestamp DESC",
-                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT, groupId},
+                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT, groupId, Post.State.TOMBSTONE.name()},
                 mRowToPost);
     }
 
+    public ObjectIterator<Post> getPostsIterator(String groupId) throws PloggyError {
+        return new ObjectIterator<Post>(getPosts(groupId));
+    }
+
+    // *TODO* no UI for this yet...
     public ObjectCursor<Post> getPostsForUnreceivedGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
-                    " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group)" +
+                    " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group) AND state <> ?" +
                     " ORDER BY modifiedTimestamp DESC",
-                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT},
+                new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT, Post.State.TOMBSTONE.name()},
                 mRowToPost);
     }
 
@@ -1723,12 +1773,20 @@ public class Data extends SQLiteOpenHelper {
             }
         };
 
-    public LocalResource getLocalResource(String friendId, String resourceId)
+    public LocalResource getLocalResourceForDownload(String resourceId, String friendId)
             throws PloggyError, NotFoundError {
         // Reports NotFound when friend is not a member of group that resource belongs to
         return getObject(
                 SELECT_LOCAL_RESOURCE + " WHERE resourceid = ? AND groupId IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
                 new String[]{resourceId, friendId},
+                mRowToLocalResource);
+    }
+
+    public LocalResource getLocalResource(String resourceId)
+            throws PloggyError, NotFoundError {
+        return getObject(
+                SELECT_LOCAL_RESOURCE + " WHERE resourceid = ?",
+                new String[]{resourceId},
                 mRowToLocalResource);
     }
 

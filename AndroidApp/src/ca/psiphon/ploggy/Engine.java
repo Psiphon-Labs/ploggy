@@ -950,7 +950,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError  {
         try {
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
-            Data.LocalResource localResource = mData.getLocalResource(friend.mId, resourceId);
+            Data.LocalResource localResource = mData.getLocalResourceForDownload(friend.mId, resourceId);
             // Note: don't check availability until after input validation
             if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
                     && !Utils.isConnectedNetworkWifi(mContext)) {

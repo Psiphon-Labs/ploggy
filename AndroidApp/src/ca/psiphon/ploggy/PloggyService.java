@@ -82,16 +82,12 @@ public class PloggyService extends Service {
     @Subscribe
     public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
         // *TODO* don't update notification if group post list currently displayed?
-        updateUnreadPostsNotification(
-                updatedFriendPost.mGroupId,
-                updatedFriendPost.mGroupName);
+        updateUnreadPostsNotification(updatedFriendPost.mGroupId);
     }
 
     @Subscribe
     public void markedAsReadPosts(Events.MarkedAsReadPosts markedAsReadPosts) {
-        updateUnreadPostsNotification(
-                markedAsReadPosts.mGroupId,
-                markedAsReadPosts.mGroupName);
+        updateUnreadPostsNotification(markedAsReadPosts.mGroupId);
     }
 
     private Notification makeForegroundNotification() {
@@ -113,23 +109,27 @@ public class PloggyService extends Service {
     private void updateUnreadPostsNotifications() {
         Data data = Data.getInstance();
         Data.ObjectCursor<Data.Group> unreadPostsGroups = null;
-        for (Data.Group group : data.getUnreadPostGroupsIterator()) {
-            updateUnreadPostsNotification(
-                    group.mGroup.mId,
-                    group.mGroup.mName);
+        try {
+            for (Data.Group group : data.getVisibleGroupsWithUnreadPostsIterator()) {
+                updateUnreadPostsNotification(group.mGroup.mId);
+            }
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to update unread posts notifications");
         }
     }
 
-    private void updateUnreadPostsNotification(String groupId, String groupName) {
+    private void updateUnreadPostsNotification(String groupId) {
         // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
         final int MAX_LINES = 5;
 
         Data data = Data.getInstance();
+        Data.Group group = null;
         Data.ObjectCursor<Data.Post> unreadPostsCursor = null;
         List<Pair<String, String>> unreadPosts = new ArrayList<Pair<String, String>>();
         int additionalLines = 0;
         try {
             // *TODO* not using background thread? use AsyncTask?
+            group = data.getGroupOrThrow(groupId);
             unreadPostsCursor = data.getUnreadPosts(groupId);
             additionalLines = unreadPostsCursor.getCount() - MAX_LINES;
             for (int i = 0; i < MAX_LINES && unreadPostsCursor.hasNext(); i++) {
@@ -140,7 +140,7 @@ public class PloggyService extends Service {
                         data.getFriendByIdOrThrow(post.mPost.mPublisherId).mPublicIdentity.mNickname));
             }
         } catch (PloggyError e) {
-            Log.addEntry(LOG_TAG, "failed to update notification");
+            Log.addEntry(LOG_TAG, "failed to update unread posts notification");
             return;
         } finally {
             if (unreadPostsCursor != null) {
@@ -151,7 +151,7 @@ public class PloggyService extends Service {
         NotificationManager notificationManager =
                 (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager == null) {
-            Log.addEntry(LOG_TAG, "failed to update notification");
+            Log.addEntry(LOG_TAG, "failed to update unread posts notification");
             return;
         }
 
@@ -173,7 +173,7 @@ public class PloggyService extends Service {
                                 R.plurals.unread_posts_notification_content_title,
                                 unreadPosts.size(),
                                 unreadPosts.size()))
-                    .setContentInfo(groupName)
+                    .setContentInfo(group.mGroup.mName)
                     .setSmallIcon(R.drawable.ic_notification_with_new_messages)
                     // Use default (system) sound, lights, and vibrate
                     .setDefaults(Notification.DEFAULT_ALL);
