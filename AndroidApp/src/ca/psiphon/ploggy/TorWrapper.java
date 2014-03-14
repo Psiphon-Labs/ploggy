@@ -55,7 +55,11 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.os.Build;
 
 /**
@@ -115,6 +119,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private int mSocksProxyPort = -1;
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
+    private NetworkStateReceiver mNetworkStateReceiver = null;
     private CountDownLatch mCircuitEstablishedLatch = null;
     private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
     private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
@@ -305,6 +310,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection.setEventHandler(this);
             mControlConnection.setEvents(Arrays.asList("STATUS_CLIENT", "WARN", "ERR"));
 
+            // TODO: NetworkStateReceiver.onReceive will run on the main app thread and
+            // will send a command using mControlConnection. Do we need synchronization?
+            mNetworkStateReceiver = new NetworkStateReceiver();
+            Utils.getApplicationContext().registerReceiver(
+                    mNetworkStateReceiver,
+                    new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
             if (awaitFirstCircuit) {
                 mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
             }
@@ -331,8 +343,13 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mStartupThread = null;
             mStartupError = null;
         }
+        if (mNetworkStateReceiver != null) {
+            Utils.getApplicationContext().unregisterReceiver(mNetworkStateReceiver);
+            mNetworkStateReceiver = null;
+        }
         try {
             if (mControlConnection != null) {
+                mControlConnection.setConf("DisableNetwork", "1");
                 mControlConnection.shutdownTor("TERM");
             }
             if (mControlSocket != null) {
@@ -384,6 +401,25 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
     }
 
+    private class NetworkStateReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // from http://sourceforge.net/p/briar/prototype/ci/c779d7b95a0af06f0b1977f2e5daee886bcfe42e
+            // Note: Some devices fail to set this extra
+            boolean isOnline = !intent.getBooleanExtra(ConnectivityManager.EXTRA_NO_CONNECTIVITY, false);
+            // The purpose of this is to notify Tor when there's no network
+            // connectivity so that it doesn't waste resources (battery) trying
+            // to connect when it can't connect.
+            if (mControlConnection != null) {
+                try {
+                    mControlConnection.setConf("DisableNetwork", isOnline ? "0" : "1");
+                } catch (IOException e) {
+                    Log.addEntry(logTag(), "enableNetwork failed: " + e.toString());
+                }
+            }
+        }
+    }
+
     private void writeExecutableFile() throws IOException {
         if (0 != Build.CPU_ABI.compareTo("armeabi-v7a")) {
             throw new IOException("no Tor binary for this CPU");
@@ -408,6 +444,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        "DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
@@ -445,6 +482,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        "DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
