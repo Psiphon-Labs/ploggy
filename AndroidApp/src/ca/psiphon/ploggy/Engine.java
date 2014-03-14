@@ -66,7 +66,7 @@ import com.squareup.otto.Subscribe;
 *IN PROGRESS*
 
 - call updateFriendSent/Recv byte counts in WebServer and WebClient
-- add task to restart Engine/Tor if no circuit after N minutes; and restart if no comms after N hours(?)
+-- [indirectly] call setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS) at the same time -- when comms detected
 - double-check Protocol.validate() called where required in Engine
 - pull more fixes from NanoHttpd upstream
 - Review all "*TODO*" comments
@@ -86,6 +86,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private final SharedPreferences mSharedPreferences;
     private boolean mStopped;
     private Runnable mPreferencesRestartTask;
+    private Runnable mTorTimeoutRestartTask;
     private Runnable mDownloadRetryTask;
     private ExecutorService mTaskThreadPool;
     private ExecutorService mPeerRequestThreadPool;
@@ -98,6 +99,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
     private WebClientConnectionPool mWebClientConnectionPool;
+
+    private static final int TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS = 5*60*1000; // 5 min.
+    private static final int TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS = 120*60*1000; // 2 hours
 
     private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000; // 5 sec.
     private static final int DOWNLOAD_RETRY_PERIOD_IN_MILLISECONDS = 10*60*1000; // 10 min.
@@ -145,6 +149,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mLocationFixer.start();
         startHiddenService();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
+        setTorTimeout(TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS);
         Log.addEntry(LOG_TAG, "started");
     }
 
@@ -152,6 +157,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Log.addEntry(LOG_TAG, "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
         Events.getInstance(mInstanceName).unregister(this);
+        cancelTorTimeout();
         if (mLocationFixer != null) {
             mLocationFixer.stop();
             mLocationFixer = null;
@@ -207,9 +213,36 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
 
+    private void setTorTimeout(int milliseconds) {
+        if (mTorTimeoutRestartTask == null) {
+            mTorTimeoutRestartTask = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        stop();
+                        start();
+                    } catch (PloggyError e) {
+                        Log.addEntry(LOG_TAG, "failed to restart engine after Tor timeout");
+                    }
+                }
+            };
+        } else {
+            mHandler.removeCallbacks(mTorTimeoutRestartTask);
+        }
+        mHandler.postDelayed(mTorTimeoutRestartTask, milliseconds);
+    }
+
+    private void cancelTorTimeout() {
+        if (mTorTimeoutRestartTask != null) {
+            mHandler.removeCallbacks(mTorTimeoutRestartTask);
+            mTorTimeoutRestartTask = null;
+        }
+    }
+
     @Subscribe
     public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
         try {
+            setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS);
             startWebClientConnectionPool();
             // Ask friends to pull local, self changes...
             askPullFromFriends();
