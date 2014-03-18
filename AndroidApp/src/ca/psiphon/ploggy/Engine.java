@@ -65,8 +65,6 @@ import com.squareup.otto.Subscribe;
 
 *IN PROGRESS*
 
-- call updateFriendSent/Recv byte counts in WebServer and WebClient
--- [indirectly] call setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS) at the same time -- when comms detected
 - double-check Protocol.validate() called where required in Engine
 - pull more fixes from NanoHttpd upstream
 - Review all "*TODO*" comments
@@ -278,6 +276,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     @Subscribe
+    public synchronized void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
+        // Update implies communication sent/received, so extend the restart the timeout
+        setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS);
+    }
+
+    @Subscribe
     public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
         // Full stop/start to clear friend task cache
         try {
@@ -375,6 +379,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mWebServer = new WebServer(
+                mData,
                 this,
                 new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
                 friendCertificates);

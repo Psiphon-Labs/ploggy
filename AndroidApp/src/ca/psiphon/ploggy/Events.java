@@ -104,6 +104,12 @@ public class Events {
     public static class TorCircuitEstablished {
     }
 
+    public static class BytesSentToFriend {
+    }
+
+    public static class BytesReceivedFromFriend {
+    }
+
     public static class UpdatedSelf {
 
         public UpdatedSelf() {

@@ -22,16 +22,10 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
 import java.util.Date;
 import java.util.List;
 
-import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
 
 import android.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
@@ -52,22 +46,22 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     public interface RequestHandler {
 
         public static class PullResponse {
-            public final InputStream mData;
+            public final InputStream mInputStream;
 
-            public PullResponse(InputStream data) {
-                mData = data;
+            public PullResponse(InputStream inputStream) {
+                mInputStream = inputStream;
             }
         }
 
         public static class DownloadResponse {
             public final boolean mAvailable;
             public final String mMimeType;
-            public final InputStream mData;
+            public final InputStream mInputStream;
 
-            public DownloadResponse(boolean available, String mimeType, InputStream data) {
+            public DownloadResponse(boolean available, String mimeType, InputStream inputStream) {
                 mAvailable = available;
                 mMimeType = mimeType;
-                mData = data;
+                mInputStream = inputStream;
             }
         }
 
@@ -82,17 +76,20 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError;
     }
 
+    private final Data mData;
     private final RequestHandler mRequestHandler;
     private final X509.KeyMaterial mX509KeyMaterial;
     private final List<String> mFriendCertificates;
 
     public WebServer(
+            Data data,
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws PloggyError {
         // Bind to loopback only -- not a public web server. Also, specify port 0 to let
         // the system pick any available port for listening.
         super("127.0.0.1", 0);
+        mData = data;
         mRequestHandler = requestHandler;
         mX509KeyMaterial = x509KeyMaterial;
         mFriendCertificates = friendCertificates;
@@ -103,7 +100,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            SSLServerSocket sslServerSocket = (SSLServerSocket)TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCertificates);
+            SSLServerSocket sslServerSocket =
+                    (SSLServerSocket) TransportSecurity.makeServerSocket(mData, mX509KeyMaterial, mFriendCertificates);
             return sslServerSocket;
         } catch (PloggyError e) {
             throw new IOException(e);
@@ -126,7 +124,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     public Response serve(IHTTPSession session) {
         String certificate = null;
         try {
-            certificate = getPeerCertificate(session.getSocket());
+            certificate = TransportSecurity.getPeerCertificate(session.getSocket());
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to get peer certificate");
             return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
@@ -180,7 +178,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             RequestHandler.PullResponse pullResponse =
                     mRequestHandler.handlePullRequest(certificate,  new String(readRequestBodyHelper(session)));
             Response response =
-                    new Response(NanoHTTPD.Response.Status.OK, Protocol.PULL_PUT_RESPONSE_MIME_TYPE, pullResponse.mData);
+                    new Response(NanoHTTPD.Response.Status.OK, Protocol.PULL_PUT_RESPONSE_MIME_TYPE, pullResponse.mInputStream);
             response.setChunkedTransfer(true);
             return response;
         } catch (IOException e) {
@@ -197,7 +195,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         RequestHandler.DownloadResponse downloadResponse = mRequestHandler.handleDownloadRequest(certificate, resourceId, range);
         Response response;
         if (downloadResponse.mAvailable) {
-            response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mData);
+            response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mInputStream);
             response.setChunkedTransfer(true);
         } else {
             response = new Response(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, null, "");
@@ -257,22 +255,5 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             remainingLength -= readLength;
         }
         return buffer;
-    }
-
-    private String getPeerCertificate(Socket socket) throws PloggyError {
-        // Determine friend id by peer TLS certificate
-        try {
-            SSLSocket sslSocket = (SSLSocket)socket;
-            SSLSession sslSession = sslSocket.getSession();
-            Certificate[] certificates = sslSession.getPeerCertificates();
-            if (certificates.length != 1) {
-                throw new PloggyError(LOG_TAG, "unexpected peer certificate count");
-            }
-            return Utils.encodeBase64(certificates[0].getEncoded());
-        } catch (SSLPeerUnverifiedException e) {
-            throw new PloggyError(LOG_TAG, e);
-        } catch (CertificateEncodingException e) {
-            throw new PloggyError(LOG_TAG, e);
-        }
     }
 }

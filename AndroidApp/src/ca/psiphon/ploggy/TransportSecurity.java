@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -42,6 +43,7 @@ import javax.net.ssl.TrustManagerFactory;
 
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
 import ch.boye.httpclientandroidlib.conn.ssl.X509HostnameVerifier;
+import ch.boye.httpclientandroidlib.params.HttpParams;
 
 /**
  * Helpers for building custom TLS connections.
@@ -57,15 +59,18 @@ public class TransportSecurity {
     private static final String LOG_TAG = "Transport Security";
 
     public static ServerSocket makeServerSocket(
+            Data data,
             X509.KeyMaterial transportKeyMaterial,
             List<String> friendCertificates) throws PloggyError {
+        // TODO: construct transportKeyMaterial and friendCertificates from data parameter...?
         try {
             SSLContext sslContext = TransportSecurity.getSSLContext(transportKeyMaterial, friendCertificates);
             SSLServerSocket sslServerSocket = (SSLServerSocket)(sslContext.getServerSocketFactory().createServerSocket());
             sslServerSocket.setNeedClientAuth(true);
             sslServerSocket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return sslServerSocket;
+            // Wrap friend sockets in sent/received stats counter
+            return new DataTransferStats.SSLServerSocketWrapper(data, sslServerSocket);
         } catch (IllegalArgumentException e) {
             throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
@@ -132,17 +137,30 @@ public class TransportSecurity {
     }
 
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
+        private Data mData;
 
         // This mode expects all friend certificates to be loaded and uses a custom
         // verifier that checks the presented server certificate matches the friend's hidden
         // service hostname
         public ClientSSLSocketFactory(SSLContext sslContext, Data data) {
             super(sslContext, new PloggyHiddenServiceHostnameVerifier(data));
+            mData = data;
         }
 
         // This mode should be used only when a single expected server certificate is loaded
         public ClientSSLSocketFactory(SSLContext sslContext) {
             super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+        }
+
+        // Wrap friend sockets in sent/received stats counter
+        // TODO: need to override other createSocket/createLayeredSocket overloads/functions?
+        @Override
+        public Socket createSocket(HttpParams params) throws IOException {
+            SSLSocket socket = (SSLSocket) super.createSocket(params);
+            if (mData == null) {
+                return socket;
+            }
+            return new DataTransferStats.SSLSocketWrapper(mData, socket);
         }
 
         @Override
@@ -187,6 +205,23 @@ public class TransportSecurity {
         } catch (IllegalArgumentException e) {
             throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
+            throw new PloggyError(LOG_TAG, e);
+        }
+    }
+
+    public static String getPeerCertificate(Socket socket) throws PloggyError {
+        // Determine friend id by peer TLS certificate
+        try {
+            SSLSocket sslSocket = (SSLSocket)socket;
+            SSLSession sslSession = sslSocket.getSession();
+            Certificate[] certificates = sslSession.getPeerCertificates();
+            if (certificates.length != 1) {
+                throw new PloggyError(LOG_TAG, "unexpected peer certificate count");
+            }
+            return Utils.encodeBase64(certificates[0].getEncoded());
+        } catch (SSLPeerUnverifiedException e) {
+            throw new PloggyError(LOG_TAG, e);
+        } catch (CertificateEncodingException e) {
             throw new PloggyError(LOG_TAG, e);
         }
     }

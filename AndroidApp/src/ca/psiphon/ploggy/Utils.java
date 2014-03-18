@@ -131,7 +131,7 @@ public class Utils {
 
     public static class NullOutputStream extends OutputStream {
         @Override
-        public void write(int arg0) throws IOException {
+        public void write(int b) throws IOException {
         }
 
         @Override

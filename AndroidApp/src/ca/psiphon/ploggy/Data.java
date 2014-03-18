@@ -180,7 +180,7 @@ public class Data extends SQLiteOpenHelper {
             // group's data will be completely deleted.
             DEAD,
 
-            // Self is not published and removed publisher as friend. Same treatment as
+            // Self is not publisher and removed publisher as friend. Same treatment as
             // DEAD state, except that publisher will not be in TOMBSTONE state and not
             // receive notification to remove self as a member.
             // TODO: what happens when re-add friend?
@@ -501,6 +501,7 @@ public class Data extends SQLiteOpenHelper {
                      new String[]{dateToString(lastReceivedFromTimestamp), Long.toString(additionalBytesReceivedFrom), friendId});
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
+            // TODO: Events.getInstance(mInstanceName).post(new Events.BytesReceivedFromFriend()); ?
         } catch (SQLiteException e) {
             throw new PloggyError(LOG_TAG, e);
         } finally {
@@ -526,6 +527,7 @@ public class Data extends SQLiteOpenHelper {
                      new String[]{dateToString(lastSentToTimestamp), Long.toString(additionalBytesSentTo), friendId});
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
+            // TODO: Events.getInstance(mInstanceName).post(new Events.BytesSentToFriend()); ?
         } catch (SQLiteException e) {
             throw new PloggyError(LOG_TAG, e);
         } finally {
