@@ -289,7 +289,7 @@ public class Data extends SQLiteOpenHelper {
             "CREATE INDEX FriendNickname ON Friend (nickname)",
             "CREATE INDEX FriendCertificate ON Friend (certificate)",
 
-            "CREATE TABLE Group (" +
+            "CREATE TABLE 'Group' (" +
                 "id TEXT PRIMARY KEY," +
                 "name TEXT NOT NULL," +
                 "publisherId TEXT NOT NULL," +
@@ -343,7 +343,7 @@ public class Data extends SQLiteOpenHelper {
                 "mimeType TEXT NOT NULL," +
                 "size INTEGER NOT NULL," +
                 "state INTEGER NOT NULL," +
-                "PRIMARY KEY (friendId, resourceId))",
+                "PRIMARY KEY (publisherId, resourceId))",
     };
 
     private static Map<String, Data> mInstances = new HashMap<String, Data>();
@@ -419,7 +419,7 @@ public class Data extends SQLiteOpenHelper {
             ContentValues values = new ContentValues();
             values.put("id", self.mId);
             values.put("publicIdentity", Json.toJson(self.mPublicIdentity));
-            values.put("privateIdentity", Json.toJson(self.mPublicIdentity));
+            values.put("privateIdentity", Json.toJson(self.mPrivateIdentity));
             values.put("createdTimestamp", dateToString(self.mCreatedTimestamp));
             mDatabase.insertOrThrow("Self", null, values);
             mDatabase.setTransactionSuccessful();
@@ -555,20 +555,20 @@ public class Data extends SQLiteOpenHelper {
             // Treat friend's groups as ORPHANED
             ContentValues values = new ContentValues();
             values.put("state", Group.State.ORPHANED.name());
-            mDatabase.update("Group", values, "publisherId = ?", new String[]{friendId});
+            mDatabase.update("'Group'", values, "publisherId = ?", new String[]{friendId});
 
             // Remove friend as member from published groups
             // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
             String modifiedTimestamp = dateToString(new Date());
             mDatabase.execSQL(
-                    "UPDATE Group " +
+                    "UPDATE 'Group' " +
                         "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
                         "WHERE publisherId = (SELECT id FROM Self) AND " +
-                            "Group.id IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
+                            "'Group'.id IN (SELECT groupId FROM GroupMember WHERE memberId = ?)",
                      new String[]{modifiedTimestamp, friendId});
             mDatabase.delete(
                     "GroupMember",
-                    "id IN (SELECT id FROM Group WHERE publisherId IN (SELECT id FROM Self)) AND memberId = ?",
+                    "id IN (SELECT id FROM 'Group' WHERE publisherId IN (SELECT id FROM Self)) AND memberId = ?",
                     new String[]{friendId});
 
             mDatabase.setTransactionSuccessful();
@@ -699,7 +699,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             // *TODO* only check unique name against self published groups?
             if (0 < getCount(
-                    "SELECT COUNT(*) FROM Group WHERE id <> > AND name = ?",
+                    "SELECT COUNT(*) FROM 'Group' WHERE id <> > AND name = ?",
                     new String[]{group.mId, group.mName})) {
                 throw new AlreadyExistsError();
             }
@@ -709,7 +709,7 @@ public class Data extends SQLiteOpenHelper {
             try {
                 // *TODO* check Group.publisherId == Self
                 if (!Group.State.PUBLISHING.name().equals(
-                        getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{group.mId}))) {
+                        getStringColumn("SELECT state FROM 'Group' WHERE id = ?", new String[]{group.mId}))) {
                     throw new PloggyError(LOG_TAG, "overwriting group not in publishing state");
                 }
             } catch (NotFoundError e) {
@@ -717,7 +717,7 @@ public class Data extends SQLiteOpenHelper {
             long newSequenceNumber = 1;
             try {
                 newSequenceNumber =
-                        1 + getLongColumn("SELECT sequenceNumber FROM Group WHERE groupId = ?", new String[]{group.mId});
+                        1 + getLongColumn("SELECT sequenceNumber FROM 'Group' WHERE groupId = ?", new String[]{group.mId});
             } catch (NotFoundError e) {
             }
             replaceGroup(group, newSequenceNumber, Group.State.PUBLISHING);
@@ -741,7 +741,7 @@ public class Data extends SQLiteOpenHelper {
         values.put("modifiedTimestamp", dateToString(group.mModifiedTimestamp));
         values.put("sequenceNumber", sequenceNumber);
         values.put("state", state.name());
-        mDatabase.replaceOrThrow("Group", null, values);
+        mDatabase.replaceOrThrow("'Group'", null, values);
 
         Set<String> existingMemberIds = new HashSet<String>();
         Cursor cursor = null;
@@ -820,7 +820,7 @@ public class Data extends SQLiteOpenHelper {
                     values.put("sequenceNumber", newSequenceNumber);
                 }
                 values.put("state", newState.name());
-                if (1 != mDatabase.update("Group", values, "id = ?", new String[]{groupId})) {
+                if (1 != mDatabase.update("'Group'", values, "id = ?", new String[]{groupId})) {
                     throw new PloggyError(LOG_TAG, "update group state failed");
                 }
             }
@@ -843,13 +843,13 @@ public class Data extends SQLiteOpenHelper {
 
     private void deleteGroup(String groupId) throws PloggyError {
         // Helper used by removeGroup and putPullResponse; assumes already in transaction
-        mDatabase.delete("Group", "groupId = ?", new String[]{groupId});
+        mDatabase.delete("'Group'", "groupId = ?", new String[]{groupId});
         mDatabase.delete("GroupMember", "groupId = ?", new String[]{groupId});
         mDatabase.delete("Post", "groupId = ?", new String[]{groupId});
     }
 
     private static final String SELECT_GROUP =
-            "SELECT id, name, publisherId, createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM Group";
+            "SELECT id, name, publisherId, createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM 'Group'";
 
     private static final IRowToObject<Group> mRowToGroup =
         new IRowToObject<Group>() {
@@ -937,7 +937,7 @@ public class Data extends SQLiteOpenHelper {
         return getObjectCursor(
                 SELECT_GROUP +
                     " WHERE state IN (?, ?)" +
-                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = Group.groupId AND contentType = ? AND unread = 1)",
+                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.groupId AND contentType = ? AND unread = 1)",
                 new String[]{
                         Group.State.RESIGNING.name(),
                         Group.State.TOMBSTONE.name(),
@@ -1025,7 +1025,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             try {
                 Group.State groupState =
-                        Group.State.valueOf(getStringColumn("SELECT state FROM Group WHERE id = ?", new String[]{post.mGroupId}));
+                        Group.State.valueOf(getStringColumn("SELECT state FROM 'Group' WHERE id = ?", new String[]{post.mGroupId}));
                 if (groupState != Group.State.PUBLISHING && groupState != Group.State.SUBSCRIBING) {
                     throw new PloggyError(LOG_TAG, "invalid group state for post");
                 }
@@ -1222,7 +1222,7 @@ public class Data extends SQLiteOpenHelper {
     public ObjectCursor<Post> getPostsForUnreceivedGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
-                    " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM Group) AND state <> ?" +
+                    " WHERE contentType = ? AND groupId NOT IN (SELECT id FROM 'Group') AND state <> ?" +
                     " ORDER BY modifiedTimestamp DESC",
                 new String[]{Protocol.POST_CONTENT_TYPE_DEFAULT, Post.State.TOMBSTONE.name()},
                 mRowToPost);
@@ -1244,11 +1244,11 @@ public class Data extends SQLiteOpenHelper {
             // TODO: how are ORPHANED groups cleaned up? If not friends with publisher, won't ever get removed as member?
             // TODO: don't need subquery when state is RESIGNING/ORPHANED?
             String query =
-                "SELECT Group.id, Group.sequenceNumber, Group.state, " +
-                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = Group.groupId and publisherId = ?) " +
-                    "FROM Group " +
-                    "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = Group.id) " +
-                        "AND Group.state IN (?, ?, ?, ?)" +
+                "SELECT 'Group'.id, 'Group'.sequenceNumber, 'Group'.state, " +
+                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = 'Group'.groupId and publisherId = ?) " +
+                    "FROM 'Group' " +
+                    "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = 'Group'.id) " +
+                        "AND 'Group'.state IN (?, ?, ?, ?)" +
                     "ORDER BY id ASC";
             cursor = mDatabase.rawQuery(
                     query,
@@ -1371,7 +1371,7 @@ public class Data extends SQLiteOpenHelper {
                 // Pull response is in order of pullRequest, and then by group name for groups the friend doesn't know about
                 // TODO: join instead of subquery?
                 String query =
-                    "SELECT id, state FROM Group WHERE ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)";
+                    "SELECT id, state FROM 'Group' WHERE ? IN (SELECT memberId FROM GroupMember WHERE groupId = 'Group'.id)";
                 cursor = mDatabase.rawQuery(query, new String[]{friendId});
                 cursor.moveToFirst();
                 while (!cursor.isAfterLast()) {
@@ -1449,21 +1449,21 @@ public class Data extends SQLiteOpenHelper {
                     // Silently fails when friend isn't a member, or self isn't the publisher
                     // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
                     if (1 == getCount(
-                            "SELECT COUNT(*) FROM Group " +
+                            "SELECT COUNT(*) FROM 'Group' " +
                             "WHERE id = ? " +
                             "AND publisherId = (SELECT id FROM Self) " +
-                            "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                            "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = 'Group'.id)",
                             new String[]{groupId, friendId})) {
                         mDatabase.execSQL(
-                                "UPDATE Group " +
+                                "UPDATE 'Group' " +
                                     "SET sequenceNumber = sequenceNumber + 1, modifiedTimestamp = ? " +
                                     "WHERE id = ? AND publisherId = (SELECT id FROM Self) " +
-                                    "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                                    "AND ? IN (SELECT memberId FROM GroupMember WHERE groupId = 'Group'.id)",
                                  new String[]{modifiedTimestamp, groupId, friendId});
                         mDatabase.delete(
                                 "GroupMember",
                                 "groupId = ? AND memberId = ? " +
-                                    "AND groupId IN (SELECT id FROM Group WHERE publisherId = (SELECT id FROM Self))",
+                                    "AND groupId IN (SELECT id FROM 'Group' WHERE publisherId = (SELECT id FROM Self))",
                                 new String[]{groupId, friendId});
                         resignedGroups.add(groupId);
                     }
@@ -1521,7 +1521,7 @@ public class Data extends SQLiteOpenHelper {
                 long lastConfirmedPostSequenceNumber = groupLastKnownSequenceNumbers.getValue().mPostSequenceNumber;
 
                 if (1 != getCount(
-                        "SELECT COUNT(*) FROM Group WHERE id = ? AND publisherId = (SELECT id FROM Self)",
+                        "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = (SELECT id FROM Self)",
                         new String[]{groupId})) {
                     lastConfirmedGroupSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
                 }
@@ -1582,7 +1582,7 @@ public class Data extends SQLiteOpenHelper {
                 // fully delete the group in this case.
                 for (String groupId : pullRequest.mGroupsToResignMembership) {
                     if (1 == getCount(
-                            "SELECT COUNT(*) FROM Group WHERE id = ? AND publisherId = ?",
+                            "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
                             new String[]{groupId, friendId})) {
                         deleteGroup(groupId);
                     }
@@ -1662,7 +1662,7 @@ public class Data extends SQLiteOpenHelper {
         Group.State previousState = Group.State.SUBSCRIBING;
         try {
             String[] columns = getRow(
-                    "SELECT publisherId, sequenceNumber, state, FROM Group WHERE id = ?",
+                    "SELECT publisherId, sequenceNumber, state, FROM 'Group' WHERE id = ?",
                     new String[]{group.mId});
             String publisherId = columns[0];
             previousSequenceNumber = Long.parseLong(columns[1]);
@@ -1720,8 +1720,8 @@ public class Data extends SQLiteOpenHelper {
         try {
             Group.State state = Group.State.valueOf(
                 getStringColumn(
-                        "SELECT state FROM Group WHERE id = ? AND " +
-                            "? IN (SELECT memberId FROM GroupMember WHERE groupId = Group.id)",
+                        "SELECT state FROM 'Group' WHERE id = ? AND " +
+                            "? IN (SELECT memberId FROM GroupMember WHERE groupId = 'Group'.id)",
                         new String[]{post.mGroupId, friendId}));
             // Some cases where friend will send posts to be discarded:
             // When own state is TOMBSTONE, the friend may still be in SUBSCRIBING state
@@ -2093,12 +2093,10 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static Date stringToDate(String string) {
-        // *TODO*
-        return null;
+        return new Date(Long.parseLong(string));
     }
 
     private static String dateToString(Date date) {
-        // *TODO*
-        return null;
+        return Long.toString(date.getTime());
     }
 }

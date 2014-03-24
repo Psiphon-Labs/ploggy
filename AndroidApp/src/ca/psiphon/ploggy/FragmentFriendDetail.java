@@ -179,7 +179,7 @@ public class FragmentFriendDetail extends Fragment {
                 } else {
                     mLocationStreetAddressText.setText(R.string.prompt_no_street_address_reported);
                 }
-                if (selfLocation != null && selfLocation.mTimestamp != null) {
+                if (selfLocation != null) {
                     int distance = Utils.calculateLocationDistanceInMeters(
                             selfLocation.mLatitude,
                             selfLocation.mLongitude,

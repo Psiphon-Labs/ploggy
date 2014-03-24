@@ -55,12 +55,12 @@ public class Identity {
                 String hiddenServiceHostname,
                 String hiddenServicAuthCookie,
                 String signature) throws PloggyError {
-            mId = Utils.encodeBase64(getFingerprint());
             mNickname = nickname;
             mX509Certificate = x509Certificate;
             mHiddenServiceHostname = hiddenServiceHostname;
             mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
+            mId = Utils.encodeBase64(getFingerprint());
         }
 
         public byte[] getFingerprint() throws PloggyError {

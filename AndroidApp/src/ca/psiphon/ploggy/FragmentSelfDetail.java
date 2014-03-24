@@ -141,7 +141,7 @@ public class FragmentSelfDetail extends Fragment {
             mLocationCoordinatesText.setVisibility(locationVisibility);
             mLocationTimestampLabel.setVisibility(locationVisibility);
             mLocationTimestampText.setVisibility(locationVisibility);
-            if (selfLocation.mTimestamp != null) {
+            if (selfLocation != null) {
                 if (selfLocation.mStreetAddress.length() > 0) {
                     mLocationStreetAddressText.setText(selfLocation.mStreetAddress);
                 } else {
