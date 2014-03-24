@@ -20,6 +20,7 @@
     <string name="candidate_friend_list_group_seperator">, </string>
     <string name="action_add_friend">Add Friend</string>
     <string name="action_add_group">Add Group</string>
+    <string name="action_add_group_member">Add Member</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
     <string name="action_save_identity_to_file">Save Your Identity to a File</string>
@@ -84,6 +85,16 @@
     <string name="label_status_details_added_timestamp">Friend added at:</string>
     <string name="format_status_details_coordinates">%1$.4f°, %2$.4f°</string>
     <string name="prompt_status_details_data_not_found">Status details not found</string>
+    <string name="label_edit_group_title">Group</string>
+    <string name="label_edit_group_name">Name:</string>
+    <string name="label_edit_group_members">Members</string>
+    <string name="label_add_group_member">Add Member</string>
+    <string name="action_edit_group_remove_member">Remove Member</string>
+    <string name="prompt_edit_group_add_member">Add Member to %1$s</string>
+    <string name="button_edit_group_save">Save</string>
+    <string name="prompt_edit_group_back">Press back again to discard changes</string>
+    <string name="prompt_edit_group_already_exists">A group with the name %1$s already exists</string>
+    <string name="prompt_edit_group_saved">Saved group %1$s</string>
     <string name="format_download_progress">%1$.1f%%</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>

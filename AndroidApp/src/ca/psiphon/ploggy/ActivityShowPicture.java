@@ -21,6 +21,8 @@ package ca.psiphon.ploggy;
 
 import java.io.File;
 
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ImageView;
 
@@ -35,15 +37,35 @@ public class ActivityShowPicture extends ActivitySendIdentityByNfc {
 
     private static final String LOG_TAG = "Show Picture";
 
-    public static final String FILE_PATH_BUNDLE_KEY = "filePath";
-
     private String mFilePath;
     private ImageView mPicture;
+
+    private static final String EXTRA_PICTURE_FILE_PATH = "PICTURE_FILE_PATH";
+
+    public static void startShowPicture(Context context, String pictureFilePath) {
+        Intent intent = new Intent(context, ActivityShowPicture.class);
+        Bundle bundle = new Bundle();
+        bundle.putString(EXTRA_PICTURE_FILE_PATH, pictureFilePath);
+        intent.putExtras(bundle);
+        context.startActivity(intent);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_show_picture);
+
+        mPicture = (ImageView)findViewById(R.id.show_picture_image);
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        setIntent(intent);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
 
         Bundle bundle = getIntent().getExtras();
         if (bundle == null) {
@@ -51,13 +73,12 @@ public class ActivityShowPicture extends ActivitySendIdentityByNfc {
             return;
         }
 
-        mFilePath = bundle.getString(FILE_PATH_BUNDLE_KEY);
+        mFilePath = bundle.getString(EXTRA_PICTURE_FILE_PATH);
         if (mFilePath == null) {
             finish();
             return;
         }
 
-        mPicture = (ImageView)findViewById(R.id.show_picture_image);
         Pictures.loadPicture(new File(mFilePath), mPicture);
     }
 }

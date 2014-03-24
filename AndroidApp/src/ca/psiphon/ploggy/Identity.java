@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Comparator;
 
 /**
  * Representation of Ploggy public Identity.
@@ -66,6 +67,17 @@ public class Identity {
             // Note: Fingerprint excludes hidden service auth cookies, since those may change.
             // (Those values *are* included in signatures to ensure a false value isn't swapped in, denying service.)
             return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
+        }
+    }
+
+    public static class PublicIdentityComparator implements Comparator<PublicIdentity> {
+        @Override
+        public int compare(PublicIdentity a, PublicIdentity b) {
+            int result = a.mNickname.compareToIgnoreCase(b.mNickname);
+            if (result == 0) {
+                result = a.mId.compareTo(b.mId);
+            }
+            return result;
         }
     }
 

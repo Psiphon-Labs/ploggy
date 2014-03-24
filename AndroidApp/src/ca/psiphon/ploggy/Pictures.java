@@ -24,10 +24,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 
@@ -56,11 +54,7 @@ public class Pictures {
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        Intent intent = new Intent(finalContext, ActivityShowPicture.class);
-                        Bundle bundle = new Bundle();
-                        bundle.putString(ActivityShowPicture.FILE_PATH_BUNDLE_KEY, finalFilePath);
-                        intent.putExtras(bundle);
-                        finalContext.startActivity(intent);
+                        ActivityShowPicture.startShowPicture(finalContext, finalFilePath);
                     }
                 });
         return true;

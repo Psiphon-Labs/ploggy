@@ -630,6 +630,25 @@ public class Data extends SQLiteOpenHelper {
         return new ObjectIterator<Friend>(getFriends());
     }
 
+    public ObjectCursor<Friend> getFriendsExcept(List<String> exceptIds) throws PloggyError {
+        // TODO: performance when exceptIds list is long...?
+        StringBuilder where = new StringBuilder();
+        for (int i = 0; i < exceptIds.size(); i++) {
+            if (i == 0) {
+                where.append(" WHERE id NOT IN (?");
+            } else {
+                where.append(", ?");
+            }
+        }
+        if (exceptIds.size() > 0) {
+            where.append(")");
+        }
+        return getObjectCursor(
+                SELECT_FRIEND + where.toString(),
+                exceptIds.toArray(new String[exceptIds.size()]),
+                mRowToFriend);
+    }
+
     private static final IRowToObject<CandidateFriend> mRowToCandidateFriend =
         new IRowToObject<CandidateFriend>() {
             @Override
@@ -673,11 +692,17 @@ public class Data extends SQLiteOpenHelper {
         return new ObjectIterator<CandidateFriend>(getCandidateFriends());
     }
 
-    public void putGroup(Protocol.Group group) throws PloggyError {
+    public void putGroup(Protocol.Group group) throws AlreadyExistsError, PloggyError {
         // *TODO* where is best to generate IDs and set timestamps for groups? caller?
         // *TODO* where validate group: no duplicate members, etc.?
         try {
             mDatabase.beginTransactionNonExclusive();
+            // *TODO* only check unique name against self published groups?
+            if (0 < getCount(
+                    "SELECT COUNT(*) FROM Group WHERE id <> > AND name = ?",
+                    new String[]{group.mId, group.mName})) {
+                throw new AlreadyExistsError();
+            }
             if (!group.mPublisherId.equals(getSelfId())) {
                 throw new PloggyError(LOG_TAG, "overwriting group not published by self");
             }

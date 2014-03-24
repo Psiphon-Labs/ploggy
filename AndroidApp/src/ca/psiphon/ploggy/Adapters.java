@@ -26,6 +26,7 @@ import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -213,6 +214,66 @@ public class Adapters {
                 Log.addEntry(LOG_TAG, "failed to display candidate friend");
                 // *TODO* view.<field>.setBlank();
             }
+
+            return view;
+        }
+    }
+
+    public static class CandidateGroupMemberAdapter extends ObjectCursorAdapter<Data.Friend> {
+
+        public CandidateGroupMemberAdapter(Context context, CursorFactory<Data.Friend> cursorFactory) {
+            super(context, cursorFactory);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
+            View view = convertView;
+            if (view == null) {
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                view = inflater.inflate(R.layout.group_member_list_row, null);
+            }
+
+            ImageView avatarImage = (ImageView)view.findViewById(R.id.group_member_list_avatar_image);
+            TextView nicknameText = (TextView)view.findViewById(R.id.group_member_list_name_text);
+
+            try {
+                Data.Friend friend = getCursor().get(position);
+
+                Robohash.setRobohashImage(context, avatarImage, true, friend.mPublicIdentity);
+                nicknameText.setText(friend.mPublicIdentity.mNickname);
+
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display group member");
+                // *TODO* view.<field>.setBlank();
+            }
+
+            return view;
+        }
+    }
+
+    public static class GroupMemberArrayAdapter extends ArrayAdapter<Identity.PublicIdentity> {
+
+        public GroupMemberArrayAdapter(Context context) {
+            super(context, R.layout.group_member_list_row);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            Context context = getContext();
+            View view = convertView;
+            if (view == null) {
+                LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                view = inflater.inflate(R.layout.group_member_list_row, null);
+            }
+
+            ImageView avatarImage = (ImageView)view.findViewById(R.id.group_member_list_avatar_image);
+            TextView nicknameText = (TextView)view.findViewById(R.id.group_member_list_name_text);
+
+            Identity.PublicIdentity publicIdentity = getItem(position);
+
+            Robohash.setRobohashImage(context, avatarImage, true, publicIdentity);
+            nicknameText.setText(publicIdentity.mNickname);
 
             return view;
         }

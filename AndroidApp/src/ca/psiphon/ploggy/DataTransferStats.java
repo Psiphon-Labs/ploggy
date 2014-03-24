@@ -39,7 +39,7 @@ public class DataTransferStats {
 
     private static final String LOG_TAG = "Data Transfer Stats";
 
-    private static final int REPORT_FREQUENCY_IN_MILLISECONDS = 1000; // 1 sec.
+    private static final int REPORT_FREQUENCY_IN_NANOSECONDS = 1000000000; // 1 sec.
 
     public static class SSLSocketWrapper extends SSLSocket {
         private final Data mData;
@@ -138,14 +138,14 @@ public class DataTransferStats {
     public static class InputStreamWrapper extends FilterInputStream {
         private final Data mData;
         private final String mFriendId;
-        private Date mLastReport;
+        private long mLastReport;
         private long mByteCount;
 
         public InputStreamWrapper(Data data, String friendId, InputStream inputStream) {
             super(inputStream);
             mData = data;
             mFriendId = friendId;
-            mLastReport = null;
+            mLastReport = 0;
             mByteCount = 0;
         }
 
@@ -185,15 +185,13 @@ public class DataTransferStats {
 
         private void updateByteCount(long count, boolean forceReport) {
             mByteCount += count;
-            Date now = new Date();
-            if (mLastReport == null
-                    || mLastReport.getTime() - now.getTime() < REPORT_FREQUENCY_IN_MILLISECONDS
-                    || forceReport) {
+            long now = System.nanoTime();
+            if (now - mLastReport > REPORT_FREQUENCY_IN_NANOSECONDS || forceReport) {
                 try {
                     // Note: at this point, we only actually know that the bytes have been
                     // accepted into the system network buffers. This is one reason why
                     // this stat is only informational.
-                    mData.updateFriendReceivedOrThrow(mFriendId, now, mByteCount);
+                    mData.updateFriendReceivedOrThrow(mFriendId, new Date(), mByteCount);
                     mByteCount = 0;
                 } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "failed to update bytes received");
@@ -207,14 +205,14 @@ public class DataTransferStats {
     public static class OutputStreamWrapper extends FilterOutputStream {
         private final Data mData;
         private final String mFriendId;
-        private Date mLastReport;
+        private long mLastReport;
         private long mByteCount;
 
         public OutputStreamWrapper(Data data, String friendId, OutputStream outputStream) {
             super(outputStream);
             mData = data;
             mFriendId = friendId;
-            mLastReport = null;
+            mLastReport = 0;
             mByteCount = 0;
         }
 
@@ -243,15 +241,13 @@ public class DataTransferStats {
 
         private void updateByteCount(long count, boolean forceReport) {
             mByteCount += count;
-            Date now = new Date();
-            if (mLastReport == null
-                    || mLastReport.getTime() - now.getTime() < REPORT_FREQUENCY_IN_MILLISECONDS
-                    || forceReport) {
+            long now = System.nanoTime();
+            if (now - mLastReport > REPORT_FREQUENCY_IN_NANOSECONDS || forceReport) {
                 try {
                     // Note: at this point, we only actually know that the bytes have been
                     // accepted into the system network buffers. This is one reason why
                     // this stat is only informational.
-                    mData.updateFriendSentOrThrow(mFriendId, now, mByteCount);
+                    mData.updateFriendSentOrThrow(mFriendId, new Date(), mByteCount);
                     mByteCount = 0;
                 } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "failed to update bytes sent");

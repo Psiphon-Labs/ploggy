@@ -35,12 +35,11 @@ import com.squareup.otto.Subscribe;
  */
 public class FragmentGroupPosts extends Fragment {
 
-    private static final String LOG_TAG = "Group Detail";
+    private static final String LOG_TAG = "Group Posts";
 
-    private boolean mIsResumed = false;
     private String mGroupId;
     private Fragment mFragmentComposePost;
-    private ListView mPostListView;
+    private ListView mPostList;
     private Adapters.PostAdapter mPostAdapter;
     Utils.FixedDelayExecutor mRefreshUIExecutor;
 
@@ -65,11 +64,6 @@ public class FragmentGroupPosts extends Fragment {
             throw new RuntimeException("missing expected groupId in FragmentGroupDetail");
         }
 
-        mFragmentComposePost = FragmentComposePost.newInstance(mGroupId);
-
-        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
-        transaction.add(R.id.fragment_compose_post, mFragmentComposePost).commit();
-
         mPostAdapter = new Adapters.PostAdapter(
                 getActivity(),
                 new Adapters.CursorFactory<Data.Post>() {
@@ -79,8 +73,23 @@ public class FragmentGroupPosts extends Fragment {
                     }
                 });
 
-        mPostListView = (ListView)view.findViewById(R.id.post_list);
-        mPostListView.setAdapter(mPostAdapter);
+        mPostList = (ListView)view.findViewById(R.id.post_list);
+        mPostList.setAdapter(mPostAdapter);
+
+        boolean canEdit = true;
+        try {
+            Data.Group group = Data.getInstance().getGroupOrThrow(mGroupId);
+            canEdit = (group.mState == Data.Group.State.PUBLISHING ||
+                       group.mState == Data.Group.State.SUBSCRIBING);
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to check group state");
+        }
+
+        if (canEdit) {
+            mFragmentComposePost = FragmentComposePost.newInstance(mGroupId);
+            FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+            transaction.add(R.id.fragment_compose_post, mFragmentComposePost).commit();
+        }
 
         // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
         // TODO: event driven redrawing?
@@ -99,7 +108,6 @@ public class FragmentGroupPosts extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        mIsResumed = true;
         mRefreshUIExecutor.start();
         try {
             Data.getInstance().markAsReadPosts(mGroupId);
@@ -111,14 +119,15 @@ public class FragmentGroupPosts extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        mIsResumed = false;
         mRefreshUIExecutor.stop();
     }
 
     @Override
     public void onDestroyView() {
-        FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
-        transaction.remove(mFragmentComposePost).commitAllowingStateLoss();
+        if (mFragmentComposePost != null) {
+            FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+            transaction.remove(mFragmentComposePost).commitAllowingStateLoss();
+        }
         Events.getInstance().unregister(this);
         super.onDestroyView();
     }

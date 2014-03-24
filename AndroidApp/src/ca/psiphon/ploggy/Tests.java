@@ -243,7 +243,11 @@ public class Tests {
                     now,
                     -1,
                     false);
-            mData.putGroup(group);
+            try {
+                mData.putGroup(group);
+            } catch (Data.AlreadyExistsError e) {
+                throw new PloggyError(LOG_TAG, e);
+            }
             Log.addEntry(LOG_TAG, mInstanceName + " added group " + name);
             return groupId;
         }
@@ -264,7 +268,11 @@ public class Tests {
                     now,
                     group.mSequenceNumber,
                     group.mIsTombstone);
-            mData.putGroup(updatedGroup);
+            try {
+                mData.putGroup(updatedGroup);
+            } catch (Data.AlreadyExistsError e) {
+                throw new PloggyError(LOG_TAG, e);
+            }
             Log.addEntry(
                     LOG_TAG,
                     mInstanceName + " added group member " + ploggyInstance.getPublicIdentity().mNickname);

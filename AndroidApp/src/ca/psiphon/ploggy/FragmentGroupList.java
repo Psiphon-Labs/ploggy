@@ -100,7 +100,7 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        inflater.inflate(R.menu.friend_list_actions, menu);
+        inflater.inflate(R.menu.group_list_actions, menu);
         super.onCreateOptionsMenu(menu, inflater);
     }
 

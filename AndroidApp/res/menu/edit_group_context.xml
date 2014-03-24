@@ -1,0 +1,6 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item
+        android:id="@+id/action_edit_group_remove_member"
+        android:icon="@drawable/ic_action_delete"
+        android:title="@string/action_edit_group_remove_member"/>
+</menu>

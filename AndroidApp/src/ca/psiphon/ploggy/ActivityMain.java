@@ -154,7 +154,6 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         //if (savedInstanceState != null) {
         //    actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
         //}
-
         // *TODO* persist the starting view in preferences
         displayView(new ViewTag(ViewType.SELF_DETAIL));
     }
