@@ -936,8 +936,8 @@ public class Data extends SQLiteOpenHelper {
     public ObjectCursor<Group> getVisibleGroupsWithUnreadPosts() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP +
-                    " WHERE state IN (?, ?)" +
-                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.groupId AND contentType = ? AND unread = 1)",
+                    " WHERE state IN (?, ?) AND" +
+                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.id AND contentType = ? AND unread = 1)",
                 new String[]{
                         Group.State.RESIGNING.name(),
                         Group.State.TOMBSTONE.name(),
