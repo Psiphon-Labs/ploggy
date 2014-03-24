@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -149,6 +151,9 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         // TODO: use the v7 support ActionBar if want to port to Android < 4
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
+
+        mFragmentBackStack = new ArrayList<ViewTag>();
+        mFragmentCache = new LinkedHashMap<ViewTag, Fragment>();
 
         // *TODO* restore selected view
         //if (savedInstanceState != null) {
@@ -369,16 +374,18 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
 
         // Detach current view and leave on the back stack
 
-        ViewTag currentTag = mFragmentBackStack.get(mFragmentBackStack.size()-1);
-        Fragment currentFragment = mFragmentCache.get(currentTag);
-        if (currentFragment == null) {
-            throw new RuntimeException("unexpected fragment cache state in displayView");
-        }
-        if (!currentFragment.isVisible()) {
-            throw new RuntimeException("unexpected fragment visible state in displayView");
-        }
+        if (mFragmentBackStack.size() > 0) {
+            ViewTag currentTag = mFragmentBackStack.get(mFragmentBackStack.size()-1);
+            Fragment currentFragment = mFragmentCache.get(currentTag);
+            if (currentFragment == null) {
+                throw new RuntimeException("unexpected fragment cache state in displayView");
+            }
+            if (!currentFragment.isVisible()) {
+                throw new RuntimeException("unexpected fragment visible state in displayView");
+            }
 
-        fragmentTransaction.detach(currentFragment);
+            fragmentTransaction.detach(currentFragment);
+        }
 
         // Re-attach or add new view (using cached fragment if present) and push on back stack
 
