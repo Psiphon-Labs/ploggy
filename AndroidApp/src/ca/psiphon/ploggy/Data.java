@@ -937,11 +937,12 @@ public class Data extends SQLiteOpenHelper {
         return getObjectCursor(
                 SELECT_GROUP +
                     " WHERE state IN (?, ?) AND" +
-                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.id AND contentType = ? AND unread = 1)",
+                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.id AND contentType = ? AND state = ?)",
                 new String[]{
                         Group.State.RESIGNING.name(),
                         Group.State.TOMBSTONE.name(),
-                        Protocol.POST_CONTENT_TYPE_DEFAULT},
+                        Protocol.POST_CONTENT_TYPE_DEFAULT,
+                        Post.State.UNREAD.name()},
                 mRowToGroup);
     }
 
