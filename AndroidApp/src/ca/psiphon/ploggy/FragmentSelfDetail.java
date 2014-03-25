@@ -69,13 +69,9 @@ public class FragmentSelfDetail extends Fragment {
         mLocationTimestampLabel = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_label);
         mLocationTimestampText = (TextView)view.findViewById(R.id.self_status_details_location_timestamp_text);
 
-        show(view);
-
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
-
-        Events.getInstance().register(this);
 
         return view;
     }
@@ -83,19 +79,17 @@ public class FragmentSelfDetail extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        Events.getInstance().register(this);
         mRefreshUIExecutor.start();
+        getActivity().setTitle(R.string.navigation_drawer_item_self_detail);
+        show();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mRefreshUIExecutor.stop();
-    }
-
-    @Override
-    public void onDestroyView() {
         Events.getInstance().unregister(this);
-        super.onDestroyView();
+        mRefreshUIExecutor.stop();
     }
 
     @Subscribe
@@ -109,14 +103,6 @@ public class FragmentSelfDetail extends Fragment {
     }
 
     private void show() {
-        View view = getView();
-        if (view == null) {
-            return;
-        }
-        show(view);
-    }
-
-    private void show(View view) {
         try {
             Context context = getActivity();
             Data data = Data.getInstance();

@@ -100,13 +100,9 @@ public class FragmentFriendDetail extends Fragment {
         mBytesSentToText = (TextView)view.findViewById(R.id.friend_status_details_bytes_sent_to_text);
         mAddedTimestampText = (TextView)view.findViewById(R.id.friend_status_details_added_timestamp_text);
 
-        show();
-
         // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
-
-        Events.getInstance().register(this);
 
         return view;
     }
@@ -114,19 +110,16 @@ public class FragmentFriendDetail extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        Events.getInstance().register(this);
         mRefreshUIExecutor.start();
+        show();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mRefreshUIExecutor.stop();
-    }
-
-    @Override
-    public void onDestroyView() {
         Events.getInstance().unregister(this);
-        super.onDestroy();
+        mRefreshUIExecutor.stop();
     }
 
     @Subscribe
@@ -145,6 +138,8 @@ public class FragmentFriendDetail extends Fragment {
             Data data = Data.getInstance();
 
             Data.Friend friend = data.getFriendByIdOrThrow(mFriendId);
+
+            getActivity().setTitle(friend.mPublicIdentity.mNickname);
 
             Protocol.Location selfLocation = null;
             try {

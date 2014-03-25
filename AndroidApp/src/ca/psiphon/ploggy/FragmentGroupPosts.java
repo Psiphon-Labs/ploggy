@@ -102,13 +102,14 @@ public class FragmentGroupPosts extends Fragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        Events.getInstance().register(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        Events.getInstance().register(this);
         mRefreshUIExecutor.start();
+        updateTitle();
         try {
             Data.getInstance().markAsReadPosts(mGroupId);
         } catch (PloggyError e) {
@@ -119,6 +120,7 @@ public class FragmentGroupPosts extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
+        Events.getInstance().unregister(this);
         mRefreshUIExecutor.stop();
     }
 
@@ -128,7 +130,6 @@ public class FragmentGroupPosts extends Fragment {
             FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
             transaction.remove(mFragmentComposePost).commitAllowingStateLoss();
         }
-        Events.getInstance().unregister(this);
         super.onDestroyView();
     }
 
@@ -138,6 +139,20 @@ public class FragmentGroupPosts extends Fragment {
         // Note: require explicit result routing for nested fragment
         if (mFragmentComposePost != null) {
             mFragmentComposePost.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    @Subscribe
+    public void UpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
+        if (updatedSelfGroup.mGroupId.equals(mGroupId)) {
+            updateTitle();
+        }
+    }
+
+    @Subscribe
+    public void UpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
+        if (updatedFriendGroup.mGroupId.equals(mGroupId)) {
+            updateTitle();
         }
     }
 
@@ -152,6 +167,15 @@ public class FragmentGroupPosts extends Fragment {
     public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
         if (updatedFriendPost.mGroupId.equals(mGroupId)) {
             updatePosts(true);
+        }
+    }
+
+    private void updateTitle() {
+        try {
+            Data.Group group = Data.getInstance().getGroupOrThrow(mGroupId);
+            getActivity().setTitle(group.mGroup.mName);
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to set group name");
         }
     }
 

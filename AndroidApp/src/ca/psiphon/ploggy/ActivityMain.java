@@ -145,6 +145,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         mDrawerList = (ListView) findViewById(R.id.left_drawer);
         mDrawerAdapter = new NavigationDrawerContent.Adapter(this);
         mDrawerList.setAdapter(mDrawerAdapter);
+        mDrawerList.setOnItemClickListener(this);
         mTitle = mDrawerTitle = getTitle();
         mDrawerState = DrawerLayout.STATE_IDLE;
 
@@ -227,7 +228,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         // Navigation drawer click
-        if (view == mDrawerList) {
+        if (parent == mDrawerList) {
             NavigationDrawerContent.Row row = mDrawerAdapter.getItem(position);
             if (row != null && row.getRowType() == NavigationDrawerContent.Row.Type.ITEM) {
                 NavigationDrawerContent.Item item = (NavigationDrawerContent.Item) row;
@@ -250,8 +251,7 @@ public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.
         // *TODO* keep general items?
         boolean hideMenuItems =
                 mDrawerLayout.isDrawerOpen(mDrawerList) ||
-                mDrawerState != DrawerLayout.STATE_DRAGGING ||
-                mDrawerState != DrawerLayout.STATE_SETTLING;
+                mDrawerState != DrawerLayout.STATE_IDLE;
         for (int i = 0; i < menu.size(); i++) {
             menu.getItem(i).setVisible(!hideMenuItems);
         }

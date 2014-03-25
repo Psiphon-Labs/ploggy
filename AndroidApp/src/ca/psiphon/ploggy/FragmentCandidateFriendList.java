@@ -62,13 +62,19 @@ public class FragmentCandidateFriendList extends ListFragment {
         if (mCandidateFriendAdapter != null) {
             setListAdapter(mCandidateFriendAdapter);
         }
-        Events.getInstance().register(this);
     }
 
     @Override
-    public void onDestroyView() {
+    public void onResume() {
+        super.onResume();
+        Events.getInstance().register(this);
+        getActivity().setTitle(R.string.navigation_drawer_item_candidate_friend_list);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
         Events.getInstance().unregister(this);
-        super.onDestroyView();
     }
 
     @Override

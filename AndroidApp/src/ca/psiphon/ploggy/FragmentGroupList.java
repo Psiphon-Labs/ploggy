@@ -77,25 +77,21 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
             setListAdapter(mGroupAdapter);
         }
         registerForContextMenu(getListView());
-        Events.getInstance().register(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        Events.getInstance().register(this);
         mRefreshUIExecutor.start();
+        getActivity().setTitle(R.string.navigation_drawer_item_group_list);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mRefreshUIExecutor.stop();
-    }
-
-    @Override
-    public void onDestroyView() {
         Events.getInstance().unregister(this);
-        super.onDestroyView();
+        mRefreshUIExecutor.stop();
     }
 
     @Override
