@@ -169,6 +169,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
 
     public void start() {
         stop();
+        mStartupError = null;
         // Performs start sequence asynchronously, in a background thread
         Runnable startTask = new Runnable() {
             @Override
@@ -237,7 +238,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             Thread.currentThread().interrupt();
         } finally {
             // This mode stops its Tor process
-            stop();
+            stop(true);
             mHiddenServiceHostnameFile.delete();
             mHiddenServicePrivateKeyFile.delete();
         }
@@ -259,7 +260,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             Thread.currentThread().interrupt();
         } finally {
             if (!startCompleted) {
-                stop();
+                stop(true);
             }
         }
     }
@@ -333,18 +334,26 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
 
     public void stop() {
-        if (mStartupThread != null) {
-            mStartupThread.interrupt();
-            try {
-                awaitStarted();
-            } catch (PloggyError e) {
-                Log.addEntry(logTag(), "failed to stop gracefully");
+        stop(false);
+    }
+
+    public void stop(boolean isStartThread) {
+        if (!isStartThread) {
+            if (mStartupThread != null) {
+                mStartupThread.interrupt();
+                try {
+                    awaitStarted();
+                } catch (PloggyError e) {
+                    Log.addEntry(logTag(), "failed to stop gracefully");
+                }
             }
-            mStartupThread = null;
-            mStartupError = null;
         }
         if (mNetworkStateReceiver != null) {
-            Utils.getApplicationContext().unregisterReceiver(mNetworkStateReceiver);
+            try {
+                Utils.getApplicationContext().unregisterReceiver(mNetworkStateReceiver);
+            } catch (IllegalArgumentException e) {
+                // ignore "java.lang.IllegalArgumentException: Receiver not registered"
+            }
             mNetworkStateReceiver = null;
         }
         try {
@@ -375,6 +384,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             android.os.Process.killProcess(mPid);
         }
 
+        mStartupThread = null;
+        mStartupError = null;
         mSocksProxyPort = -1;
         mControlPort = -1;
         mControlConnection = null;

@@ -282,9 +282,9 @@ public class Data extends SQLiteOpenHelper {
                 "nickname TEXT UNIQUE NOT NULL, " +
                 "certificate TEXT UNIQUE NOT NULL," +
                 "addedTimestamp TEXT NOT NULL," +
-                "lastReceivedFromTimestamp TEXT NOT NULL," +
+                "lastReceivedFromTimestamp TEXT," +
                 "bytesReceivedFrom INTEGER NOT NULL," +
-                "lastSentToTimestamp TEXT NOT NULL," +
+                "lastSentToTimestamp TEXT," +
                 "bytesSentTo INTEGER NOT NULL)",
             "CREATE INDEX FriendNickname ON Friend (nickname)",
             "CREATE INDEX FriendCertificate ON Friend (certificate)",
@@ -365,7 +365,8 @@ public class Data extends SQLiteOpenHelper {
             mInstances.get(name).close();
             mInstances.remove(name);
         }
-        if (!Utils.getApplicationContext().deleteDatabase(name)) {
+        Context context = Utils.getApplicationContext();
+        if (Arrays.asList(context.databaseList()).contains(name) && !context.deleteDatabase(name)) {
             throw new PloggyError(LOG_TAG, "failed to delete database");
         }
     }
@@ -476,9 +477,21 @@ public class Data extends SQLiteOpenHelper {
             values.put("nickname", friend.mPublicIdentity.mNickname);
             values.put("certificate", friend.mPublicIdentity.mX509Certificate);
             values.put("addedTimestamp", dateToString(friend.mAddedTimestamp));
-            values.put("lastReceivedFromTimestamp", dateToString(friend.mLastReceivedFromTimestamp));
+            String lastReceivedFromTimestamp = dateToString(friend.mLastReceivedFromTimestamp);
+            if (lastReceivedFromTimestamp == null) {
+                values.putNull("lastReceivedFromTimestamp");
+
+            } else {
+                values.put("lastReceivedFromTimestamp", lastReceivedFromTimestamp);
+            }
             values.put("bytesReceivedFrom", friend.mBytesReceivedFrom);
-            values.put("lastSentToTimestamp", dateToString(friend.mLastSentToTimestamp));
+            String lastSentToTimestamp = dateToString(friend.mLastSentToTimestamp);
+            if (lastSentToTimestamp == null) {
+                values.putNull("lastSentToTimestamp");
+
+            } else {
+                values.put("lastSentToTimestamp", lastSentToTimestamp);
+            }
             values.put("bytesSentTo", friend.mBytesSentTo);
             mDatabase.insertOrThrow("Friend", null, values);
             mDatabase.setTransactionSuccessful();
@@ -699,7 +712,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             // *TODO* only check unique name against self published groups?
             if (0 < getCount(
-                    "SELECT COUNT(*) FROM 'Group' WHERE id <> > AND name = ?",
+                    "SELECT COUNT(*) FROM 'Group' WHERE id <> ? AND name = ?",
                     new String[]{group.mId, group.mName})) {
                 throw new AlreadyExistsError();
             }
@@ -717,7 +730,7 @@ public class Data extends SQLiteOpenHelper {
             long newSequenceNumber = 1;
             try {
                 newSequenceNumber =
-                        1 + getLongColumn("SELECT sequenceNumber FROM 'Group' WHERE groupId = ?", new String[]{group.mId});
+                        1 + getLongColumn("SELECT sequenceNumber FROM 'Group' WHERE id = ?", new String[]{group.mId});
             } catch (NotFoundError e) {
             }
             replaceGroup(group, newSequenceNumber, Group.State.PUBLISHING);
@@ -1053,23 +1066,25 @@ public class Data extends SQLiteOpenHelper {
             values.put("sequenceNumber", newSequenceNumber);
             values.put("state", Post.State.READ.name());
             mDatabase.insertOrThrow("Post", null, values);
-            int attachmentIndex = 0;
-            for (LocalResource localResource : attachmentLocalResources) {
-                if (!post.mAttachments.get(attachmentIndex).mId.equals(localResource.mResourceId)) {
-                    throw new PloggyError(LOG_TAG, "invalid local resource id");
+            if (attachmentLocalResources != null) {
+                int attachmentIndex = 0;
+                for (LocalResource localResource : attachmentLocalResources) {
+                    if (!post.mAttachments.get(attachmentIndex).mId.equals(localResource.mResourceId)) {
+                        throw new PloggyError(LOG_TAG, "invalid local resource id");
+                    }
+                    if (!post.mGroupId.equals(localResource.mGroupId)) {
+                        throw new PloggyError(LOG_TAG, "invalid local resource group");
+                    }
+                    ContentValues localResourceValues = new ContentValues();
+                    localResourceValues.put("resourceId", localResource.mResourceId);
+                    localResourceValues.put("groupId", localResource.mGroupId);
+                    localResourceValues.put("type", localResource.mType.name());
+                    localResourceValues.put("mimeType", localResource.mMimeType);
+                    localResourceValues.put("filePath", localResource.mFilePath);
+                    localResourceValues.put("tempFilePath", localResource.mTempFilePath);
+                    mDatabase.insertOrThrow("LocalResource", null, localResourceValues);
+                    attachmentIndex++;
                 }
-                if (!post.mGroupId.equals(localResource.mGroupId)) {
-                    throw new PloggyError(LOG_TAG, "invalid local resource group");
-                }
-                ContentValues localResourceValues = new ContentValues();
-                localResourceValues.put("resourceId", localResource.mResourceId);
-                localResourceValues.put("groupId", localResource.mGroupId);
-                localResourceValues.put("type", localResource.mType.name());
-                localResourceValues.put("mimeType", localResource.mMimeType);
-                localResourceValues.put("filePath", localResource.mFilePath);
-                localResourceValues.put("tempFilePath", localResource.mTempFilePath);
-                mDatabase.insertOrThrow("LocalResource", null, localResourceValues);
-                attachmentIndex++;
             }
             mDatabase.setTransactionSuccessful();
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(post.mGroupId, post.mId));
@@ -2094,10 +2109,16 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static Date stringToDate(String string) {
+        if (string == null) {
+            return null;
+        }
         return new Date(Long.parseLong(string));
     }
 
     private static String dateToString(Date date) {
+        if (date == null) {
+            return null;
+        }
         return Long.toString(date.getTime());
     }
 }

@@ -27,6 +27,7 @@ import java.util.TimerTask;
 
 import android.content.Context;
 import android.net.TrafficStats;
+import android.os.Looper;
 import android.os.Process;
 
 import com.squareup.otto.Subscribe;
@@ -53,6 +54,7 @@ public class Tests {
                 new TimerTask() {
                     @Override
                     public void run() {
+                        Looper.prepare();
                         Tests.runComponentTests();
                     }
                 },
@@ -103,7 +105,8 @@ public class Tests {
             String aliceGroupId = alice.addGroup(ALICE_GROUP);
 
             Log.addEntry(LOG_TAG, "Locally write and read 10K posts...");
-            alice.addPosts(aliceGroupId, 10000);
+            //alice.addPosts(aliceGroupId, 10000);
+            alice.addPosts(aliceGroupId, 100);
             alice.loadPosts(aliceGroupId);
 
             Log.addEntry(LOG_TAG, "Add friends to group and sync group and posts...");

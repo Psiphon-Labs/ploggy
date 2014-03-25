@@ -66,7 +66,11 @@ public class Events {
 
     private Events(String instanceName) {
         mInstanceName = instanceName;
-        mBus = new Bus(ThreadEnforcer.MAIN);
+        ThreadEnforcer threadEnforcer = ThreadEnforcer.ANY;
+        if (mInstanceName.equals(Engine.DEFAULT_PLOGGY_INSTANCE_NAME)) {
+            threadEnforcer = ThreadEnforcer.MAIN;
+        }
+        mBus = new Bus(threadEnforcer);
         mHandler = new Handler();
 
         // Activity and fragment lifecycle events make it difficult to reliably

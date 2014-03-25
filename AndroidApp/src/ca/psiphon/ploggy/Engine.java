@@ -929,13 +929,23 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             Data.Friend friend = mData.getFriendByCertificate(friendCertificate);
             // TODO: stream requestBody instead of loading entirely into memory
             Json.PayloadIterator payloadIterator = new Json.PayloadIterator(requestBody);
-            boolean needPull = false;
+            Set<String> pullFromFriendIds = new HashSet<String>();
             for (Protocol.Payload payload : payloadIterator) {
                 switch(payload.mType) {
                 case GROUP:
                     Protocol.Group group = (Protocol.Group)payload.mObject;
                     Protocol.validateGroup(group);
                     mData.putPushedGroup(friend.mId, group);
+                    // In case self was added to existing group, need to now get the posts
+                    // *TODO* should this instead be a push to only new members?
+                    for (Identity.PublicIdentity member : group.mMembers) {
+                        try {
+                            mData.getFriendById(member.mId);
+                            pullFromFriendIds.add(member.mId);
+                        } catch (Data.NotFoundError e) {
+                            // This member is not a friend
+                        }
+                    }
                     break;
                 case LOCATION:
                     Protocol.Location location = (Protocol.Location)payload.mObject;
@@ -946,15 +956,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     Protocol.Post post = (Protocol.Post)payload.mObject;
                     Protocol.validatePost(post);
                     if (mData.putPushedPost(friend.mId, post)) {
-                        needPull = true;
+                        pullFromFriendIds.add(friend.mId);
                     }
                     break;
                 default:
                     break;
                 }
             }
-            if (needPull) {
-                triggerFriendTask(FriendTaskType.PULL_FROM, friend.mId);
+            for (String friendId : pullFromFriendIds) {
+                triggerFriendTask(FriendTaskType.PULL_FROM, friendId);
             }
             // *TODO* log too noisy?
             Log.addEntry(LOG_TAG, "served push request for " + friend.mPublicIdentity.mNickname);
