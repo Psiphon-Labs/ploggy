@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import android.content.Context;
 import android.net.TrafficStats;
 import android.os.Looper;
 import android.os.Process;
@@ -54,7 +53,6 @@ public class Tests {
                 new TimerTask() {
                     @Override
                     public void run() {
-                        Looper.prepare();
                         Tests.runComponentTests();
                     }
                 },
@@ -176,42 +174,85 @@ public class Tests {
     }
 
     private static class PloggyInstance {
-        private final Context mContext;
         private final String mInstanceName;
-        private final Engine mEngine;
-        private final Data mData;
+        private Data mData;
+        private Thread mThread;
+        private Looper mThreadLooper;
+        private boolean mStarted;
+        private PloggyError mStartError;
 
         public PloggyInstance(String instanceName) throws PloggyError {
-            mContext = Utils.getApplicationContext();
             mInstanceName = instanceName;
             Data.deleteDatabase(mInstanceName);
-            mData = Data.getInstance(mInstanceName);
-            mEngine = new Engine(mInstanceName);
         }
 
-        public void start() throws PloggyError {
+        public void start() throws PloggyError, InterruptedException {
             Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
-            HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial(mInstanceName);
-            X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
-            Data.Self self = new Data.Self(
-                    Identity.makeSignedPublicIdentity(
-                            mInstanceName,
-                            selfX509KeyMaterial,
-                            selfHiddenServiceKeyMaterial),
-                    Identity.makePrivateIdentity(
-                            selfX509KeyMaterial,
-                            selfHiddenServiceKeyMaterial),
-                    new Date());
-            mData.putSelf(self);
-            Events.getInstance(mInstanceName).register(this);
-            mEngine.start();
-            Log.addEntry(LOG_TAG, "Started " + mInstanceName);
+            mStarted = false;
+            mStartError = null;
+            mThread = new Thread(new Runnable() {
+               @Override
+               public void run() {
+                   try {
+                       Looper.prepare();
+                       mThreadLooper = Looper.myLooper();
+                       // Note: both Data and Engine initialization should occur after this Events instance is associated with this thread
+                       Events.getInstance(mInstanceName);
+                       mData = Data.getInstance(mInstanceName);
+                       HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial(mInstanceName);
+                       X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
+                       Data.Self self = new Data.Self(
+                               Identity.makeSignedPublicIdentity(
+                                       mInstanceName,
+                                       selfX509KeyMaterial,
+                                       selfHiddenServiceKeyMaterial),
+                               Identity.makePrivateIdentity(
+                                       selfX509KeyMaterial,
+                                       selfHiddenServiceKeyMaterial),
+                               new Date());
+                       mData.putSelf(self);
+                       Engine engine = new Engine(mInstanceName);
+                       engine.start();
+                       mStarted = true;
+                       Log.addEntry(LOG_TAG, "Started " + mInstanceName);
+                       Looper.loop();
+                       Log.addEntry(LOG_TAG, "Stopping Engine for " + mInstanceName);
+                       engine.stop();
+                       mData = null;
+                   } catch (PloggyError e) {
+                       mStartError = e;
+                       Log.addEntry(LOG_TAG, "Engine start failed");
+                   }
+               }
+            });
+            Log.addEntry(LOG_TAG, "Starting " + mInstanceName);
+            mThread.start();
+            // Note: hack to ensure instance is initialized before start() returns -- as it was before there was a thread
+            for (int i = 0; !mStarted && mStartError == null; i++) {
+                if (i % 10 == 0) {
+                    Log.addEntry(LOG_TAG, "Awaiting initialization for " + mInstanceName);
+                }
+                Thread.sleep(1000);
+            }
+            if (mStartError != null) {
+                throw mStartError;
+            }
         }
 
         public void stop() {
             Log.addEntry(LOG_TAG, "Stopping " + mInstanceName);
-            mEngine.stop();
-            Events.getInstance(mInstanceName).unregister(this);
+            if (mThreadLooper != null) {
+                mThreadLooper.quit();
+                mThreadLooper = null;
+            }
+            if (mThread != null) {
+                try {
+                    mThread.join();
+                } catch (InterruptedException e) {
+                }
+                mThread = null;
+            }
+            mStarted = false;
             Log.addEntry(LOG_TAG, "Stopped " + mInstanceName);
         }
 

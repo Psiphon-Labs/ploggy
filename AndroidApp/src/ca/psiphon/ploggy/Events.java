@@ -70,7 +70,7 @@ public class Events {
         if (mInstanceName.equals(Engine.DEFAULT_PLOGGY_INSTANCE_NAME)) {
             threadEnforcer = ThreadEnforcer.MAIN;
         }
-        mBus = new Bus(threadEnforcer);
+        mBus = new Bus(threadEnforcer, mInstanceName);
         mHandler = new Handler();
 
         // Activity and fragment lifecycle events make it difficult to reliably

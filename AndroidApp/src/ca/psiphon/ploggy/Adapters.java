@@ -368,7 +368,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                boolean isSelfPublished = post.mPost.mPublisherId.equals(data.getSelfOrThrow().mId);
+                boolean isSelfPublished = post.mPost.mPublisherId.equals(data.getSelfId());
 
                 Identity.PublicIdentity publisher = null;
                 if (isSelfPublished) {

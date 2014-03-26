@@ -83,7 +83,7 @@ public class Resources {
                  new Protocol.Post(
                          Utils.makeId(),
                          postGroupId,
-                         data.getSelfOrThrow().mId,
+                         data.getSelfId(),
                          Protocol.POST_CONTENT_TYPE_DEFAULT,
                          postContent,
                          attachments,

@@ -55,6 +55,9 @@ import android.database.sqlite.SQLiteOpenHelper;
  *
  * Use getInstance() to get the singleton Data instance. Use the version that takes
  * a name parameter to get an independent Data instance for testing.
+ *
+ * *TODO* note on thread safety: why public functions not synchronized
+ *
  */
 
 /*
@@ -385,6 +388,10 @@ public class Data extends SQLiteOpenHelper {
         mDatabase = getWritableDatabase();
     }
 
+    private String logTag() {
+        return String.format("%s [%s]", LOG_TAG, mInstanceName);
+    }
+
     // *TODO* who calls SQLiteOpenHelper.close()?
 
     @Override
@@ -424,12 +431,12 @@ public class Data extends SQLiteOpenHelper {
             values.put("createdTimestamp", dateToString(self.mCreatedTimestamp));
             mDatabase.insertOrThrow("Self", null, values);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedSelf());
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedSelf());
     }
 
     public Self getSelf() throws PloggyError, NotFoundError {
@@ -451,15 +458,15 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getSelf();
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected self not found");
+            throw new PloggyError(logTag(), "unexpected self not found");
         }
     }
 
-    private String getSelfId() throws PloggyError {
+    public String getSelfId() throws PloggyError {
         try {
             return getStringColumn("SELECT id FROM Self", null);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), "unexpected self not found");
         }
     }
 
@@ -495,12 +502,12 @@ public class Data extends SQLiteOpenHelper {
             values.put("bytesSentTo", friend.mBytesSentTo);
             mDatabase.insertOrThrow("Friend", null, values);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.AddedFriend(friend.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.AddedFriend(friend.mId));
     }
 
     // *TODO* note -- informational/could be imprecise
@@ -513,13 +520,13 @@ public class Data extends SQLiteOpenHelper {
                             "bytesReceivedFrom = bytesReceivedFrom + CAST(? as INTEGER) WHERE id = ?",
                      new String[]{dateToString(lastReceivedFromTimestamp), Long.toString(additionalBytesReceivedFrom), friendId});
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
-            // TODO: Events.getInstance(mInstanceName).post(new Events.BytesReceivedFromFriend()); ?
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
+        // TODO: Events.getInstance(mInstanceName).post(new Events.BytesReceivedFromFriend()); ?
     }
 
     public void updateFriendReceivedOrThrow(String friendId, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
@@ -527,7 +534,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             updateFriendReceived(friendId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(logTag(), "unexpected friend not found");
         }
     }
 
@@ -539,13 +546,13 @@ public class Data extends SQLiteOpenHelper {
                     "UPDATE Friend SET lastSentToTimestamp = ?, bytesSentTo = bytesSentTo + CAST(? as INTEGER) WHERE id = ?",
                      new String[]{dateToString(lastSentToTimestamp), Long.toString(additionalBytesSentTo), friendId});
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
-            // TODO: Events.getInstance(mInstanceName).post(new Events.BytesSentToFriend()); ?
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
+        // TODO: Events.getInstance(mInstanceName).post(new Events.BytesSentToFriend()); ?
     }
 
     public void updateFriendSentOrThrow(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
@@ -553,7 +560,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             updateFriendReceived(friendId, lastSentToTimestamp, additionalBytesSentTo);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(logTag(), "unexpected friend not found");
         }
     }
 
@@ -585,12 +592,12 @@ public class Data extends SQLiteOpenHelper {
                     new String[]{friendId});
 
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.RemovedFriend(friendId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.RemovedFriend(friendId));
     }
 
     private static final String SELECT_FRIEND =
@@ -615,7 +622,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getFriendById(friendId);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(logTag(), "unexpected friend not found");
         }
     }
 
@@ -631,7 +638,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getFriendByCertificate(certificate);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected friend not found");
+            throw new PloggyError(logTag(), "unexpected friend not found");
         }
     }
 
@@ -717,13 +724,13 @@ public class Data extends SQLiteOpenHelper {
                 throw new AlreadyExistsError();
             }
             if (!group.mPublisherId.equals(getSelfId())) {
-                throw new PloggyError(LOG_TAG, "overwriting group not published by self");
+                throw new PloggyError(logTag(), "overwriting group not published by self");
             }
             try {
                 // *TODO* check Group.publisherId == Self
                 if (!Group.State.PUBLISHING.name().equals(
                         getStringColumn("SELECT state FROM 'Group' WHERE id = ?", new String[]{group.mId}))) {
-                    throw new PloggyError(LOG_TAG, "overwriting group not in publishing state");
+                    throw new PloggyError(logTag(), "overwriting group not in publishing state");
                 }
             } catch (NotFoundError e) {
             }
@@ -735,12 +742,12 @@ public class Data extends SQLiteOpenHelper {
             }
             replaceGroup(group, newSequenceNumber, Group.State.PUBLISHING);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(group.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(group.mId));
     }
 
     private void replaceGroup(Protocol.Group group, long sequenceNumber, Group.State state)
@@ -800,11 +807,13 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public void removeGroup(String groupId) throws PloggyError {
+        Group group = null;
+        boolean isSelfGroup = false;
+        Group.State newState = null;
         try {
             mDatabase.beginTransactionNonExclusive();
-            Group group = getGroup(groupId);
-            boolean isSelfGroup = group.mGroup.mPublisherId.equals(getSelfId());
-            Group.State newState = null;
+            group = getGroup(groupId);
+            isSelfGroup = group.mGroup.mPublisherId.equals(getSelfId());
             switch (group.mState) {
             case PUBLISHING:
                 newState = Group.State.TOMBSTONE;
@@ -834,23 +843,23 @@ public class Data extends SQLiteOpenHelper {
                 }
                 values.put("state", newState.name());
                 if (1 != mDatabase.update("'Group'", values, "id = ?", new String[]{groupId})) {
-                    throw new PloggyError(LOG_TAG, "update group state failed");
+                    throw new PloggyError(logTag(), "update group state failed");
                 }
             }
             mDatabase.setTransactionSuccessful();
-            if (newState != null) {
-                if (isSelfGroup) {
-                    Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(group.mGroup.mId));
-                } else {
-                    Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(group.mGroup.mPublisherId, group.mGroup.mId));
-                }
-            }
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
+        }
+        if (newState != null) {
+            if (isSelfGroup) {
+                Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(group.mGroup.mId));
+            } else {
+                Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(group.mGroup.mPublisherId, group.mGroup.mId));
+            }
         }
     }
 
@@ -931,7 +940,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getGroup(groupId);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected group not found");
+            throw new PloggyError(logTag(), "unexpected group not found");
         }
     }
 
@@ -997,7 +1006,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.replaceOrThrow("Location", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1024,7 +1033,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getSelfLocation();
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected self location not found");
+            throw new PloggyError(logTag(), "unexpected self location not found");
         }
     }
 
@@ -1041,10 +1050,10 @@ public class Data extends SQLiteOpenHelper {
                 Group.State groupState =
                         Group.State.valueOf(getStringColumn("SELECT state FROM 'Group' WHERE id = ?", new String[]{post.mGroupId}));
                 if (groupState != Group.State.PUBLISHING && groupState != Group.State.SUBSCRIBING) {
-                    throw new PloggyError(LOG_TAG, "invalid group state for post");
+                    throw new PloggyError(logTag(), "invalid group state for post");
                 }
             } catch (NotFoundError e) {
-                throw new PloggyError(LOG_TAG, "group not found for post");
+                throw new PloggyError(logTag(), "group not found for post");
             }
             long newSequenceNumber = 1;
             try {
@@ -1070,10 +1079,10 @@ public class Data extends SQLiteOpenHelper {
                 int attachmentIndex = 0;
                 for (LocalResource localResource : attachmentLocalResources) {
                     if (!post.mAttachments.get(attachmentIndex).mId.equals(localResource.mResourceId)) {
-                        throw new PloggyError(LOG_TAG, "invalid local resource id");
+                        throw new PloggyError(logTag(), "invalid local resource id");
                     }
                     if (!post.mGroupId.equals(localResource.mGroupId)) {
-                        throw new PloggyError(LOG_TAG, "invalid local resource group");
+                        throw new PloggyError(logTag(), "invalid local resource group");
                     }
                     ContentValues localResourceValues = new ContentValues();
                     localResourceValues.put("resourceId", localResource.mResourceId);
@@ -1087,25 +1096,25 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(post.mGroupId, post.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(post.mGroupId, post.mId));
     }
 
     public void removePost(String postId) throws PloggyError {
+        String groupId = null;
         try {
             mDatabase.beginTransactionNonExclusive();
-            String groupId = null;
             // Note the Publisher Id check -- only publisher can remove post (unlike removeGroup)
             try {
                 groupId = getStringColumn(
                         "SELECT groupId FROM Post WHERE id = ? AND publisherId = (SELECT id FROM Self)",
                         new String[]{postId});
             } catch (NotFoundError e) {
-                throw new PloggyError(LOG_TAG, "removing unpublished post");
+                throw new PloggyError(logTag(), "removing unpublished post");
             }
             // *TODO* check post's group's state?
             long newSequenceNumber = 1;
@@ -1117,7 +1126,7 @@ public class Data extends SQLiteOpenHelper {
                             "AND groupId = (SELECT groupId FROM Post WHERE Post.id = ?)",
                         new String[]{postId});
             } catch (NotFoundError e) {
-                throw new PloggyError(LOG_TAG, "unexpected sequence number not found");
+                throw new PloggyError(logTag(), "unexpected sequence number not found");
             }
             ContentValues values = new ContentValues();
             values.put("sequenceNumber", newSequenceNumber);
@@ -1129,12 +1138,12 @@ public class Data extends SQLiteOpenHelper {
                     "id = ? AND state <> ?",
                     new String[]{postId, Post.State.TOMBSTONE.name()});
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(groupId, postId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedSelfPost(groupId, postId));
     }
 
     public void markAsReadPosts(String groupId) throws PloggyError {
@@ -1149,16 +1158,16 @@ public class Data extends SQLiteOpenHelper {
                     "groupId = ? AND state = ?",
                     new String[]{groupId, Post.State.UNREAD.name()});
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.MarkedAsReadPosts(groupId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.MarkedAsReadPosts(groupId));
     }
 
     private static final String SELECT_POST =
-            "SELECT id, publisherId, groupId, contentType, content, attachments, " +
+            "SELECT id, groupId, publisherId, contentType, content, attachments, " +
                     "createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM Post";
 
     private static final IRowToObject<Post> mRowToPost =
@@ -1184,7 +1193,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getPost(postId);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "unexpected post not found");
+            throw new PloggyError(logTag(), "unexpected post not found");
         }
     }
 
@@ -1261,7 +1270,7 @@ public class Data extends SQLiteOpenHelper {
             // TODO: don't need subquery when state is RESIGNING/ORPHANED?
             String query =
                 "SELECT 'Group'.id, 'Group'.sequenceNumber, 'Group'.state, " +
-                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = 'Group'.groupId and publisherId = ?) " +
+                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = 'Group'.id and publisherId = ?) " +
                     "FROM 'Group' " +
                     "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = 'Group'.id) " +
                         "AND 'Group'.state IN (?, ?, ?, ?)" +
@@ -1299,7 +1308,7 @@ public class Data extends SQLiteOpenHelper {
                 cursor.moveToNext();
             }
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             if (cursor != null) {
                 cursor.close();
@@ -1369,9 +1378,9 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             } catch (NotFoundError e) {
-                Log.addEntry(LOG_TAG, "push iterator failed with item not found");
+                Log.addEntry(logTag(), "push iterator failed with item not found");
             } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "push iterator failed");
+                Log.addEntry(logTag(), "push iterator failed");
             }
             return null;
         }
@@ -1418,7 +1427,7 @@ public class Data extends SQLiteOpenHelper {
                     cursor.moveToNext();
                 }
             } catch (SQLiteException e) {
-                throw new PloggyError(LOG_TAG, e);
+                throw new PloggyError(logTag(), e);
             } finally {
                 if (cursor != null) {
                     cursor.close();
@@ -1457,10 +1466,10 @@ public class Data extends SQLiteOpenHelper {
         // sending pull data.
         // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
         if (pullRequest.mGroupsToResignMembership.size() > 0) {
+            List<String> resignedGroups = new ArrayList<String>();
             try {
                 mDatabase.beginTransactionNonExclusive();
                 String modifiedTimestamp = dateToString(new Date());
-                List<String> resignedGroups = new ArrayList<String>();
                 for (String groupId : pullRequest.mGroupsToResignMembership) {
                     // Silently fails when friend isn't a member, or self isn't the publisher
                     // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
@@ -1485,13 +1494,13 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
                 mDatabase.setTransactionSuccessful();
-                for (String groupId : resignedGroups) {
-                    Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
-                }
             } catch (SQLiteException e) {
-                throw new PloggyError(LOG_TAG, e);
+                throw new PloggyError(logTag(), e);
             } finally {
                 mDatabase.endTransaction();
+            }
+            for (String groupId : resignedGroups) {
+                Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
             }
         }
         // *TODO* this is another transaction?
@@ -1522,7 +1531,7 @@ public class Data extends SQLiteOpenHelper {
                         new String[]{groupId, friendId, Long.toString(lastConfirmedPostSequenceNumber)});
             }
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
     }
 
@@ -1545,10 +1554,10 @@ public class Data extends SQLiteOpenHelper {
                 confirmSentTo(friendId, groupId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
             }
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
     public void confirmSentTo(String friendId, Protocol.Group group) throws PloggyError {
@@ -1556,10 +1565,10 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(group.mId, friendId, group.mSequenceNumber, UNASSIGNED_SEQUENCE_NUMBER);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
     public void confirmSentTo(String friendId, Protocol.Post post) throws PloggyError {
@@ -1567,10 +1576,10 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             confirmSentTo(post.mGroupId, friendId, UNASSIGNED_SEQUENCE_NUMBER, post.mSequenceNumber);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
     public static final int MAX_PULL_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
@@ -1610,26 +1619,23 @@ public class Data extends SQLiteOpenHelper {
             for (Protocol.Post post : pulledPosts) {
                 putReceivedPost(friendId, post);
             }
-
             mDatabase.setTransactionSuccessful();
-
-            if (pullRequest != null) {
-                for (String groupId : pullRequest.mGroupsToResignMembership) {
-                    Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
-                }
-            }
-            for (Protocol.Group group : pulledGroups) {
-                Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
-            }
-            for (Protocol.Post post : pulledPosts) {
-                // *TODO* too many events? Don't refresh UI on this event?
-                Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
-            }
-
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
+        }
+        if (pullRequest != null) {
+            for (String groupId : pullRequest.mGroupsToResignMembership) {
+                Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
+            }
+        }
+        for (Protocol.Group group : pulledGroups) {
+            Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
+        }
+        for (Protocol.Post post : pulledPosts) {
+            // *TODO* too many events? Don't refresh UI on this event?
+            Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         }
     }
 
@@ -1640,12 +1646,12 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
             putReceivedGroup(friendId, group);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
     }
 
     public boolean putPushedPost(String friendId, Protocol.Post post) throws PloggyError {
@@ -1657,17 +1663,17 @@ public class Data extends SQLiteOpenHelper {
                     "SELECT COUNT(*) FROM Post " +
                         "WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= CAST(? as INTEGER)",
                     new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber - 1)})) {
-                Log.addEntry(LOG_TAG, "pull triggered by push sequence number");
+                Log.addEntry(logTag(), "pull triggered by push sequence number");
                 triggerPull = true;
             }
             putReceivedPost(friendId, post);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         return triggerPull;
     }
 
@@ -1686,7 +1692,7 @@ public class Data extends SQLiteOpenHelper {
             // Check that friend is publisher
             if (!publisherId.equals(group.mPublisherId) ||
                     !publisherId.equals(friendId)) {
-                throw new PloggyError(LOG_TAG, "invalid group publisher");
+                throw new PloggyError(logTag(), "invalid group publisher");
             }
         } catch (NotFoundError e) {
             // This is a new group
@@ -1694,7 +1700,7 @@ public class Data extends SQLiteOpenHelper {
 
         if (previousSequenceNumber >= group.mSequenceNumber) {
             // Discard stale updates
-            Log.addEntry(LOG_TAG, "received stale group update");
+            Log.addEntry(logTag(), "received stale group update");
         } else {
             // Accept update
 
@@ -1709,7 +1715,7 @@ public class Data extends SQLiteOpenHelper {
             case TOMBSTONE:
             case DEAD:
             case RESIGNING:
-                Log.addEntry(LOG_TAG, "received unexpected group state");
+                Log.addEntry(logTag(), "received unexpected group state");
                 // Not expecting an update in these cases - discard
                 break;
             case SUBSCRIBING:
@@ -1727,10 +1733,10 @@ public class Data extends SQLiteOpenHelper {
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post WHERE id = ? AND publisherId <> ?",
                 new String[]{post.mId, friendId})) {
-            throw new PloggyError(LOG_TAG, "invalid post publisher");
+            throw new PloggyError(logTag(), "invalid post publisher");
         }
         if (!post.mPublisherId.equals(friendId)) {
-            throw new PloggyError(LOG_TAG, "mismatched post publisher");
+            throw new PloggyError(logTag(), "mismatched post publisher");
         }
         // Check group state as well as post publisher's membership
         try {
@@ -1750,13 +1756,13 @@ public class Data extends SQLiteOpenHelper {
                 return;
             }
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, "invalid post from non-group member");
+            throw new PloggyError(logTag(), "invalid post from non-group member");
         }
         if (0 != getCount(
                 "SELECT COUNT(*) FROM Post " +
                     "WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= CAST(? as INTEGER)",
                 new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber)})) {
-            Log.addEntry(LOG_TAG, "received stale post update");
+            Log.addEntry(logTag(), "received stale post update");
             // Discard stale update
             return;
         }
@@ -1797,7 +1803,7 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.insertOrThrow("LocalResource", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1845,12 +1851,12 @@ public class Data extends SQLiteOpenHelper {
             values.put("size", resource.mSize);
             mDatabase.insertOrThrow("Download", null, values);
             mDatabase.setTransactionSuccessful();
-            Events.getInstance(mInstanceName).post(new Events.AddedDownload(friendId, resource.mId));
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
+        Events.getInstance(mInstanceName).post(new Events.AddedDownload(friendId, resource.mId));
     }
 
     public void updateDownloadState(String friendId, String resourceId, Download.State state)
@@ -1861,11 +1867,11 @@ public class Data extends SQLiteOpenHelper {
             values.put("state", state.name());
             if (1 != mDatabase.update(
                     "Download", values, "publisherId = ? AND resourceId = ?", new String[]{friendId, resourceId})) {
-                throw new PloggyError(LOG_TAG, "update download failed");
+                throw new PloggyError(logTag(), "update download failed");
             }
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         } finally {
             mDatabase.endTransaction();
         }
@@ -1906,7 +1912,7 @@ public class Data extends SQLiteOpenHelper {
         try {
             return getLongColumn(query, args);
         } catch (NotFoundError e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
     }
 
@@ -1941,7 +1947,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return cursor.getString(0);
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
         finally {
             if (cursor != null) {
@@ -1963,7 +1969,7 @@ public class Data extends SQLiteOpenHelper {
             }
             return columns;
         } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
         finally {
             if (cursor != null) {
@@ -1989,7 +1995,7 @@ public class Data extends SQLiteOpenHelper {
             if (cursor != null) {
                 cursor.close();
             }
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
     }
 
@@ -2003,7 +2009,7 @@ public class Data extends SQLiteOpenHelper {
             if (cursor != null) {
                 cursor.close();
             }
-            throw new PloggyError(LOG_TAG, e);
+            throw new PloggyError(logTag(), e);
         }
     }
 

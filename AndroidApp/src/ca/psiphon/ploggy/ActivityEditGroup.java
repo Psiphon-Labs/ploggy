@@ -154,7 +154,7 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
                 mMemberList.setAdapter(mMemberAdapter);
 
                 // Disable editing when not self published group
-                boolean isSelfPublished = group.mGroup.mPublisherId.equals(data.getSelfOrThrow().mId);
+                boolean isSelfPublished = group.mGroup.mPublisherId.equals(data.getSelfId());
                 mIsReadOnly = !isSelfPublished;
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to show group");
@@ -334,7 +334,7 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
             saveGroup = new Protocol.Group(
                     Utils.makeId(),
                     name,
-                    data.getSelfOrThrow().mId,
+                    data.getSelfId(),
                     members,
                     now,
                     now,
