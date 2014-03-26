@@ -200,9 +200,8 @@ public class WebClientRequest {
             throw new PloggyError(LOG_TAG, e);
         } catch (IllegalArgumentException e) {
             throw new PloggyError(LOG_TAG, e);
-        // *TODO* temporary
-        //} catch (NullPointerException e) {
-        //    throw new PloggyError(LOG_TAG, e);
+        } catch (NullPointerException e) {
+            throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
             throw new PloggyError(LOG_TAG, e);
         } finally {

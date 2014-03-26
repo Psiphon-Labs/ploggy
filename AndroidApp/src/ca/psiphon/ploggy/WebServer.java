@@ -132,7 +132,6 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         try {
             String uri = session.getUri();
             Method method = session.getMethod();
-
             if (Method.GET.equals(method) && uri.equals(Protocol.ASK_PULL_GET_REQUEST_PATH)) {
                 return serveAskPullRequest(certificate, session);
             } else if (Method.GET.equals(method) && uri.equals(Protocol.ASK_LOCATION_GET_REQUEST_PATH)) {

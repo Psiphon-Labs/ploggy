@@ -217,20 +217,6 @@ public class Events {
         }
     }
 
-    /*
-    // *TODO* ...?
-    public static class UpdatedNewMessages {
-    }
-
-    // *TODO* ...?
-    public static class DisplayedFriends {
-    }
-
-    // *TODO* ...?
-    public static class DisplayedMessages {
-    }
-    */
-
     public static class AddedDownload {
         public final String mFriendId;
         public final String mResourceId;
