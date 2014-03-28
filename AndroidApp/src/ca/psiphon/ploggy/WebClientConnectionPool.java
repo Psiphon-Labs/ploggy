@@ -62,10 +62,14 @@ public class WebClientConnectionPool {
     public static final int MAX_TOTAL_POOL_CONNECTIONS = 100;
     public static final int MAX_PER_ROUTE_POOL_CONNECTIONS = 4;
 
+    public static final String LOCAL_SOCKS_PROXY_PORT_PARAM_NAME = "LOCAL_SOCKS_PROXY_PORT";
+
+    private final int mLocalSocksProxyPort;
     private final SocksProxyPoolingClientConnectionManager mConnectionManager;
 
     // Creates a connection pool with mutual authentication for all friend hidden services
     public WebClientConnectionPool(Data data, int localSocksProxyPort) throws PloggyError {
+        mLocalSocksProxyPort = localSocksProxyPort;
         Data.Self self = data.getSelfOrThrow();
         X509.KeyMaterial x509KeyMaterial = new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey);
         List<String> friendCertificates = new ArrayList<String>();
@@ -73,19 +77,19 @@ public class WebClientConnectionPool {
             friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
         }
         mConnectionManager =
-                makePoolingClientConnectionManager(data, localSocksProxyPort, x509KeyMaterial, friendCertificates);
+                makePoolingClientConnectionManager(data, x509KeyMaterial, friendCertificates);
     }
 
     // Creates a connection pool with server authentication only for the specified server
     // certificate only -- no hostname verification
     public WebClientConnectionPool(String serverCertificate, int localSocksProxyPort) throws PloggyError {
+        mLocalSocksProxyPort = localSocksProxyPort;
         mConnectionManager =
-                makePoolingClientConnectionManager(null, localSocksProxyPort, null, Arrays.asList(serverCertificate));
+                makePoolingClientConnectionManager(null, null, Arrays.asList(serverCertificate));
     }
 
     private SocksProxyPoolingClientConnectionManager makePoolingClientConnectionManager(
             Data data,
-            int localSocksProxyPort,
             X509.KeyMaterial x509KeyMaterial,
             List<String> friendCertificates) throws PloggyError {
         SSLContext sslContext = TransportSecurity.getSSLContext(x509KeyMaterial, friendCertificates);
@@ -93,10 +97,14 @@ public class WebClientConnectionPool {
         SchemeRegistry registry = new SchemeRegistry();
         registry.register(new Scheme(Protocol.WEB_SERVER_PROTOCOL, Protocol.WEB_SERVER_VIRTUAL_PORT, sslSocketFactory));
         SocksProxyPoolingClientConnectionManager poolingClientConnectionManager =
-                new SocksProxyPoolingClientConnectionManager(localSocksProxyPort, registry);
+                new SocksProxyPoolingClientConnectionManager(registry);
         poolingClientConnectionManager.setMaxTotal(MAX_TOTAL_POOL_CONNECTIONS);
         poolingClientConnectionManager.setDefaultMaxPerRoute(MAX_TOTAL_POOL_CONNECTIONS);
         return poolingClientConnectionManager;
+    }
+
+    public int getLocalSocksProxyPort() {
+        return mLocalSocksProxyPort;
     }
 
     public void shutdown() {
@@ -109,27 +117,24 @@ public class WebClientConnectionPool {
 
     public static class SocksProxyPoolingClientConnectionManager extends PoolingClientConnectionManager {
 
-        private final int mLocalSocksProxyPort;
-
-        public SocksProxyPoolingClientConnectionManager(int localSocksProxyPort, SchemeRegistry registry) {
+        public SocksProxyPoolingClientConnectionManager(SchemeRegistry registry) {
             super(registry);
-            mLocalSocksProxyPort = localSocksProxyPort;
         }
 
         @Override
         protected ClientConnectionOperator createConnectionOperator(SchemeRegistry registry) {
-            // *TODO* this function is called by SocksProxyPoolingClientConnectionManager.super *before* mLocalSocksProxyPort is set -- so this is broken!
-            return new SocksProxyClientConnectionOperator(mLocalSocksProxyPort, registry);
+            // Note: this function is called by SocksProxyPoolingClientConnectionManager.super and so we can't
+            // properly initialize a mLocalSocksProxyPort member with a constructor parameter passed from
+            // SocksProxyPoolingClientConnectionManager() through to SocksProxyPoolingClientConnectionManager();
+            // this is why the local socks proxy port is passed via HttpParams.
+            return new SocksProxyClientConnectionOperator(registry);
         }
     }
 
     private static class SocksProxyClientConnectionOperator extends DefaultClientConnectionOperator {
 
-        private final int mLocalSocksProxyPort;
-
-        public SocksProxyClientConnectionOperator(int localSocksProxyPort, SchemeRegistry registry) {
+        public SocksProxyClientConnectionOperator(SchemeRegistry registry) {
             super(registry);
-            mLocalSocksProxyPort = localSocksProxyPort;
         }
 
         // Derived from the original DefaultClientConnectionOperator.java in Apache HttpClient 4.2
@@ -175,10 +180,12 @@ public class WebClientConnectionPool {
                 // field 5: the user ID string, variable length, terminated with a null (0x00)
                 // field 6: the domain name of the host we want to contact, variable length, terminated with a null (0x00)
 
+                int localSocksProxyPort = params.getIntParameter(LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, -1);
+
                 socket = new Socket();
                 conn.opening(socket, target);
                 socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
-                socket.connect(new InetSocketAddress("127.0.0.1", mLocalSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
+                socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
 
                 DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
                 outputStream.write((byte)0x04);
