@@ -251,7 +251,6 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             writeRunServicesConfigFile();
             writeHiddenServiceFiles();
             startDaemon(true);
-            mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
             startCompleted = true;
         } catch (IOException e) {
             Log.addEntry(logTag(), "failed to start Tor");
@@ -265,7 +264,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
     }
 
-    private void startDaemon(boolean awaitFirstCircuit) throws PloggyError, IOException, InterruptedException {
+    private void startDaemon(boolean runServices) throws PloggyError, IOException, InterruptedException {
         try {
             mDataDirectory.mkdirs();
             mCircuitEstablishedLatch = new CountDownLatch(1);
@@ -311,14 +310,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection.setEventHandler(this);
             mControlConnection.setEvents(Arrays.asList("STATUS_CLIENT", "WARN", "ERR"));
 
-            // TODO: NetworkStateReceiver.onReceive will run on the main app thread and
-            // will send a command using mControlConnection. Do we need synchronization?
-            mNetworkStateReceiver = new NetworkStateReceiver();
-            Utils.getApplicationContext().registerReceiver(
-                    mNetworkStateReceiver,
-                    new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            if (runServices) {
+                mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
 
-            if (awaitFirstCircuit) {
+                // TODO: NetworkStateReceiver.onReceive will run on the main app thread and
+                // will send a command using mControlConnection. Do we need synchronization?
+                mNetworkStateReceiver = new NetworkStateReceiver();
+                Utils.getApplicationContext().registerReceiver(
+                        mNetworkStateReceiver,
+                        new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
                 mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
             }
         } finally {
@@ -399,7 +400,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         return mKeyMaterial;
     }
 
-    public int getSocksProxyPort() {
+    public int getSocksProxyPort() throws PloggyError {
+        if (mSocksProxyPort == -1) {
+            throw new PloggyError(logTag(), "Tor SOCKS proxy port not available");
+        }
         return mSocksProxyPort;
     }
 
@@ -455,7 +459,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
-                        "DisableNetwork 1\n" +
+                        //"DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
@@ -493,7 +497,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
-                        "DisableNetwork 1\n" +
+                        //"DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +

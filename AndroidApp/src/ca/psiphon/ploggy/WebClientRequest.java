@@ -59,7 +59,7 @@ public class WebClientRequest {
     private final WebClientConnectionPool mWebClientConnectionPool;
     private String mHostname = null;
     private int mPort = -1;
-    private RequestType mRequestType;
+    private final RequestType mRequestType;
     private String mRequestPath = null;
     private List<Pair<String,String>> mRequestParameters = null;
     private String mRequestBodyMimeType = null;
@@ -78,6 +78,7 @@ public class WebClientRequest {
         mWebClientConnectionPool = clientConnectionPool;
         mHostname = hostname;
         mPort = port;
+        mRequestType = requestType;
         mRequestPath = requestPath;
     }
 
@@ -207,9 +208,6 @@ public class WebClientRequest {
         } finally {
             if (request != null && !request.isAborted()) {
                 request.abort();
-            }
-            if (connectionManager != null) {
-                connectionManager.shutdown();
             }
         }
     }

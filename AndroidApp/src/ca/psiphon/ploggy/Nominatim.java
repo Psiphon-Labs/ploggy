@@ -79,10 +79,10 @@ public class Nominatim {
         requestParameters.add(new Pair<String, String>("accept-language", locale.getLanguage()));
 
         String response;
+        WebClientConnectionPool connectionPool = null;
         try {
             // TODO: reuse this pool (for as long as the current Tor connection is up)
-            WebClientConnectionPool connectionPool =
-                    new WebClientConnectionPool(SERVER_CERT, torSocksProxyPort);
+            connectionPool = new WebClientConnectionPool(SERVER_CERT, torSocksProxyPort);
 
             WebClientRequest webClientRequest =
                     new WebClientRequest(
@@ -94,10 +94,13 @@ public class Nominatim {
                             requestParameters(requestParameters);
 
             response = webClientRequest.makeRequestAndLoadResponse();
-        }
-        catch (PloggyError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
             return address;
+        } finally {
+            if (connectionPool != null) {
+                connectionPool.shutdown();
+            }
         }
 
         JsonParser parser = new JsonParser();

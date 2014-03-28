@@ -214,7 +214,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         mHandler.postDelayed(mPreferencesRestartTask, PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS);
     }
 
-
     private void setTorTimeout(int milliseconds) {
         if (mTorTimeoutRestartTask == null) {
             mTorTimeoutRestartTask = new Runnable() {

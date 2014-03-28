@@ -118,6 +118,7 @@ public class WebClientConnectionPool {
 
         @Override
         protected ClientConnectionOperator createConnectionOperator(SchemeRegistry registry) {
+            // *TODO* this function is called by SocksProxyPoolingClientConnectionManager.super *before* mLocalSocksProxyPort is set -- so this is broken!
             return new SocksProxyClientConnectionOperator(mLocalSocksProxyPort, registry);
         }
     }
