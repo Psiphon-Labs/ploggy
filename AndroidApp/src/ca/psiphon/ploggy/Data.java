@@ -1366,6 +1366,7 @@ public class Data extends SQLiteOpenHelper {
                         // TODO: re-check membership/group state?
                         Group group = getGroup(groupId);
                         mPostCursor = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
+                        mPostCursor.moveToFirst();
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
