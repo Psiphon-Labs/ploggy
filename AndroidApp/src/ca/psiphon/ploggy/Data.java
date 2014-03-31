@@ -1373,7 +1373,6 @@ public class Data extends SQLiteOpenHelper {
                         // TODO: re-check membership/group state?
                         Group group = getGroup(groupId);
                         mPostCursor = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
-                        mPostCursor.moveToFirst();
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber > lastReceivedSequenceNumbers.mGroupSequenceNumber) {
@@ -1570,7 +1569,7 @@ public class Data extends SQLiteOpenHelper {
                     lastConfirmedGroupSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
                 }
 
-                confirmSentTo(friendId, groupId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
+                confirmSentTo(groupId, friendId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
             }
             mDatabase.setTransactionSuccessful();
         } finally {
@@ -2055,6 +2054,7 @@ public class Data extends SQLiteOpenHelper {
                 SQLiteDatabase database, Cursor cursor, IRowToObject<T> rowToObject) {
             mDatabase = database;
             mCursor = cursor;
+            mCursor.moveToFirst();
             mRowToObject = rowToObject;
         }
 
