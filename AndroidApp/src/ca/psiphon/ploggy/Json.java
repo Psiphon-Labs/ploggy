@@ -119,8 +119,11 @@ public class Json {
                 }
                 return payload;
             } catch (JsonIOException e) {
+                Log.addEntry(LOG_TAG, e.getMessage());
             } catch (JsonSyntaxException e) {
+                Log.addEntry(LOG_TAG, e.getMessage());
             } catch (IOException e) {
+                Log.addEntry(LOG_TAG, e.getMessage());
             }
             throw new NoSuchElementException();
         }
