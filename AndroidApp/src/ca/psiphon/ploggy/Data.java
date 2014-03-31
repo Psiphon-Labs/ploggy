@@ -1320,6 +1320,9 @@ public class Data extends SQLiteOpenHelper {
 
     public class PullResponseIterator implements Iterable<String>, Iterator<String> {
 
+        private final String mFriendId;
+        private long mGroupCount;
+        private long mPostCount;
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private ObjectCursor<Post> mPostCursor;
@@ -1327,6 +1330,9 @@ public class Data extends SQLiteOpenHelper {
 
         public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
                 throws PloggyError {
+            mFriendId = friendId;
+            mGroupCount = 0;
+            mPostCount = 0;
             mGroupsToSend = getGroupsToSend(friendId, pullRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostCursor = null;
@@ -1356,6 +1362,7 @@ public class Data extends SQLiteOpenHelper {
         private String getNext() {
             try {
                 if (mPostCursor != null && mPostCursor.hasNext()) {
+                    mPostCount++;
                     return Json.toJson(mPostCursor.next().mPost);
                 } else {
                     // Loop through PullRequest until there's something to send: either a group or a post
@@ -1370,8 +1377,10 @@ public class Data extends SQLiteOpenHelper {
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber > lastReceivedSequenceNumbers.mGroupSequenceNumber) {
+                            mGroupCount++;
                             return Json.toJson(group.mGroup);
                         } else if (mPostCursor.hasNext()) {
+                            mPostCount++;
                             return Json.toJson(mPostCursor.next().mPost);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
@@ -1452,10 +1461,20 @@ public class Data extends SQLiteOpenHelper {
             throw new UnsupportedOperationException();
         }
 
-        public void close() {
+        public void close() throws PloggyError {
             if (mPostCursor != null) {
                 mPostCursor.close();
                 mPostCursor = null;
+            }
+            if (mGroupCount > 0 || mPostCount > 0) {
+                Log.addEntry(
+                        logTag(),
+                        "sent " +
+                        Long.toBinaryString(mGroupCount) +
+                        " groups and " +
+                        Long.toBinaryString(mPostCount) +
+                        " posts pulled by " +
+                        getFriendByIdOrThrow(mFriendId).mPublicIdentity.mNickname);
             }
         }
     }
@@ -1625,6 +1644,16 @@ public class Data extends SQLiteOpenHelper {
         } finally {
             mDatabase.endTransaction();
         }
+        if (pulledGroups.size() > 0 || pulledPosts.size() > 0) {
+            Log.addEntry(
+                    logTag(),
+                    "put " +
+                    Integer.toBinaryString(pulledGroups.size()) +
+                    " groups and " +
+                    Integer.toBinaryString(pulledPosts.size()) +
+                    " posts pulled from " +
+                    getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
+        }
         if (pullRequest != null) {
             for (String groupId : pullRequest.mGroupsToResignMembership) {
                 Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
@@ -1651,6 +1680,7 @@ public class Data extends SQLiteOpenHelper {
         } finally {
             mDatabase.endTransaction();
         }
+        Log.addEntry(logTag(),"put group pushed from " + getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
     }
 
@@ -1673,6 +1703,8 @@ public class Data extends SQLiteOpenHelper {
         } finally {
             mDatabase.endTransaction();
         }
+        // *TODO* temporary log?
+        Log.addEntry(logTag(),"put post pushed from " + getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         return triggerPull;
     }
