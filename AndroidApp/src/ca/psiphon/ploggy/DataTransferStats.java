@@ -213,6 +213,8 @@ public class DataTransferStats {
                     // Note: at this point, we only actually know that the bytes have been
                     // accepted into the system network buffers. This is one reason why
                     // this stat is only informational.
+                    // *TODO* temporary
+                    /**/Log.addEntry(LOG_TAG, Long.toString(mByteCount) + " bytes received from " + mData.getFriendByIdOrThrow(mFriendId).mPublicIdentity.mNickname);
                     mData.updateFriendReceivedOrThrow(mFriendId, new Date(), mByteCount);
                     mByteCount = 0;
                 } catch (PloggyError e) {
@@ -269,6 +271,8 @@ public class DataTransferStats {
                     // Note: at this point, we only actually know that the bytes have been
                     // accepted into the system network buffers. This is one reason why
                     // this stat is only informational.
+                    // *TODO* temporary
+                    /**/Log.addEntry(LOG_TAG, Long.toString(mByteCount) + " bytes sent to " + mData.getFriendByIdOrThrow(mFriendId).mPublicIdentity.mNickname);
                     mData.updateFriendSentOrThrow(mFriendId, new Date(), mByteCount);
                     mByteCount = 0;
                 } catch (PloggyError e) {
