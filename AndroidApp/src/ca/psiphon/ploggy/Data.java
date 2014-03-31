@@ -1356,7 +1356,7 @@ public class Data extends SQLiteOpenHelper {
         private String getNext() {
             try {
                 if (mPostCursor != null && mPostCursor.hasNext()) {
-                    return Json.toJson(mPostCursor.next());
+                    return Json.toJson(mPostCursor.next().mPost);
                 } else {
                     // Loop through PullRequest until there's something to send: either a group or a post
                     while (mGroupsToSendIterator.hasNext()) {
@@ -1369,11 +1369,10 @@ public class Data extends SQLiteOpenHelper {
                         mPostCursor.moveToFirst();
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
-                                group.mGroup.mSequenceNumber < lastReceivedSequenceNumbers.mGroupSequenceNumber) {
+                                group.mGroup.mSequenceNumber > lastReceivedSequenceNumbers.mGroupSequenceNumber) {
                             return Json.toJson(group.mGroup);
                         } else if (mPostCursor.hasNext()) {
-                            Protocol.Post post = mPostCursor.next().mPost;
-                            return Json.toJson(post);
+                            return Json.toJson(mPostCursor.next().mPost);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
                     }
@@ -1685,7 +1684,7 @@ public class Data extends SQLiteOpenHelper {
         Group.State previousState = Group.State.SUBSCRIBING;
         try {
             String[] columns = getRow(
-                    "SELECT publisherId, sequenceNumber, state, FROM 'Group' WHERE id = ?",
+                    "SELECT publisherId, sequenceNumber, state FROM 'Group' WHERE id = ?",
                     new String[]{group.mId});
             String publisherId = columns[0];
             previousSequenceNumber = Long.parseLong(columns[1]);
@@ -1782,7 +1781,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("createdTimestamp", dateToString(post.mCreatedTimestamp));
             values.put("modifiedTimestamp", dateToString(post.mModifiedTimestamp));
             values.put("sequenceNumber", post.mSequenceNumber);
-            values.put("unread", 1);
+            values.put("state", Post.State.UNREAD.name());
             mDatabase.replaceOrThrow("Post", null, values);
             // Automatically enqueue new message attachments for download
             for (Protocol.Resource resource : post.mAttachments) {

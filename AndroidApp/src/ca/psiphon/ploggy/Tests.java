@@ -20,6 +20,7 @@
 package ca.psiphon.ploggy;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Timer;
@@ -276,13 +277,13 @@ public class Tests {
 
         String addGroup(String name) throws PloggyError {
             String groupId = Utils.makeId();
-            String publisherId = getPublicIdentity().mId;
+            Identity.PublicIdentity selfPublicIdentity = getPublicIdentity();
             Date now = new Date();
             Protocol.Group group = new Protocol.Group(
                     groupId,
                     name,
-                    publisherId,
-                    new ArrayList<Identity.PublicIdentity>(),
+                    selfPublicIdentity.mId,
+                    Arrays.asList(selfPublicIdentity),
                     now,
                     now,
                     -1,
