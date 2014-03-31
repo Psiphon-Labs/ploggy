@@ -1470,9 +1470,9 @@ public class Data extends SQLiteOpenHelper {
                 Log.addEntry(
                         logTag(),
                         "sent " +
-                        Long.toBinaryString(mGroupCount) +
+                        Long.toString(mGroupCount) +
                         " groups and " +
-                        Long.toBinaryString(mPostCount) +
+                        Long.toString(mPostCount) +
                         " posts pulled by " +
                         getFriendByIdOrThrow(mFriendId).mPublicIdentity.mNickname);
             }
@@ -1648,9 +1648,9 @@ public class Data extends SQLiteOpenHelper {
             Log.addEntry(
                     logTag(),
                     "put " +
-                    Integer.toBinaryString(pulledGroups.size()) +
+                    Integer.toString(pulledGroups.size()) +
                     " groups and " +
-                    Integer.toBinaryString(pulledPosts.size()) +
+                    Integer.toString(pulledPosts.size()) +
                     " posts pulled from " +
                     getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         }

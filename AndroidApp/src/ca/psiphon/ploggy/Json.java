@@ -75,7 +75,7 @@ public class Json {
 
     public static class PayloadIterator implements Iterable<Protocol.Payload>, Iterator<Protocol.Payload> {
 
-        private final JsonReader mJsonReader;
+        private JsonReader mJsonReader;
 
         public PayloadIterator(InputStream inputStream) throws PloggyError {
             // *TODO* double check mJsonReader.close() closes input stream
@@ -101,7 +101,7 @@ public class Json {
         @Override
         public boolean hasNext() {
             try {
-                return mJsonReader.peek() != JsonToken.END_DOCUMENT;
+                return mJsonReader != null && mJsonReader.peek() != JsonToken.END_DOCUMENT;
             } catch (IOException e) {
                 return false;
             }
@@ -116,6 +116,7 @@ public class Json {
                 Protocol.Payload payload = mSerializer.fromJson(mJsonReader, Protocol.Payload.class);
                 if (!hasNext()) {
                     mJsonReader.close();
+                    mJsonReader = null;
                 }
                 return payload;
             } catch (JsonIOException e) {
@@ -135,7 +136,10 @@ public class Json {
 
         public void close() {
             try {
-                mJsonReader.close();
+                if (mJsonReader != null) {
+                    mJsonReader.close();
+                    mJsonReader = null;
+                }
             } catch (IOException e) {
             }
 
