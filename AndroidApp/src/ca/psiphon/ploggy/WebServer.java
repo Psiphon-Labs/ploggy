@@ -25,8 +25,6 @@ import java.net.ServerSocket;
 import java.util.Date;
 import java.util.List;
 
-import javax.net.ssl.SSLServerSocket;
-
 import android.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
 
@@ -100,9 +98,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            SSLServerSocket sslServerSocket =
-                    (SSLServerSocket) TransportSecurity.makeServerSocket(mData, mX509KeyMaterial, mFriendCertificates);
-            return sslServerSocket;
+            return TransportSecurity.makeServerSocket(mData, mX509KeyMaterial, mFriendCertificates);
         } catch (PloggyError e) {
             throw new IOException(e);
         }
@@ -175,7 +171,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     private Response servePullRequest(String certificate, IHTTPSession session) throws PloggyError {
         try {
             RequestHandler.PullResponse pullResponse =
-                    mRequestHandler.handlePullRequest(certificate,  new String(readRequestBodyHelper(session)));
+                    mRequestHandler.handlePullRequest(certificate, new String(readRequestBodyHelper(session)));
             Response response =
                     new Response(NanoHTTPD.Response.Status.OK, Protocol.PULL_PUT_RESPONSE_MIME_TYPE, pullResponse.mInputStream);
             response.setChunkedTransfer(true);

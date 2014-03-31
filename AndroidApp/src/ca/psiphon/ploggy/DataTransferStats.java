@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.Date;
 
 import javax.net.ssl.HandshakeCompletedListener;
@@ -100,6 +101,7 @@ public class DataTransferStats {
         @Override public void startHandshake() throws IOException { mSocket.startHandshake(); }
     }
 
+    // NOTE: this class isn't a complete wrapper; only the functions we expect to be are called are wrapped
     public static class SSLServerSocketWrapper extends SSLServerSocket {
         private final Data mData;
         private final SSLServerSocket mServerSocket;
@@ -110,12 +112,32 @@ public class DataTransferStats {
         }
 
         @Override
+        public void bind(SocketAddress localAddr) throws IOException {
+            mServerSocket.bind(localAddr);
+        }
+
+        @Override
+        public int getLocalPort() {
+            return mServerSocket.getLocalPort();
+        }
+
+        @Override
         public Socket accept() throws IOException {
-            SSLSocket socket = (SSLSocket) super.accept();
+            SSLSocket socket = (SSLSocket) mServerSocket.accept();
             if (mData == null) {
                 return socket;
             }
             return new SSLSocketWrapper(mData, socket);
+        }
+
+        @Override
+        public boolean isClosed() {
+            return mServerSocket.isClosed();
+        }
+
+        @Override
+        public void close() throws IOException {
+            mServerSocket.close();
         }
 
         // Required overrides -- just pass through
