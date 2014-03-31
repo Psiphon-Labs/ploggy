@@ -788,8 +788,8 @@ public class Data extends SQLiteOpenHelper {
                 memberValues.put("memberId", memberId);
                 memberValues.put("memberNickname", memberPublicIdentity.mNickname);
                 memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
-                memberValues.put("lastConfirmedGroupSequenceNumber", 0);
-                memberValues.put("lastConfirmedPostSequenceNumber", 0);
+                memberValues.put("lastConfirmedGroupSequenceNumber", UNASSIGNED_SEQUENCE_NUMBER);
+                memberValues.put("lastConfirmedPostSequenceNumber", UNASSIGNED_SEQUENCE_NUMBER);
                 mDatabase.insertOrThrow("GroupMember", null, memberValues);
             } else {
                 // Assumes memberId changes if memberNickname or memberPublicIdentity change
@@ -1286,7 +1286,10 @@ public class Data extends SQLiteOpenHelper {
                 String id = cursor.getString(0);
                 long groupSequenceNumber = cursor.getLong(1);
                 Group.State state = Group.State.valueOf(cursor.getString(2));
-                long postSequenceNumber = cursor.getLong(3);
+                long postSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
+                if (!cursor.isNull(3)) {
+                    postSequenceNumber = cursor.getLong(3);
+                }
                 switch (state) {
                 case PUBLISHING:
                 case SUBSCRIBING:

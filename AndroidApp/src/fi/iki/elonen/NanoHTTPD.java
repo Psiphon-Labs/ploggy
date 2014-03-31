@@ -213,7 +213,10 @@ public abstract class NanoHTTPD {
                                         // to break the  "keep alive" loop above.
                                         if (!(e instanceof SocketException && "NanoHttpd Shutdown".equals(e.getMessage()))) {
                                             // ==== ploggy ====
-                                            Log.addEntry(LOG_TAG, android.util.Log.getStackTraceString(e));
+                                            Log.addEntry(LOG_TAG, e.getMessage());
+                                            if (e.getMessage() == null) {
+                                                Log.addEntry(LOG_TAG, android.util.Log.getStackTraceString(e));
+                                            }
                                             // ================
                                         }
                                     } finally {

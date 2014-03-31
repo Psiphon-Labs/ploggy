@@ -367,7 +367,9 @@ public class Tests {
                 // *TODO* compare MemberLastConfirmedSequenceNumbers with current max Group/Post seq numbers.
                 Protocol.SequenceNumbers lastConfirmedSequenceNumbers =
                         group.mMemberLastConfirmedSequenceNumbers.get(publicIdentity.mId);
-                if (lastConfirmedSequenceNumbers.mGroupSequenceNumber == group.mGroup.mSequenceNumber
+                if ((lastConfirmedSequenceNumbers.mGroupSequenceNumber == group.mGroup.mSequenceNumber ||
+                        // Non-publisher won't have group sequence number sync for peers
+                        (!group.mGroup.mPublisherId.equals(mData.getSelfId()) && lastConfirmedSequenceNumbers.mGroupSequenceNumber == -1))
                         && lastConfirmedSequenceNumbers.mPostSequenceNumber == group.mLastPostSequenceNumber) {
                     Log.addEntry(
                             LOG_TAG,
@@ -390,19 +392,19 @@ public class Tests {
             if (!selfGroup.equals(friendGroup)) {
                 throw new PloggyError(LOG_TAG, "compareGroupData - group mismatch");
             }
-            Data.ObjectCursor<Data.Post> selfIterator = mData.getPosts(groupId);
-            Data.ObjectCursor<Data.Post> friendIterator = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
-            while (selfIterator.hasNext()) {
-                if (!friendIterator.hasNext()) {
+            Data.ObjectCursor<Data.Post> selfPosts = mData.getPosts(groupId);
+            Data.ObjectCursor<Data.Post> friendPosts = Data.getInstance(ploggyInstance.mInstanceName).getPosts(groupId);
+            while (selfPosts.hasNext()) {
+                if (!friendPosts.hasNext()) {
                     throw new PloggyError(LOG_TAG, "compareGroupData - friend has fewer posts");
                 }
-                String selfPost = Json.toJson(selfIterator.next().mPost);
-                String friendPost = Json.toJson(friendIterator.next().mPost);
+                String selfPost = Json.toJson(selfPosts.next().mPost);
+                String friendPost = Json.toJson(friendPosts.next().mPost);
                 if (!selfPost.equals(friendPost)) {
                     throw new PloggyError(LOG_TAG, "compareGroupData - post mismatch");
                 }
             }
-            if (friendIterator.hasNext()) {
+            if (friendPosts.hasNext()) {
                 throw new PloggyError(LOG_TAG, "compareGroupData - friend has more posts");
             }
         }
