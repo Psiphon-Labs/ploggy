@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -716,20 +717,20 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
+                /**/boolean success = false;
                 try {
                     if (!mTorWrapper.isCircuitEstablished()) {
                         return;
                     }
                     Data.Friend friend = mData.getFriendById(finalFriendId);
                     Log.addEntry(logTag(), "pull from: " + friend.mPublicIdentity.mNickname);
-                    // Pull twice. The first pull is to actually get data. The second pull
-                    // is to explicitly acknowledge the received data via the last received
-                    // sequence numbers passed in the second pull request. The second pull
-                    // may receive additional data.
-                    // The primary (first) pull is also the only one where we request a
-                    // pull in the other direction from the peer.
-                    for (int i = 0; i < 2; i++) {
+                    // Pull until no payload data is received. Each subsequent pull
+                    // explicitly acknowledges the received data via the last received
+                    // sequence numbers passed in the previous pull request. So typically,
+                    // two pull requests are executed.
+                    while (true) {
                         final Protocol.PullRequest finalPullRequest = mData.getPullRequest(finalFriendId);
+                        final AtomicBoolean isPayloadDataReceived = new AtomicBoolean(false);
                         WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
                             @Override
                             public void consume(InputStream responseBodyInputStream) throws PloggyError {
@@ -744,11 +745,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                         Protocol.Group group = (Protocol.Group)payload.mObject;
                                         Protocol.validateGroup(group);
                                         groups.add(group);
+                                        isPayloadDataReceived.set(true);
                                         break;
                                     case POST:
                                         Protocol.Post post = (Protocol.Post)payload.mObject;
                                         Protocol.validatePost(post);
                                         posts.add(post);
+                                        isPayloadDataReceived.set(true);
                                         break;
                                     default:
                                         break;
@@ -773,6 +776,10 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                         requestBody(Json.toJson(finalPullRequest)).
                                         responseBodyHandler(responseBodyHandler);
                         webClientRequest.makeRequest();
+                        if (!isPayloadDataReceived.get()) {
+                            break;
+                        }
+                        /**/success = true;
                     }
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
@@ -789,6 +796,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 } finally {
                     completedFriendTask(FriendTaskType.PULL_FROM, finalFriendId);
                 }
+                /**/if(!success) {
+                /**/triggerFriendTask(FriendTaskType.PULL_FROM, finalFriendId);
+                /**/}
             }
         };
     }
