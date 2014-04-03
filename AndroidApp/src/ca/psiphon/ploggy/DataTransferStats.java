@@ -27,6 +27,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.HandshakeCompletedListener;
 import javax.net.ssl.SSLServerSocket;
@@ -40,7 +41,7 @@ public class DataTransferStats {
 
     private static final String LOG_TAG = "Data Transfer Stats";
 
-    private static final int REPORT_FREQUENCY_IN_NANOSECONDS = 1000000000; // 1 sec.
+    private static final long REPORT_FREQUENCY_IN_NANOSECONDS = TimeUnit.SECONDS.convert(1, TimeUnit.NANOSECONDS);
 
     public static class SSLSocketWrapper extends SSLSocket {
         private final Data mData;

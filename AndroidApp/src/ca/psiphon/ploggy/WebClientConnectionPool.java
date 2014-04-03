@@ -29,6 +29,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 
@@ -57,8 +58,8 @@ public class WebClientConnectionPool {
 
     private static final String LOG_TAG = "Web Client Connection Pool";
 
-    public static final int CONNECT_TIMEOUT_MILLISECONDS = 60000;
-    public static final int READ_TIMEOUT_MILLISECONDS = 60000;
+    public static final int CONNECT_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
+    public static final int READ_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
     public static final int MAX_TOTAL_POOL_CONNECTIONS = 100;
     public static final int MAX_PER_ROUTE_POOL_CONNECTIONS = 4;
 
@@ -184,8 +185,8 @@ public class WebClientConnectionPool {
 
                 socket = new Socket();
                 conn.opening(socket, target);
-                socket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
-                socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_MILLISECONDS);
+                socket.setSoTimeout(READ_TIMEOUT_IN_MILLISECONDS);
+                socket.connect(new InetSocketAddress("127.0.0.1", localSocksProxyPort), CONNECT_TIMEOUT_IN_MILLISECONDS);
 
                 DataOutputStream outputStream = new DataOutputStream(socket.getOutputStream());
                 outputStream.write((byte)0x04);
@@ -205,7 +206,7 @@ public class WebClientConnectionPool {
 
                 sslSocket = sslSocketFactory.createLayeredSocket(socket, host, port, params);
                 conn.opening(sslSocket, target);
-                sslSocket.setSoTimeout(READ_TIMEOUT_MILLISECONDS);
+                sslSocket.setSoTimeout(READ_TIMEOUT_IN_MILLISECONDS);
                 prepareSocket(sslSocket, context, params);
                 conn.openCompleted(sslSocketFactory.isSecure(sslSocket), params);
                 // TODO: clarify which connection throws java.net.SocketTimeoutException?

@@ -36,50 +36,73 @@ public class Protocol {
 
     public static final int WEB_SERVER_VIRTUAL_PORT = 443;
 
-    public static final String ASK_PULL_GET_REQUEST_PATH = "/askPull";
+    public static final String ASK_LOCATION_REQUEST_PATH = "/askLocation";
+    public static final String ASK_LOCATION_REQUEST_TYPE = "GET";
 
-    public static final String ASK_LOCATION_GET_REQUEST_PATH = "/askLocation";
+    public static final String REPORT_LOCATION_REQUEST_PATH = "/reportLocation";
+    public static final String REPORT_LOCATION_REQUEST_TYPE = "PUT";
+    public static final String REPORT_LOCATION_REQUEST_MIME_TYPE = "application/json";
 
-    public static final String PUSH_PUT_REQUEST_PATH = "/push";
-    public static final String PUSH_PUT_REQUEST_MIME_TYPE = "application/json";
+    public static final String SYNC_REQUEST_PATH = "/sync";
+    public static final String SYNC_REQUEST_TYPE = "PUT";
+    public static final String SYNC_REQUEST_MIME_TYPE = "application/json";
+    public static final String SYNC_RESPONSE_MIME_TYPE = "application/json";
 
-    public static final String PULL_PUT_REQUEST_PATH = "/pull";
-    public static final String PULL_PUT_REQUEST_MIME_TYPE = "application/json";
-    public static final String PULL_PUT_RESPONSE_MIME_TYPE = "application/json";
-
-    public static final String DOWNLOAD_GET_REQUEST_PATH = "/download";
-    public static final String DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
+    public static final String DOWNLOAD_REQUEST_PATH = "/download";
+    public static final String DOWNLOAD_REQUEST_TYPE = "GET";
+    public static final String DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER = "resourceId";
 
     public static final String POST_CONTENT_TYPE_DEFAULT = "text/plain";
 
-    public static int ID_LENGTH = 32;
+    public static final int ID_LENGTH = 32;
+
+    public static final long UNASSIGNED_SEQUENCE_NUMBER = -1;
+
+    public static final int MAX_PUSH_PAYLOAD_OBJECT_COUNT = 10;
 
     // *TODO* should this limit be enforced?
-    public static int MAX_POST_SIZE = 10000;
+    public static final int MAX_POST_SIZE = 10000;
 
-    public static int MAX_MESSAGE_SIZE = 1000000;
+    public static final int MAX_MESSAGE_SIZE = 1000000;
 
     public static class SequenceNumbers {
-        public final long mGroupSequenceNumber;
-        public final long mPostSequenceNumber;
+        public final long mOfferedGroupSequenceNumber;
+        public final long mOfferedLastPostSequenceNumber;
+        public final long mConfirmedGroupSequenceNumber;
+        public final long mConfirmedLastPostSequenceNumber;
+
+        public SequenceNumbers() {
+            this(
+                UNASSIGNED_SEQUENCE_NUMBER,
+                UNASSIGNED_SEQUENCE_NUMBER,
+                UNASSIGNED_SEQUENCE_NUMBER,
+                UNASSIGNED_SEQUENCE_NUMBER);
+        }
 
         public SequenceNumbers(
-                long groupSequenceNumber,
-                long postSequenceNumber) {
-            mGroupSequenceNumber = groupSequenceNumber;
-            mPostSequenceNumber = postSequenceNumber;
+                long offeredGroupSequenceNumber,
+                long offeredLastPostSequenceNumber,
+                long confirmedGroupSequenceNumber,
+                long confirmedLastPostSequenceNumber) {
+            mOfferedGroupSequenceNumber = offeredGroupSequenceNumber;
+            mOfferedLastPostSequenceNumber = offeredLastPostSequenceNumber;
+            mConfirmedGroupSequenceNumber = confirmedGroupSequenceNumber;
+            mConfirmedLastPostSequenceNumber = confirmedLastPostSequenceNumber;
         }
     }
 
-    public static class PullRequest {
-        public final Map<String, SequenceNumbers> mGroupLastKnownSequenceNumbers;
+    public static class SyncRequest {
+        public final Map<String, SequenceNumbers> mGroupSequenceNumbers;
         public final List<String> mGroupsToResignMembership;
+        public final List<Payload> mPushPayload;
 
-        public PullRequest(
-                Map<String, SequenceNumbers> groupLastKnownSequenceNumbers,
-                List<String> groupsToResignMembership) {
-            mGroupLastKnownSequenceNumbers = groupLastKnownSequenceNumbers;
+        public SyncRequest(
+                Map<String, SequenceNumbers> groupSequenceNumbers,
+                List<String> groupsToResignMembership,
+                List<Payload> pushPayload) {
+            mGroupSequenceNumbers = groupSequenceNumbers;
             mGroupsToResignMembership = groupsToResignMembership;
+            mPushPayload = pushPayload;
         }
     }
 
@@ -209,8 +232,9 @@ public class Protocol {
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
     }
 
-    public static void validatePullRequest(PullRequest pullRequest) throws PloggyError {
+    public static void validateSyncRequest(SyncRequest syncRequest) throws PloggyError {
         // TODO: ...
+        // *TODO* validateSyncRequest must validate payload objects
     }
 
     public static void validateGroup(Group group) throws PloggyError {

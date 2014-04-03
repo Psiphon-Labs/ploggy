@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.net.ServerSocket;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import android.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
@@ -39,14 +40,14 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     private static final String LOG_TAG = "Web Server";
 
-    private static final int READ_TIMEOUT_MILLISECONDS = 60000;
+    private static final int READ_TIMEOUT_IN_MILLISECONDS = (int)TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
 
     public interface RequestHandler {
 
-        public static class PullResponse {
+        public static class SyncResponse {
             public final InputStream mInputStream;
 
-            public PullResponse(InputStream inputStream) {
+            public SyncResponse(InputStream inputStream) {
                 mInputStream = inputStream;
             }
         }
@@ -67,10 +68,9 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         public String getFriendNicknameByCertificate(String friendCertificate) throws PloggyError;
         public void updateFriendSent(String friendCertificate, Date lastSentToTimestamp, long additionalBytesSentTo) throws PloggyError;
         public void updateFriendReceived(String friendCertificate, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom) throws PloggyError;
-        public void handleAskPullRequest(String friendCertificate) throws PloggyError;
         public void handleAskLocationRequest(String friendCertificate) throws PloggyError;
-        public void handlePushRequest(String friendCertificate, String requestBody) throws PloggyError;
-        public PullResponse handlePullRequest(String friendCertificate, String requestBody) throws PloggyError;
+        public void handleReportLocationRequest(String friendCertificate, String requestBody) throws PloggyError;
+        public SyncResponse handleSyncRequest(String friendCertificate, String requestBody) throws PloggyError;
         public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError;
     }
 
@@ -105,8 +105,8 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     }
 
     @Override
-    protected int getReadTimeout() {
-        return READ_TIMEOUT_MILLISECONDS;
+    protected int getReadTimeoutInMilliseconds() {
+        return READ_TIMEOUT_IN_MILLISECONDS;
     }
 
     @Override
@@ -128,15 +128,18 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         try {
             String uri = session.getUri();
             Method method = session.getMethod();
-            if (Method.GET.equals(method) && uri.equals(Protocol.ASK_PULL_GET_REQUEST_PATH)) {
-                return serveAskPullRequest(certificate, session);
-            } else if (Method.GET.equals(method) && uri.equals(Protocol.ASK_LOCATION_GET_REQUEST_PATH)) {
+
+            if (method.equals(Method.valueOf(Protocol.ASK_LOCATION_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.ASK_LOCATION_REQUEST_PATH)) {
                 return serveAskLocationRequest(certificate, session);
-            } else if (Method.PUT.equals(method) && uri.equals(Protocol.PUSH_PUT_REQUEST_PATH)) {
-                return servePushRequest(certificate, session);
-            } else if (Method.PUT.equals(method) && uri.equals(Protocol.PULL_PUT_REQUEST_PATH)) {
-                return servePullRequest(certificate, session);
-            } else if (Method.GET.equals(method) && uri.equals(Protocol.DOWNLOAD_GET_REQUEST_PATH)) {
+            } else if (method.equals(Method.valueOf(Protocol.REPORT_LOCATION_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.REPORT_LOCATION_REQUEST_PATH)) {
+                return serveReportLocationRequest(certificate, session);
+            } else if (method.equals(Method.valueOf(Protocol.SYNC_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.SYNC_REQUEST_PATH)) {
+                return serveSyncRequest(certificate, session);
+            } else if (method.equals(Method.valueOf(Protocol.DOWNLOAD_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.DOWNLOAD_REQUEST_PATH)) {
                 return serveDownloadRequest(certificate, session);
             }
         } catch (PloggyError e) {
@@ -149,31 +152,26 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }
 
-    private Response serveAskPullRequest(String certificate, IHTTPSession session) throws PloggyError {
-        mRequestHandler.handleAskPullRequest(certificate);
-        return new Response(NanoHTTPD.Response.Status.OK, null, "");
-    }
-
     private Response serveAskLocationRequest(String certificate, IHTTPSession session) throws PloggyError {
         mRequestHandler.handleAskLocationRequest(certificate);
         return new Response(NanoHTTPD.Response.Status.OK, null, "");
     }
 
-    private Response servePushRequest(String certificate, IHTTPSession session) throws PloggyError {
+    private Response serveReportLocationRequest(String certificate, IHTTPSession session) throws PloggyError {
         try {
-            mRequestHandler.handlePushRequest(certificate, new String(readRequestBodyHelper(session)));
+            mRequestHandler.handleReportLocationRequest(certificate, new String(readRequestBodyHelper(session)));
             return new Response(NanoHTTPD.Response.Status.OK, null, "");
         } catch (IOException e) {
             throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    private Response servePullRequest(String certificate, IHTTPSession session) throws PloggyError {
+    private Response serveSyncRequest(String certificate, IHTTPSession session) throws PloggyError {
         try {
-            RequestHandler.PullResponse pullResponse =
-                    mRequestHandler.handlePullRequest(certificate, new String(readRequestBodyHelper(session)));
+            RequestHandler.SyncResponse syncResponse =
+                    mRequestHandler.handleSyncRequest(certificate, new String(readRequestBodyHelper(session)));
             Response response =
-                    new Response(NanoHTTPD.Response.Status.OK, Protocol.PULL_PUT_RESPONSE_MIME_TYPE, pullResponse.mInputStream);
+                    new Response(NanoHTTPD.Response.Status.OK, Protocol.SYNC_RESPONSE_MIME_TYPE, syncResponse.mInputStream);
             response.setChunkedTransfer(true);
             return response;
         } catch (IOException e) {
@@ -182,7 +180,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     }
 
     private Response serveDownloadRequest(String certificate, IHTTPSession session) throws PloggyError {
-        String resourceId = session.getParms().get(Protocol.DOWNLOAD_GET_REQUEST_RESOURCE_ID_PARAMETER);
+        String resourceId = session.getParms().get(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER);
         if (resourceId == null) {
             throw new PloggyError(LOG_TAG, "download request missing resource id parameter");
         }

@@ -89,7 +89,7 @@ public class Resources {
                          attachments,
                          postTimestamp,
                          postTimestamp,
-                         Data.UNASSIGNED_SEQUENCE_NUMBER,
+                         Protocol.UNASSIGNED_SEQUENCE_NUMBER,
                          false),
                  localResources);
      }

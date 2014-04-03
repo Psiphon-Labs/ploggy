@@ -121,9 +121,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private TorControlConnection mControlConnection = null;
     private NetworkStateReceiver mNetworkStateReceiver = null;
     private CountDownLatch mCircuitEstablishedLatch = null;
-    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
-    private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
-    private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 90000;
+
+    private static final long CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
+    private static final long HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
+    private static final long CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
 
     public TorWrapper(String instanceName, Mode mode) {
         this(instanceName, mode, null, null, -1);
@@ -227,7 +228,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                             mHiddenServiceClientKeysFile.getName());
             hiddenServiceInitializedObserver.startWatching();
             startDaemon(false);
-            if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
+            if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS)) {
                 throw new PloggyError(logTag(), "timeout waiting for Tor hidden service initialization");
             }
             mKeyMaterial = parseHiddenServiceFiles();
@@ -298,7 +299,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 throw new PloggyError(logTag(), String.format("Tor exited with error %d", exit));
             }
 
-            if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS)) {
+            if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS)) {
                 throw new PloggyError(logTag(), "timeout waiting for Tor control initialization");
             }
 
@@ -320,7 +321,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         mNetworkStateReceiver,
                         new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
-                mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+                mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
             }
         } finally {
             if (mProcess != null) {

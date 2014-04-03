@@ -365,12 +365,13 @@ public class Tests {
                 Thread.sleep(1000);
                 Data.Group group = mData.getGroupOrThrow(groupId);
                 // *TODO* compare MemberLastConfirmedSequenceNumbers with current max Group/Post seq numbers.
-                Protocol.SequenceNumbers lastConfirmedSequenceNumbers =
-                        group.mMemberLastConfirmedSequenceNumbers.get(publicIdentity.mId);
-                if ((lastConfirmedSequenceNumbers.mGroupSequenceNumber == group.mGroup.mSequenceNumber ||
-                        // Non-publisher won't have group sequence number sync for peers
-                        (!group.mGroup.mPublisherId.equals(mData.getSelfId()) && lastConfirmedSequenceNumbers.mGroupSequenceNumber == -1))
-                        && lastConfirmedSequenceNumbers.mPostSequenceNumber == group.mLastPostSequenceNumber) {
+                Protocol.SequenceNumbers sequenceNumbers =
+                        group.mMemberSequenceNumbers.get(publicIdentity.mId);
+                if ((sequenceNumbers.mConfirmedGroupSequenceNumber == group.mGroup.mSequenceNumber ||
+                            // Non-publisher won't have group sequence number sync for peers
+                            (!group.mGroup.mPublisherId.equals(mData.getSelfId()) &&
+                                    sequenceNumbers.mConfirmedGroupSequenceNumber == Protocol.UNASSIGNED_SEQUENCE_NUMBER))
+                        && sequenceNumbers.mConfirmedLastPostSequenceNumber == group.mLastPostSequenceNumber) {
                     Log.addEntry(
                             LOG_TAG,
                             mInstanceName + " got sync for " + publicIdentity.mNickname);

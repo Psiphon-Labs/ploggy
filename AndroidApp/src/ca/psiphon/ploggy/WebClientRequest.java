@@ -153,8 +153,8 @@ public class WebClientRequest {
             URI uri = uriBuilder.build();
             connectionManager = mWebClientConnectionPool.getConnectionManager();
             HttpParams params = new BasicHttpParams();
-            HttpConnectionParams.setConnectionTimeout(params, WebClientConnectionPool.CONNECT_TIMEOUT_MILLISECONDS);
-            HttpConnectionParams.setSoTimeout(params, WebClientConnectionPool.READ_TIMEOUT_MILLISECONDS);
+            HttpConnectionParams.setConnectionTimeout(params, WebClientConnectionPool.CONNECT_TIMEOUT_IN_MILLISECONDS);
+            HttpConnectionParams.setSoTimeout(params, WebClientConnectionPool.READ_TIMEOUT_IN_MILLISECONDS);
             // Note: see comment in ClientConnectionOperator createConnectionOperator(SchemeRegistry registry) regarding
             // why the local socks proxy port is passed through like this
             params.setIntParameter(WebClientConnectionPool.LOCAL_SOCKS_PROXY_PORT_PARAM_NAME, mWebClientConnectionPool.getLocalSocksProxyPort());

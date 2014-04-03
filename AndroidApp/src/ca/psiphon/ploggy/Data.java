@@ -94,8 +94,6 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public static final long UNASSIGNED_SEQUENCE_NUMBER = -1;
-
     public static class Self {
         public final String mId;
         public final Identity.PublicIdentity mPublicIdentity;
@@ -190,17 +188,17 @@ public class Data extends SQLiteOpenHelper {
             ORPHANED
         }
         public final State mState;
-        public final Map<String, Protocol.SequenceNumbers> mMemberLastConfirmedSequenceNumbers;
+        public final Map<String, Protocol.SequenceNumbers> mMemberSequenceNumbers;
         public final long mLastPostSequenceNumber;
 
         public Group(
                 Protocol.Group group,
                 State state,
-                Map<String, Protocol.SequenceNumbers> memberLastConfirmedSequenceNumbers,
+                Map<String, Protocol.SequenceNumbers> memberSequenceNumbers,
                 long lastPostSequenceNumber) {
             mGroup = group;
             mState = state;
-            mMemberLastConfirmedSequenceNumbers = memberLastConfirmedSequenceNumbers;
+            mMemberSequenceNumbers = memberSequenceNumbers;
             mLastPostSequenceNumber = lastPostSequenceNumber;
         }
     }
@@ -308,8 +306,10 @@ public class Data extends SQLiteOpenHelper {
                 "memberId TEXT NOT NULL," +
                 "memberNickname TEXT NOT NULL," +
                 "memberPublicIdentity TEXT NOT NULL," +
-                "lastConfirmedGroupSequenceNumber INTEGER NOT NULL," +
-                "lastConfirmedPostSequenceNumber INTEGER NOT NULL," +
+                "offeredGroupSequenceNumber INTEGER NOT NULL," +
+                "offeredLastPostSequenceNumber INTEGER NOT NULL," +
+                "confirmedGroupSequenceNumber INTEGER NOT NULL," +
+                "confirmedLastPostSequenceNumber INTEGER NOT NULL," +
                 "PRIMARY KEY (groupId, memberId))",
 
             "CREATE TABLE Location (" +
@@ -788,8 +788,10 @@ public class Data extends SQLiteOpenHelper {
                 memberValues.put("memberId", memberId);
                 memberValues.put("memberNickname", memberPublicIdentity.mNickname);
                 memberValues.put("memberPublicIdentity", Json.toJson(memberPublicIdentity));
-                memberValues.put("lastConfirmedGroupSequenceNumber", UNASSIGNED_SEQUENCE_NUMBER);
-                memberValues.put("lastConfirmedPostSequenceNumber", UNASSIGNED_SEQUENCE_NUMBER);
+                memberValues.put("offeredGroupSequenceNumber", Protocol.UNASSIGNED_SEQUENCE_NUMBER);
+                memberValues.put("offeredLastPostSequenceNumber", Protocol.UNASSIGNED_SEQUENCE_NUMBER);
+                memberValues.put("confirmedGroupSequenceNumber", Protocol.UNASSIGNED_SEQUENCE_NUMBER);
+                memberValues.put("confirmedLastPostSequenceNumber", Protocol.UNASSIGNED_SEQUENCE_NUMBER);
                 mDatabase.insertOrThrow("GroupMember", null, memberValues);
             } else {
                 // Assumes memberId changes if memberNickname or memberPublicIdentity change
@@ -879,14 +881,18 @@ public class Data extends SQLiteOpenHelper {
             public Group rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 String groupId = cursor.getString(0);
                 List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
-                Map<String, Protocol.SequenceNumbers> memberLastSentSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
+                Map<String, Protocol.SequenceNumbers> memberSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
                 Cursor memberCursor = null;
                 // TODO: can we avoid this additional-query-per-row "anti-pattern"?
                 //       (extra issue with this: the per-row query isn't done in a background thread)
                 try {
                     String query =
                         "SELECT memberId, memberPublicIdentity, " +
-                                "lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber FROM GroupMember " +
+                                "offeredGroupSequenceNumber, " +
+                                "offeredLastPostSequenceNumber, " +
+                                "confirmedGroupSequenceNumber, " +
+                                "confirmedLastPostSequenceNumber " +
+                            "FROM GroupMember " +
                             "WHERE groupId = ? " +
                             "ORDER BY memberNickname ASC, memberId ASC";
                     memberCursor = database.rawQuery(query, new String[]{groupId});
@@ -894,9 +900,13 @@ public class Data extends SQLiteOpenHelper {
                     while (!memberCursor.isAfterLast()) {
                         members.add(
                                 Json.fromJson(memberCursor.getString(1), Identity.PublicIdentity.class));
-                        memberLastSentSequenceNumbers.put(
+                        memberSequenceNumbers.put(
                                 memberCursor.getString(0),
-                                new Protocol.SequenceNumbers(memberCursor.getLong(2), memberCursor.getLong(3)));
+                                new Protocol.SequenceNumbers(
+                                        memberCursor.getLong(2),
+                                        memberCursor.getLong(3),
+                                        memberCursor.getLong(4),
+                                        memberCursor.getLong(5)));
                         memberCursor.moveToNext();
                     }
                 } catch (SQLiteException e) {
@@ -927,7 +937,7 @@ public class Data extends SQLiteOpenHelper {
                             cursor.getLong(5),
                             (state == Group.State.TOMBSTONE)),
                         state,
-                        memberLastSentSequenceNumbers,
+                        memberSequenceNumbers,
                         lastPostSequenceNumber);
             }
         };
@@ -1253,10 +1263,9 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public Protocol.PullRequest getPullRequest(String friendId)
+    public Protocol.SyncRequest getSyncRequest(String friendId, List<Protocol.Payload> pushPayload)
             throws PloggyError, NotFoundError {
-        Map<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers =
-                new LinkedHashMap<String, Protocol.SequenceNumbers>();
+        Map<String, Protocol.SequenceNumbers> groupSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
         List<String> groupsToResignMembership = new ArrayList<String>();
         Cursor cursor = null;
         try {
@@ -1270,6 +1279,7 @@ public class Data extends SQLiteOpenHelper {
             // TODO: don't need subquery when state is RESIGNING/ORPHANED?
             String query =
                 "SELECT 'Group'.id, 'Group'.sequenceNumber, 'Group'.state, " +
+                        "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = 'Group'.id and publisherId = (SELECT id FROM Self)), " +
                         "(SELECT MAX(sequenceNumber) FROM Post WHERE Post.groupId = 'Group'.id and publisherId = ?) " +
                     "FROM 'Group' " +
                     "WHERE ? IN (SELECT GroupMember.memberId FROM GroupMember WHERE GroupMember.groupId = 'Group'.id) " +
@@ -1286,16 +1296,32 @@ public class Data extends SQLiteOpenHelper {
                 String id = cursor.getString(0);
                 long groupSequenceNumber = cursor.getLong(1);
                 Group.State state = Group.State.valueOf(cursor.getString(2));
-                long postSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
+                long offeredLastPostSequenceNumber = Protocol.UNASSIGNED_SEQUENCE_NUMBER;
                 if (!cursor.isNull(3)) {
-                    postSequenceNumber = cursor.getLong(3);
+                    offeredLastPostSequenceNumber = cursor.getLong(3);
+                }
+                long confirmedLastPostSequenceNumber = Protocol.UNASSIGNED_SEQUENCE_NUMBER;
+                if (!cursor.isNull(4)) {
+                    confirmedLastPostSequenceNumber = cursor.getLong(4);
                 }
                 switch (state) {
                 case PUBLISHING:
-                case SUBSCRIBING:
-                    groupLastKnownSequenceNumbers.put(
+                    groupSequenceNumbers.put(
                             id,
-                            new Protocol.SequenceNumbers(groupSequenceNumber, postSequenceNumber));
+                            new Protocol.SequenceNumbers(
+                                    groupSequenceNumber,
+                                    Protocol.UNASSIGNED_SEQUENCE_NUMBER,
+                                    offeredLastPostSequenceNumber,
+                                    confirmedLastPostSequenceNumber));
+                    break;
+                case SUBSCRIBING:
+                    groupSequenceNumbers.put(
+                            id,
+                            new Protocol.SequenceNumbers(
+                                    Protocol.UNASSIGNED_SEQUENCE_NUMBER,
+                                    groupSequenceNumber,
+                                    offeredLastPostSequenceNumber,
+                                    confirmedLastPostSequenceNumber));
                     break;
                 case RESIGNING:
                 case ORPHANED:
@@ -1318,10 +1344,10 @@ public class Data extends SQLiteOpenHelper {
             }
             mDatabase.endTransaction();
         }
-        return new Protocol.PullRequest(groupLastKnownSequenceNumbers, groupsToResignMembership);
+        return new Protocol.SyncRequest(groupSequenceNumbers, groupsToResignMembership, pushPayload);
     }
 
-    public class PullResponseIterator implements Iterable<String>, Iterator<String> {
+    public class SyncResponseIterator implements Iterable<String>, Iterator<String> {
 
         private final String mFriendId;
         private long mGroupCount;
@@ -1331,12 +1357,12 @@ public class Data extends SQLiteOpenHelper {
         private ObjectCursor<Post> mPostCursor;
         private String mNext;
 
-        public PullResponseIterator(String friendId, Protocol.PullRequest pullRequest)
+        public SyncResponseIterator(String friendId, Protocol.SyncRequest syncRequest)
                 throws PloggyError {
             mFriendId = friendId;
             mGroupCount = 0;
             mPostCount = 0;
-            mGroupsToSend = getGroupsToSend(friendId, pullRequest);
+            mGroupsToSend = getGroupsToSend(friendId, syncRequest);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostCursor = null;
             mNext = getNext();
@@ -1372,13 +1398,13 @@ public class Data extends SQLiteOpenHelper {
                     while (mGroupsToSendIterator.hasNext()) {
                         Map.Entry<String, Protocol.SequenceNumbers> groupToSend = mGroupsToSendIterator.next();
                         String groupId = groupToSend.getKey();
-                        Protocol.SequenceNumbers lastReceivedSequenceNumbers = groupToSend.getValue();
+                        Protocol.SequenceNumbers sequenceNumbers = groupToSend.getValue();
                         // TODO: re-check membership/group state?
                         Group group = getGroup(groupId);
-                        mPostCursor = getPosts(groupId, lastReceivedSequenceNumbers.mPostSequenceNumber);
+                        mPostCursor = getPosts(groupId, sequenceNumbers.mConfirmedLastPostSequenceNumber);
                         // Only the publisher sends group updates
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
-                                group.mGroup.mSequenceNumber > lastReceivedSequenceNumbers.mGroupSequenceNumber) {
+                                group.mGroup.mSequenceNumber > sequenceNumbers.mConfirmedGroupSequenceNumber) {
                             mGroupCount++;
                             return Json.toJson(group.mGroup);
                         } else if (mPostCursor.hasNext()) {
@@ -1396,10 +1422,9 @@ public class Data extends SQLiteOpenHelper {
             return null;
         }
 
-        private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.PullRequest pullRequest)
+        private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.SyncRequest syncRequest)
                 throws PloggyError {
-            Map<String, Protocol.SequenceNumbers> groupsToSend =
-                    new LinkedHashMap<String, Protocol.SequenceNumbers>();
+            Map<String, Protocol.SequenceNumbers> groupsToSend = new LinkedHashMap<String, Protocol.SequenceNumbers>();
             Cursor cursor = null;
             try {
                 mDatabase.beginTransactionNonExclusive();
@@ -1421,13 +1446,13 @@ public class Data extends SQLiteOpenHelper {
                     case DEAD:
                         // Add the group to the "send" list
                         // In local TOMBSTONE/DEAD state, we send the group AND posts so receiver can see all posts while DEAD
-                        if (pullRequest.mGroupLastKnownSequenceNumbers.containsKey(groupId)) {
+                        if (syncRequest.mGroupSequenceNumbers.containsKey(groupId)) {
                             // Case: the friend requested the group
-                            groupsToSend.put(groupId, pullRequest.mGroupLastKnownSequenceNumbers.get(groupId));
-                        } else if (!pullRequest.mGroupsToResignMembership.contains(groupId)) {
+                            groupsToSend.put(groupId, syncRequest.mGroupSequenceNumbers.get(groupId));
+                        } else if (!syncRequest.mGroupsToResignMembership.contains(groupId)) {
                             // Case: the friend didn't request the group and isn't resigning -- so the friend hasn't
                             // received it from the publisher
-                            groupsToSend.put(groupId, new Protocol.SequenceNumbers(0,  0));
+                            groupsToSend.put(groupId, new Protocol.SequenceNumbers());
                         }
                         break;
                     case RESIGNING:
@@ -1481,17 +1506,64 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public PullResponseIterator getPullResponse(String friendId, Protocol.PullRequest pullRequest)
+    public Set<String> putSyncRequest(String friendId, Protocol.SyncRequest syncRequest)
+            throws PloggyError {
+        // *TODO* update GroupMember "confirmed" fields (was mData.confirmSentTo(friend.mId, syncRequest);)
+        // *TODO* update GroupMember "offered" fields
+        // *TODO* process pushPayload
+        // *TODO* return set of friend IDs if need send sync request to friend
+        /*
+            Json.PayloadIterator payloadIterator = new Json.PayloadIterator(requestBody);
+            Set<String> pullFromFriendIds = new HashSet<String>();
+            for (Protocol.Payload payload : payloadIterator) {
+                switch(payload.mType) {
+                case GROUP:
+                    Protocol.Group group = (Protocol.Group)payload.mObject;
+                    Protocol.validateGroup(group);
+                    mData.putPushedGroup(friend.mId, group);
+                    // In case self was added to existing group, need to now get the posts
+                    // *TODO* should this instead be a push to only new members?
+                    for (Identity.PublicIdentity member : group.mMembers) {
+                        try {
+                            mData.getFriendById(member.mId);
+                            pullFromFriendIds.add(member.mId);
+                        } catch (Data.NotFoundError e) {
+                            // This member is not a friend
+                        }
+                    }
+                    break;
+                case LOCATION:
+                    Protocol.Location location = (Protocol.Location)payload.mObject;
+                    Protocol.validateLocation(location);
+                    mData.putPushedLocation(friend.mId, location);
+                    break;
+                case POST:
+                    Protocol.Post post = (Protocol.Post)payload.mObject;
+                    Protocol.validatePost(post);
+                    if (mData.putPushedPost(friend.mId, post)) {
+                        pullFromFriendIds.add(friend.mId);
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+
+        */
+        return null;
+    }
+
+    public SyncResponseIterator getSyncResponse(String friendId, Protocol.SyncRequest syncRequest)
             throws PloggyError {
         // If publisher of group that friend wants to be removed from, do that now, before
         // sending pull data.
         // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
-        if (pullRequest.mGroupsToResignMembership.size() > 0) {
+        if (syncRequest.mGroupsToResignMembership.size() > 0) {
             List<String> resignedGroups = new ArrayList<String>();
             try {
                 mDatabase.beginTransactionNonExclusive();
                 String modifiedTimestamp = dateToString(new Date());
-                for (String groupId : pullRequest.mGroupsToResignMembership) {
+                for (String groupId : syncRequest.mGroupsToResignMembership) {
                     // Silently fails when friend isn't a member, or self isn't the publisher
                     // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
                     if (1 == getCount(
@@ -1526,7 +1598,7 @@ public class Data extends SQLiteOpenHelper {
         }
         // *TODO* this is another transaction?
         // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer?
-        return new PullResponseIterator(friendId, pullRequest);
+        return new SyncResponseIterator(friendId, syncRequest);
     }
 
     private void confirmSentTo(String groupId, String friendId, long lastConfirmedGroupSequenceNumber, long lastConfirmedPostSequenceNumber)
@@ -1581,6 +1653,7 @@ public class Data extends SQLiteOpenHelper {
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
+    // *TODO* when is this called? should be as soon as sync request is accepted? or move to putSyncResponse?
     public void confirmSentTo(String friendId, Protocol.Group group) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
@@ -1592,6 +1665,7 @@ public class Data extends SQLiteOpenHelper {
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
+    // *TODO* when is this called? should be as soon as sync request is accepted? or move to putSyncResponse?
     public void confirmSentTo(String friendId, Protocol.Post post) throws PloggyError {
         try {
             mDatabase.beginTransactionNonExclusive();
@@ -1603,30 +1677,30 @@ public class Data extends SQLiteOpenHelper {
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
 
-    public static final int MAX_PULL_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
+    public static final int MAX_SYNC_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
 
-    public void putPullResponse(String friendId, Protocol.PullRequest pullRequest, List<Protocol.Group> pulledGroups, List<Protocol.Post> pulledPosts)
+    public void putSyncResponse(String friendId, Protocol.SyncRequest syncRequest, List<Protocol.Group> receivedGroups, List<Protocol.Post> receivedPosts)
             throws PloggyError {
-        // NOTE: writing would be fastest if the entire "push" PUT request stream were written in one transaction,
+        // NOTE: writing would be fastest if the entire "pull" request response stream were written in one transaction,
         // but that would block other database access. As a compromise, we support writing chunks of objects. This
         // has the benefit of writing a few objects per transaction, plus advancing the last received sequence number
-        // even if the PUT request is somehow abnormally terminated.
+        // even if the request is somehow abnormally terminated.
         //
-        // In the protocol, the stream of pulled objects should look like this:
+        // In the protocol, the stream of received objects should look like this:
         // [GroupX,] Post-in-GroupX, Post-in-GroupX, ..., [GroupY,] Post-in-GroupY, Post-in-GroupY
         // However, this isn't enforced here.
         //
-        // IMPORTANT: Only pass in the "pullRequest" with the 1st chunk of objects -- it's used to delete
+        // IMPORTANT: Only pass in the "syncRequest" with the 1st chunk of objects -- it's used to delete
         // groups in the RESIGNING state once it's known that the group publishing friend has learned of
         // this state.
         try {
             mDatabase.beginTransactionNonExclusive();
 
-            if (pullRequest != null) {
+            if (syncRequest != null) {
                 // The request was successful, so we can assume groupsToResignMembership were accepted by the
                 // friend and if the friend was the group publisher we are now removed as a group member. So
                 // fully delete the group in this case.
-                for (String groupId : pullRequest.mGroupsToResignMembership) {
+                for (String groupId : syncRequest.mGroupsToResignMembership) {
                     if (1 == getCount(
                             "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
                             new String[]{groupId, friendId})) {
@@ -1634,10 +1708,10 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             }
-            for (Protocol.Group group : pulledGroups) {
+            for (Protocol.Group group : receivedGroups) {
                 putReceivedGroup(friendId, group);
             }
-            for (Protocol.Post post : pulledPosts) {
+            for (Protocol.Post post : receivedPosts) {
                 putReceivedPost(friendId, post);
             }
             mDatabase.setTransactionSuccessful();
@@ -1646,25 +1720,25 @@ public class Data extends SQLiteOpenHelper {
         } finally {
             mDatabase.endTransaction();
         }
-        if (pulledGroups.size() > 0 || pulledPosts.size() > 0) {
+        if (receivedGroups.size() > 0 || receivedPosts.size() > 0) {
             Log.addEntry(
                     logTag(),
                     "put " +
-                    Integer.toString(pulledGroups.size()) +
+                    Integer.toString(receivedGroups.size()) +
                     " groups and " +
-                    Integer.toString(pulledPosts.size()) +
+                    Integer.toString(receivedPosts.size()) +
                     " posts pulled from " +
                     getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         }
-        if (pullRequest != null) {
-            for (String groupId : pullRequest.mGroupsToResignMembership) {
+        if (syncRequest != null) {
+            for (String groupId : syncRequest.mGroupsToResignMembership) {
                 Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
             }
         }
-        for (Protocol.Group group : pulledGroups) {
+        for (Protocol.Group group : receivedGroups) {
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
         }
-        for (Protocol.Post post : pulledPosts) {
+        for (Protocol.Post post : receivedPosts) {
             // *TODO* too many events? Don't refresh UI on this event?
             Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         }

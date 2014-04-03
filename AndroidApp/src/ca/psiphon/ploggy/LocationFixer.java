@@ -175,7 +175,7 @@ public class LocationFixer implements android.location.LocationListener {
                     Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, address));
                 }
             };
-            mEngine.submitTask(task);
+            mEngine.submitTask(task, 0);
 
         } else {
             Events.getInstance().post(new Events.NewSelfLocationFix(mLastReportedLocation, null));

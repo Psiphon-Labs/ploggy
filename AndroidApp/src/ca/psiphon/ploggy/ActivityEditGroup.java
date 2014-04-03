@@ -338,7 +338,7 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
                     members,
                     now,
                     now,
-                    Data.UNASSIGNED_SEQUENCE_NUMBER,
+                    Protocol.UNASSIGNED_SEQUENCE_NUMBER,
                     false);
         } else {
             Protocol.Group group = data.getGroupOrThrow(mGroupId).mGroup;
