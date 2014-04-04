@@ -90,7 +90,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private ScheduledExecutorService mTaskThreadPool;
     private ExecutorService mWebServerRequestThreadPool;
     private Map<Pair<String, FriendTaskType>, FriendTaskState> mFriendTaskStates;
-    private Map<String, ArrayList<Protocol.Payload>> mFriendPushQueue;
     private Set<String> mLocationRecipients;
     private LocationFixer mLocationFixer;
     private WebServer mWebServer;
@@ -153,7 +152,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // requests, so local tasks are not blocked by peer actions.
         mWebServerRequestThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         mFriendTaskStates = new HashMap<Pair<String, FriendTaskType>, FriendTaskState>();
-        mFriendPushQueue = new HashMap<String, ArrayList<Protocol.Payload>>();
         mLocationRecipients = new HashSet<String>();
         mLocationFixer = new LocationFixer(this);
         mLocationFixer.start();
@@ -175,10 +173,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (mFriendTaskStates != null) {
             mFriendTaskStates.clear();
             mFriendTaskStates = null;
-        }
-        if (mFriendPushQueue != null) {
-            mFriendPushQueue.clear();
-            mFriendPushQueue = null;
         }
         if (mTaskThreadPool != null) {
             Utils.shutdownExecutorService(mTaskThreadPool);
@@ -353,7 +347,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
         // Schedule immediate download, if not already downloading from friend
-        triggerFriendTask(FriendTaskType.DOWNLOAD, addedDownload.mFriendId, 0);
+        triggerFriendTask(addedDownload.mFriendId, FriendTaskType.DOWNLOAD, 0);
     }
 
     private void startHiddenService() throws PloggyError {
@@ -468,18 +462,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
-    private void syncWithMembers(Protocol.Group group) throws PloggyError {
-        syncWithMembers(group, new Protocol.Payload(Protocol.Payload.Type.GROUP, group));
-    }
-
     private void syncWithMembers(Protocol.Post post) throws PloggyError {
-        Data.Group group = mData.getGroupOrThrow(post.mGroupId);
-        syncWithMembers(group.mGroup, new Protocol.Payload(Protocol.Payload.Type.POST, post));
+        syncWithMembers(mData.getGroupOrThrow(post.mGroupId).mGroup);
     }
 
-    private void syncWithMembers(Protocol.Group group, Protocol.Payload payload) throws PloggyError {
+    private void syncWithMembers(Protocol.Group group) throws PloggyError {
         for (Identity.PublicIdentity member : group.mMembers) {
-            enqueueFriendPushPayload(member.mId, payload);
             triggerFriendTask(member.mId, FriendTaskType.SYNC, 0);
         }
     }
@@ -561,29 +549,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
        FriendTaskState state = getFriendTaskState(friendId, taskType);
        state.mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
    }
-
-    private synchronized void enqueueFriendPushPayload(String friendId, Protocol.Payload payload) {
-        if (mFriendPushQueue.get(friendId) == null) {
-            mFriendPushQueue.put(friendId, new ArrayList<Protocol.Payload>());
-        }
-        mFriendPushQueue.get(friendId).add(payload);
-    }
-
-    private synchronized boolean hasFriendPushPayload(String friendId) {
-        ArrayList<Protocol.Payload> queue = mFriendPushQueue.get(friendId);
-        if (queue == null || queue.isEmpty()) {
-            return false;
-        }
-        return queue.size() > 0;
-    }
-
-    private synchronized Protocol.Payload dequeueFriendPushPayload(String friendId) {
-        ArrayList<Protocol.Payload> queue = mFriendPushQueue.get(friendId);
-        if (queue == null || queue.isEmpty()) {
-            return null;
-        }
-        return queue.remove(0);
-    }
 
     // TODO: refactor common code in makeTask functions?
 
@@ -680,51 +645,83 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         }
                         Data.Friend friend = mData.getFriendById(finalFriendId);
                         Log.addEntry(logTag(), "sync with: " + friend.mPublicIdentity.mNickname);
-                        final List<Protocol.Payload> pushPayload = new ArrayList<Protocol.Payload>();
-                        for (int i = 0; i < Protocol.MAX_PUSH_PAYLOAD_OBJECT_COUNT; i++) {
-                            Protocol.Payload payload = dequeueFriendPushPayload(finalFriendId);
-                            if (payload == null) {
-                                break;
-                            }
-                            pushPayload.add(payload);
+
+                        // Push local changes we know the peer has not yet confirmed.
+                        // This optimization is intended to deliver posts as soon as they are
+                        // created with minimal latency, in ideal conditions (both peers online
+                        // and connected). Pushing creates complicated side effects, since a
+                        // peer could also be syncing (pulling) in an independent connection.
+                        // But, again, in ideal conditions the peer is ideal, this client creates
+                        // a post, and it's delivered immediately in the push payload of the
+                        // sync triggered by the post create.
+                        // Pushed objects are confirmed as sent within the SequenceNumbers
+                        // returned in the sync response payload.
+                        // TODO: add PUT request body streaming for push payload
+                        // TODO: max size for payload [request body] instead of max count
+                        final List<String> pushPayload = new ArrayList<String>();
+                        Data.SyncPayloadIterator syncPayloadIterator = mData.getSyncPayload(friend.mId);
+                        for (int i = 0; i < Protocol.MAX_PUSH_PAYLOAD_OBJECT_COUNT && syncPayloadIterator.hasNext(); i++) {
+                            pushPayload.add(syncPayloadIterator.next());
                         }
-                        final Protocol.SyncRequest finalSyncRequest = mData.getSyncRequest(finalFriendId, pushPayload);
-                        final AtomicBoolean responseContainsPayload = new AtomicBoolean(false);
+
+                        final Protocol.SyncState finalSyncState = mData.getSyncState(finalFriendId);
+                        final AtomicBoolean responseContainsNewData = new AtomicBoolean(false);
                         WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
                             @Override
                             public void consume(InputStream responseBodyInputStream) throws PloggyError {
-                                Protocol.SyncRequest syncRequest = finalSyncRequest;
+                                Protocol.SyncState syncState = finalSyncState;
+                                Set<String> needSyncFriendIds = new HashSet<String>();
+                                Protocol.SyncState responseSyncState = null;
                                 List<Protocol.Group> groups = new ArrayList<Protocol.Group>();
                                 List<Protocol.Post> posts = new ArrayList<Protocol.Post>();
                                 Json.PayloadIterator payloadIterator = new Json.PayloadIterator(responseBodyInputStream);
+                                boolean isFirstItem = true;
                                 // TODO: polymorphism instead of cases-for-types?
                                 for (Protocol.Payload payload : payloadIterator) {
+                                    if (isFirstItem && payload.mType != Protocol.Payload.Type.SYNC_STATE ||
+                                        !isFirstItem && payload.mType == Protocol.Payload.Type.SYNC_STATE) {
+                                        throw new PloggyError(logTag(), "SyncState is not first payload item");
+                                    }
+                                    isFirstItem = false;
                                     switch(payload.mType) {
+                                    case SYNC_STATE:
+                                        responseSyncState = (Protocol.SyncState)payload.mObject;
+                                        // TODO: responseSyncState.mGroupsToResign is ignored
+                                        Protocol.validateSyncState(responseSyncState);
+                                        break;
                                     case GROUP:
                                         Protocol.Group group = (Protocol.Group)payload.mObject;
                                         Protocol.validateGroup(group);
                                         groups.add(group);
-                                        responseContainsPayload.set(true);
+                                        responseContainsNewData.set(true);
                                         break;
                                     case POST:
                                         Protocol.Post post = (Protocol.Post)payload.mObject;
                                         Protocol.validatePost(post);
                                         posts.add(post);
-                                        responseContainsPayload.set(true);
+                                        responseContainsNewData.set(true);
                                         break;
                                     default:
                                         break;
                                     }
                                     if (groups.size() + posts.size() >= Data.MAX_SYNC_RESPONSE_TRANSACTION_OBJECT_COUNT) {
-                                        mData.putSyncResponse(finalFriendId, syncRequest, groups, posts);
-                                        syncRequest = null;
+                                        mData.putSyncResponse(finalFriendId, syncState, responseSyncState, groups, posts, needSyncFriendIds);
+                                        syncState = null;
+                                        responseSyncState = null;
                                         groups.clear();
                                         posts.clear();
                                     }
                                 }
-                                mData.putSyncResponse(finalFriendId, syncRequest, groups, posts);
+                                mData.putSyncResponse(finalFriendId, syncState, responseSyncState, groups, posts, needSyncFriendIds);
+                                // Trigger sync for set of friends determined by syncResponse content. This potentially
+                                // includes the request peer, based on offered sequence numbers; as well as group members
+                                // for newly discovered groups.
+                                for (String friendId : needSyncFriendIds) {
+                                    triggerFriendTask(friendId, FriendTaskType.SYNC, 0);
+                                }
                             }
                         };
+
                         WebClientRequest webClientRequest =
                                 new WebClientRequest(
                                     mWebClientConnectionPool,
@@ -732,12 +729,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                     Protocol.WEB_SERVER_VIRTUAL_PORT,
                                     WebClientRequest.RequestType.valueOf(Protocol.SYNC_REQUEST_TYPE),
                                     Protocol.SYNC_REQUEST_PATH).
-                                        requestBody(Json.toJson(finalSyncRequest)).
+                                        requestBody(Json.toJson(new Protocol.SyncRequest(finalSyncState, pushPayload))).
                                         responseBodyHandler(responseBodyHandler);
                         webClientRequest.makeRequest();
 
-                        // Keep going if sync returned data or there's more data to push
-                        if (!responseContainsPayload.get() && !hasFriendPushPayload(finalFriendId)) {
+                        // Keep going if sync returned data. We could also keep going if there's
+                        // more data to push, but the peer now knows what this client is offering
+                        // and will make its own sync request.
+                        if (!responseContainsNewData.get()) {
                             break;
                         }
                     }
@@ -886,14 +885,39 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
         Protocol.SyncRequest syncRequest = Json.fromJson(requestBody, Protocol.SyncRequest.class);
         Protocol.validateSyncRequest(syncRequest);
-        Set<String> needSyncFriendIds = mData.putSyncRequest(friend.mId, syncRequest);
-        Data.SyncResponseIterator syncResponseIterator = mData.getSyncResponse(friend.mId, syncRequest);
+
+        // Push payload
+        List<Protocol.Group> pushedGroups = new ArrayList<Protocol.Group>();
+        List<Protocol.Post> pushedPosts = new ArrayList<Protocol.Post>();
+        for (String jsonPayload : syncRequest.mPushPayload) {
+            Protocol.Payload payload = Json.fromJson(jsonPayload, Protocol.Payload.class);
+            switch(payload.mType) {
+            case GROUP:
+                Protocol.Group group = (Protocol.Group)payload.mObject;
+                Protocol.validateGroup(group);
+                pushedGroups.add(group);
+                break;
+            case POST:
+                Protocol.Post post = (Protocol.Post)payload.mObject;
+                Protocol.validatePost(post);
+                pushedPosts.add(post);
+                break;
+            default:
+                break;
+            }
+        }
+
+        Set<String> needSyncFriendIds = new HashSet<String>();
+        mData.putSyncRequest(friend.mId, syncRequest.mSyncState, pushedGroups, pushedPosts, needSyncFriendIds);
+        Data.SyncPayloadIterator syncPayloadIterator = mData.getSyncPayload(friend.mId, syncRequest.mSyncState);
+        // Trigger sync for set of friends determined by syncRequest content. This potentially includes the request peer,
+        // based on offered sequence numbers; as well as group members for newly discovered groups.
         for (String friendId : needSyncFriendIds) {
             triggerFriendTask(friendId, FriendTaskType.SYNC, 0);
         }
         // *TODO* log too noisy during regular operation?
         Log.addEntry(logTag(), "served sync request for " + friend.mPublicIdentity.mNickname);
-        return new WebServer.RequestHandler.SyncResponse(new Utils.StringIteratorInputStream(syncResponseIterator));
+        return new WebServer.RequestHandler.SyncResponse(new Utils.StringIteratorInputStream(syncPayloadIterator));
     }
 
     // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing

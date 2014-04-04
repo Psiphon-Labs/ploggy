@@ -91,23 +91,33 @@ public class Protocol {
         }
     }
 
-    public static class SyncRequest {
+    public static class SyncState {
         public final Map<String, SequenceNumbers> mGroupSequenceNumbers;
-        public final List<String> mGroupsToResignMembership;
-        public final List<Payload> mPushPayload;
+        public final List<String> mGroupsToResignMembership; // *TODO* Set?
 
-        public SyncRequest(
+        public SyncState(
                 Map<String, SequenceNumbers> groupSequenceNumbers,
-                List<String> groupsToResignMembership,
-                List<Payload> pushPayload) {
+                List<String> groupsToResignMembership) {
             mGroupSequenceNumbers = groupSequenceNumbers;
             mGroupsToResignMembership = groupsToResignMembership;
+        }
+    }
+
+    public static class SyncRequest {
+        public final SyncState mSyncState;
+        public final List<String> mPushPayload;
+
+        public SyncRequest(
+                SyncState syncState,
+                List<String> pushPayload) {
+            mSyncState = syncState;
             mPushPayload = pushPayload;
         }
     }
 
     public static class Payload {
         public enum Type {
+            SYNC_STATE,
             GROUP,
             POST,
             LOCATION
@@ -127,7 +137,7 @@ public class Protocol {
         public final String mId;
         public final String mName;
         public final String mPublisherId;
-        public final List<Identity.PublicIdentity> mMembers;
+        public final List<Identity.PublicIdentity> mMembers; // *TODO* Set?
         public final Date mCreatedTimestamp;
         public final Date mModifiedTimestamp;
         public final long mSequenceNumber;
@@ -230,6 +240,10 @@ public class Protocol {
     public static void validatePublicIdentity(Identity.PublicIdentity publicIdentity) throws PloggyError {
         // TODO: Nickname valid, cert valid, hostname valid
         // Identity.verifyPublicIdentity(friend.mPublicIdentity);
+    }
+
+    public static void validateSyncState(SyncState syncState) throws PloggyError {
+        // TODO: ...
     }
 
     public static void validateSyncRequest(SyncRequest syncRequest) throws PloggyError {

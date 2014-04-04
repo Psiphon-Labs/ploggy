@@ -37,6 +37,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
+import ca.psiphon.ploggy.Protocol.SequenceNumbers;
 
 /**
  * Manages local, persistent Ploggy data. Implementation of sync protocol
@@ -1263,8 +1264,8 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
-    public Protocol.SyncRequest getSyncRequest(String friendId, List<Protocol.Payload> pushPayload)
-            throws PloggyError, NotFoundError {
+    public Protocol.SyncState getSyncState(String friendId)
+            throws PloggyError {
         Map<String, Protocol.SequenceNumbers> groupSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
         List<String> groupsToResignMembership = new ArrayList<String>();
         Cursor cursor = null;
@@ -1344,25 +1345,27 @@ public class Data extends SQLiteOpenHelper {
             }
             mDatabase.endTransaction();
         }
-        return new Protocol.SyncRequest(groupSequenceNumbers, groupsToResignMembership, pushPayload);
+        return new Protocol.SyncState(groupSequenceNumbers, groupsToResignMembership);
     }
 
-    public class SyncResponseIterator implements Iterable<String>, Iterator<String> {
+    public class SyncPayloadIterator implements Iterable<String>, Iterator<String> {
 
         private final String mFriendId;
         private long mGroupCount;
         private long mPostCount;
+        private Protocol.SyncState mSelfSyncState;
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private ObjectCursor<Post> mPostCursor;
         private String mNext;
 
-        public SyncResponseIterator(String friendId, Protocol.SyncRequest syncRequest)
+        public SyncPayloadIterator(String friendId, Protocol.SyncState syncState)
                 throws PloggyError {
             mFriendId = friendId;
             mGroupCount = 0;
             mPostCount = 0;
-            mGroupsToSend = getGroupsToSend(friendId, syncRequest);
+            mSelfSyncState = getSyncState(friendId);
+            mGroupsToSend = getGroupsToSend(friendId, syncState);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostCursor = null;
             mNext = getNext();
@@ -1390,7 +1393,11 @@ public class Data extends SQLiteOpenHelper {
 
         private String getNext() {
             try {
-                if (mPostCursor != null && mPostCursor.hasNext()) {
+                if (mSelfSyncState != null) {
+                    Protocol.SyncState syncState = mSelfSyncState;
+                    mSelfSyncState = null;
+                    return Json.toJson(syncState);
+                } else if (mPostCursor != null && mPostCursor.hasNext()) {
                     mPostCount++;
                     return Json.toJson(mPostCursor.next().mPost);
                 } else {
@@ -1415,14 +1422,14 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             } catch (NotFoundError e) {
-                Log.addEntry(logTag(), "push iterator failed with item not found");
+                Log.addEntry(logTag(), "sync iterator failed with item not found");
             } catch (PloggyError e) {
-                Log.addEntry(logTag(), "push iterator failed");
+                Log.addEntry(logTag(), "sync iterator failed");
             }
             return null;
         }
 
-        private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.SyncRequest syncRequest)
+        private Map<String, Protocol.SequenceNumbers> getGroupsToSend(String friendId, Protocol.SyncState syncState)
                 throws PloggyError {
             Map<String, Protocol.SequenceNumbers> groupsToSend = new LinkedHashMap<String, Protocol.SequenceNumbers>();
             Cursor cursor = null;
@@ -1446,10 +1453,10 @@ public class Data extends SQLiteOpenHelper {
                     case DEAD:
                         // Add the group to the "send" list
                         // In local TOMBSTONE/DEAD state, we send the group AND posts so receiver can see all posts while DEAD
-                        if (syncRequest.mGroupSequenceNumbers.containsKey(groupId)) {
+                        if (syncState.mGroupSequenceNumbers.containsKey(groupId)) {
                             // Case: the friend requested the group
-                            groupsToSend.put(groupId, syncRequest.mGroupSequenceNumbers.get(groupId));
-                        } else if (!syncRequest.mGroupsToResignMembership.contains(groupId)) {
+                            groupsToSend.put(groupId, syncState.mGroupSequenceNumbers.get(groupId));
+                        } else if (!syncState.mGroupsToResignMembership.contains(groupId)) {
                             // Case: the friend didn't request the group and isn't resigning -- so the friend hasn't
                             // received it from the publisher
                             groupsToSend.put(groupId, new Protocol.SequenceNumbers());
@@ -1500,70 +1507,33 @@ public class Data extends SQLiteOpenHelper {
                         Long.toString(mGroupCount) +
                         " groups and " +
                         Long.toString(mPostCount) +
-                        " posts pulled by " +
+                        " posts to " +
                         getFriendByIdOrThrow(mFriendId).mPublicIdentity.mNickname);
             }
         }
     }
 
-    public Set<String> putSyncRequest(String friendId, Protocol.SyncRequest syncRequest)
-            throws PloggyError {
-        // *TODO* update GroupMember "confirmed" fields (was mData.confirmSentTo(friend.mId, syncRequest);)
-        // *TODO* update GroupMember "offered" fields
-        // *TODO* process pushPayload
-        // *TODO* return set of friend IDs if need send sync request to friend
-        /*
-            Json.PayloadIterator payloadIterator = new Json.PayloadIterator(requestBody);
-            Set<String> pullFromFriendIds = new HashSet<String>();
-            for (Protocol.Payload payload : payloadIterator) {
-                switch(payload.mType) {
-                case GROUP:
-                    Protocol.Group group = (Protocol.Group)payload.mObject;
-                    Protocol.validateGroup(group);
-                    mData.putPushedGroup(friend.mId, group);
-                    // In case self was added to existing group, need to now get the posts
-                    // *TODO* should this instead be a push to only new members?
-                    for (Identity.PublicIdentity member : group.mMembers) {
-                        try {
-                            mData.getFriendById(member.mId);
-                            pullFromFriendIds.add(member.mId);
-                        } catch (Data.NotFoundError e) {
-                            // This member is not a friend
-                        }
-                    }
-                    break;
-                case LOCATION:
-                    Protocol.Location location = (Protocol.Location)payload.mObject;
-                    Protocol.validateLocation(location);
-                    mData.putPushedLocation(friend.mId, location);
-                    break;
-                case POST:
-                    Protocol.Post post = (Protocol.Post)payload.mObject;
-                    Protocol.validatePost(post);
-                    if (mData.putPushedPost(friend.mId, post)) {
-                        pullFromFriendIds.add(friend.mId);
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
+    public void putSyncRequest(
+            String friendId,
+            Protocol.SyncState syncState,
+            List<Protocol.Group> pushedGroups,
+            List<Protocol.Post> pushedPosts,
+            Set<String> needSyncFriendIds) throws PloggyError {
+        // TODO: don't start a transaction if no changes in syncRequest?
+        List<String> resignedGroups = new ArrayList<String>();
+        try {
+            mDatabase.beginTransactionNonExclusive();
 
-        */
-        return null;
-    }
+            // Update friend sequence numbers
 
-    public SyncResponseIterator getSyncResponse(String friendId, Protocol.SyncRequest syncRequest)
-            throws PloggyError {
-        // If publisher of group that friend wants to be removed from, do that now, before
-        // sending pull data.
-        // TODO: don't start a transaction if not publisher of any groups in groupsToResignMembership?
-        if (syncRequest.mGroupsToResignMembership.size() > 0) {
-            List<String> resignedGroups = new ArrayList<String>();
-            try {
-                mDatabase.beginTransactionNonExclusive();
+            // ***TODO***
+            // ***TODO*** needSyncFriendIds += friends with offered > local max
+
+            // When publisher of group that friend wants to be removed from, remove memberships
+
+            if (syncState.mGroupsToResignMembership.size() > 0) {
                 String modifiedTimestamp = dateToString(new Date());
-                for (String groupId : syncRequest.mGroupsToResignMembership) {
+                for (String groupId : syncState.mGroupsToResignMembership) {
                     // Silently fails when friend isn't a member, or self isn't the publisher
                     // *TODO* filter by group state? e.g., do or don't update if TOMBSTONE?
                     if (1 == getCount(
@@ -1586,21 +1556,56 @@ public class Data extends SQLiteOpenHelper {
                         resignedGroups.add(groupId);
                     }
                 }
-                mDatabase.setTransactionSuccessful();
-            } catch (SQLiteException e) {
-                throw new PloggyError(logTag(), e);
-            } finally {
-                mDatabase.endTransaction();
             }
-            for (String groupId : resignedGroups) {
-                Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
+
+            // Process push payload
+
+            for (Protocol.Group group : pushedGroups) {
+                // ***TODO*** check proper sequence number processing
+                putReceivedGroup(friendId, group);
+                for (Identity.PublicIdentity publicIdentity : group.mMembers) {
+                    try {
+                        getFriendById(publicIdentity.mId);
+                        needSyncFriendIds.add(publicIdentity.mId);
+                    } catch (NotFoundError e) {
+                        // This group member is not a friend
+                    }
+                }
             }
+            for (Protocol.Post post : pushedPosts) {
+                // ***TODO*** check proper sequence number processing; or don't store if out-of-order
+                putReceivedPost(friendId, post);
+            }
+
+            mDatabase.setTransactionSuccessful();
+        } catch (SQLiteException e) {
+            throw new PloggyError(logTag(), e);
+        } finally {
+            mDatabase.endTransaction();
         }
-        // *TODO* this is another transaction?
-        // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer?
-        return new SyncResponseIterator(friendId, syncRequest);
+        for (String groupId : resignedGroups) {
+            Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
+        }
     }
 
+    public SyncPayloadIterator getSyncPayload(String friendId)
+            throws PloggyError {
+        // Use the local sequence numbers for friend
+
+        // ***TODO***
+        // ***TODO*** helper to make mGroupSequenceNumbers for friend or self?
+        Protocol.SyncState syncState = null;
+
+        return getSyncPayload(friendId, syncState);
+    }
+
+    public SyncPayloadIterator getSyncPayload(String friendId, Protocol.SyncState syncState)
+            throws PloggyError {
+        // *TODO* this iterator, used with blocking network I/O, blocks the SQLite checkpointer?
+        return new SyncPayloadIterator(friendId, syncState);
+    }
+
+    /*
     private void confirmSentTo(String groupId, String friendId, long lastConfirmedGroupSequenceNumber, long lastConfirmedPostSequenceNumber)
             throws PloggyError {
         // Helper used by other confirmSentTo functions; assumes in transaction
@@ -1676,11 +1681,17 @@ public class Data extends SQLiteOpenHelper {
         }
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
     }
+    */
 
     public static final int MAX_SYNC_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
 
-    public void putSyncResponse(String friendId, Protocol.SyncRequest syncRequest, List<Protocol.Group> receivedGroups, List<Protocol.Post> receivedPosts)
-            throws PloggyError {
+    public void putSyncResponse(
+            String friendId,
+            Protocol.SyncState syncState,
+            Protocol.SyncState responseSyncState,
+            List<Protocol.Group> receivedGroups,
+            List<Protocol.Post> receivedPosts,
+            Set<String> needSyncFriendIds) throws PloggyError {
         // NOTE: writing would be fastest if the entire "pull" request response stream were written in one transaction,
         // but that would block other database access. As a compromise, we support writing chunks of objects. This
         // has the benefit of writing a few objects per transaction, plus advancing the last received sequence number
@@ -1690,17 +1701,17 @@ public class Data extends SQLiteOpenHelper {
         // [GroupX,] Post-in-GroupX, Post-in-GroupX, ..., [GroupY,] Post-in-GroupY, Post-in-GroupY
         // However, this isn't enforced here.
         //
-        // IMPORTANT: Only pass in the "syncRequest" with the 1st chunk of objects -- it's used to delete
+        // IMPORTANT: Only pass in the "syncState" with the 1st chunk of objects -- it's used to delete
         // groups in the RESIGNING state once it's known that the group publishing friend has learned of
         // this state.
         try {
             mDatabase.beginTransactionNonExclusive();
 
-            if (syncRequest != null) {
+            if (syncState != null) {
                 // The request was successful, so we can assume groupsToResignMembership were accepted by the
                 // friend and if the friend was the group publisher we are now removed as a group member. So
                 // fully delete the group in this case.
-                for (String groupId : syncRequest.mGroupsToResignMembership) {
+                for (String groupId : syncState.mGroupsToResignMembership) {
                     if (1 == getCount(
                             "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
                             new String[]{groupId, friendId})) {
@@ -1708,8 +1719,21 @@ public class Data extends SQLiteOpenHelper {
                     }
                 }
             }
+            if (responseSyncState != null) {
+                putFriendSequenceNumbers(friendId, responseSyncState.mGroupSequenceNumbers);
+                // ***TODO***
+                // ***TODO*** needSyncFriendIds += member friends in updated group
+            }
             for (Protocol.Group group : receivedGroups) {
                 putReceivedGroup(friendId, group);
+                for (Identity.PublicIdentity publicIdentity : group.mMembers) {
+                    try {
+                        getFriendById(publicIdentity.mId);
+                        needSyncFriendIds.add(publicIdentity.mId);
+                    } catch (NotFoundError e) {
+                        // This group member is not a friend
+                    }
+                }
             }
             for (Protocol.Post post : receivedPosts) {
                 putReceivedPost(friendId, post);
@@ -1727,11 +1751,11 @@ public class Data extends SQLiteOpenHelper {
                     Integer.toString(receivedGroups.size()) +
                     " groups and " +
                     Integer.toString(receivedPosts.size()) +
-                    " posts pulled from " +
+                    " posts from " +
                     getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         }
-        if (syncRequest != null) {
-            for (String groupId : syncRequest.mGroupsToResignMembership) {
+        if (syncState != null) {
+            for (String groupId : syncState.mGroupsToResignMembership) {
                 Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
             }
         }
@@ -1744,6 +1768,13 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
+    private void putFriendSequenceNumbers(
+            String friendId,
+            Map<String, SequenceNumbers> groupSequenceNumbers) {
+        // *TODO*
+    }
+
+    /*
     public void putPushedGroup(String friendId, Protocol.Group group) throws PloggyError {
         // Unlike putPushedObject, there's no pull trigger since all we would
         // know is we missed an older version of the group object itself.
@@ -1784,6 +1815,7 @@ public class Data extends SQLiteOpenHelper {
         Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
         return triggerPull;
     }
+    */
 
     private void putReceivedGroup(String friendId, Protocol.Group group)
             throws PloggyError, SQLiteException {
