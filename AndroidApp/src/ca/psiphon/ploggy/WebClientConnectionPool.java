@@ -58,8 +58,8 @@ public class WebClientConnectionPool {
 
     private static final String LOG_TAG = "Web Client Connection Pool";
 
-    public static final int CONNECT_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
-    public static final int READ_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
+    public static final int CONNECT_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.MILLISECONDS.convert(60, TimeUnit.SECONDS);
+    public static final int READ_TIMEOUT_IN_MILLISECONDS = (int) TimeUnit.MILLISECONDS.convert(60, TimeUnit.SECONDS);
     public static final int MAX_TOTAL_POOL_CONNECTIONS = 100;
     public static final int MAX_PER_ROUTE_POOL_CONNECTIONS = 4;
 

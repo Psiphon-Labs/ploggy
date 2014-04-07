@@ -41,7 +41,7 @@ public class DataTransferStats {
 
     private static final String LOG_TAG = "Data Transfer Stats";
 
-    private static final long REPORT_FREQUENCY_IN_NANOSECONDS = TimeUnit.SECONDS.convert(1, TimeUnit.NANOSECONDS);
+    private static final long REPORT_FREQUENCY_IN_NANOSECONDS = TimeUnit.NANOSECONDS.convert(1, TimeUnit.SECONDS);
 
     public static class SSLSocketWrapper extends SSLSocket {
         private final Data mData;

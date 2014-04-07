@@ -122,9 +122,9 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private NetworkStateReceiver mNetworkStateReceiver = null;
     private CountDownLatch mCircuitEstablishedLatch = null;
 
-    private static final long CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
-    private static final long HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
-    private static final long CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS = TimeUnit.SECONDS.convert(90, TimeUnit.MILLISECONDS);
+    private static final long CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
+    private static final long HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
+    private static final long CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
 
     public TorWrapper(String instanceName, Mode mode) {
         this(instanceName, mode, null, null, -1);

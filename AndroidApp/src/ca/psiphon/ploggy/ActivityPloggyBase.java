@@ -54,7 +54,6 @@ public class ActivityPloggyBase extends FragmentActivity implements NfcAdapter.C
 
     private boolean mNfcEnabled;
     private NfcAdapter mNfcAdapter;
-    private boolean mIsResumed;
     private Utils.FixedDelayExecutor mLocationFixExecutor;
 
     @Override
@@ -73,16 +72,8 @@ public class ActivityPloggyBase extends FragmentActivity implements NfcAdapter.C
             }
         }
 
-        mIsResumed = false;
         mLocationFixExecutor = new Utils.FixedDelayExecutor(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        if (mIsResumed) {
-                            Events.getInstance().post(new Events.RefreshSelfLocationFix());
-                        }
-                    }
-                },
+                new Runnable() {@Override public void run() {Events.getInstance().post(new Events.RefreshSelfLocationFix());}},
                 // TODO: preference?
                 TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
     }
@@ -90,13 +81,13 @@ public class ActivityPloggyBase extends FragmentActivity implements NfcAdapter.C
     @Override
     protected void onResume() {
         super.onResume();
-        mIsResumed = true;
+        mLocationFixExecutor.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        mIsResumed = false;
+        mLocationFixExecutor.stop();
     }
 
     @Override

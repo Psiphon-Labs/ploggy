@@ -104,12 +104,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         public long mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
     }
 
-    private static final long TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS = TimeUnit.MINUTES.convert(5, TimeUnit.MILLISECONDS);
-    private static final long TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS = TimeUnit.HOURS.convert(2, TimeUnit.MILLISECONDS);
+    private static final long TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES);
+    private static final long TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(2, TimeUnit.HOURS);
 
-    private static final long PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = TimeUnit.SECONDS.convert(5, TimeUnit.MILLISECONDS);
+    private static final long PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS);
 
-    private static final long REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS = TimeUnit.SECONDS.convert(30, TimeUnit.MILLISECONDS);
+    private static final long REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(30, TimeUnit.SECONDS);
     private static final long REQUEST_RETRY_BACKOFF_FACTOR = 2;
 
     private static final int THREAD_POOL_SIZE = 30;
@@ -118,7 +118,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // peer hidden service publish latency. Use this when scheduling requests
     // unless in response to a received peer communication (so, use it on
     // start up, or when a friend is added, for example).
-    private static final long POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS = TimeUnit.SECONDS.convert(30, TimeUnit.NANOSECONDS);
+    private static final long POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS = TimeUnit.NANOSECONDS.convert(30, TimeUnit.SECONDS);
 
     public Engine() {
         this(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
@@ -255,7 +255,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         if (delay < 0) {
             return 0;
         }
-        return TimeUnit.MILLISECONDS.convert(delay, TimeUnit.NANOSECONDS);
+        return TimeUnit.NANOSECONDS.convert(delay, TimeUnit.MILLISECONDS);
     }
 
     @Subscribe
@@ -300,7 +300,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onRefreshSelfLocationFix(Events.RefreshSelfLocationFix refreshSelfLocationFix) {
         try {
-            mLocationFixer.start();
+            if (mLocationFixer != null) {
+                mLocationFixer.start();
+            }
         } catch (PloggyError e) {
             Log.addEntry(logTag(), "failed to start refresh self location fix");
         }

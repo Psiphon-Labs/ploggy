@@ -40,7 +40,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     private static final String LOG_TAG = "Web Server";
 
-    private static final int READ_TIMEOUT_IN_MILLISECONDS = (int)TimeUnit.SECONDS.convert(60, TimeUnit.MILLISECONDS);
+    private static final int READ_TIMEOUT_IN_MILLISECONDS = (int)TimeUnit.MILLISECONDS.convert(60, TimeUnit.SECONDS);
 
     public interface RequestHandler {
 
