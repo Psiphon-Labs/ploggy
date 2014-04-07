@@ -298,6 +298,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     @Subscribe
+    public synchronized void onRefreshSelfLocationFix(Events.RefreshSelfLocationFix refreshSelfLocationFix) {
+        try {
+            mLocationFixer.start();
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed to start refresh self location fix");
+        }
+    }
+
+    @Subscribe
     public synchronized void onNewSelfLocationFix(Events.NewSelfLocationFix newSelfLocation) {
         try {
             String streetAddress;

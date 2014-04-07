@@ -45,7 +45,7 @@ import android.widget.TextView;
  * nickname. The resulting identity fingerprint and Robohash avatar is updated
  * after brief pauses in typing.
  */
-public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements View.OnClickListener {
+public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnClickListener {
 
     private static final String LOG_TAG = "Generate Self";
 

@@ -378,9 +378,9 @@ public class Utils {
         private final Handler mHandler;
         private Runnable mExecutorTask;
         private final Runnable mTask;
-        private final int mDelayInMilliseconds;
+        private final long mDelayInMilliseconds;
 
-        public FixedDelayExecutor(Runnable task, int delayInMilliseconds) {
+        public FixedDelayExecutor(Runnable task, long delayInMilliseconds) {
             mHandler = new Handler();
             mTask = task;
             mDelayInMilliseconds = delayInMilliseconds;

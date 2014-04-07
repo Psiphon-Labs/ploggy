@@ -46,7 +46,7 @@ import com.squareup.otto.Subscribe;
 /**
  * User interface for editing groups.
  */
-public class ActivityEditGroup extends ActivitySendIdentityByNfc
+public class ActivityEditGroup extends ActivityPloggyBase
         implements View.OnClickListener, ActionMode.Callback, View.OnLongClickListener {
 
     private static final String LOG_TAG = "Edit Group";
@@ -96,7 +96,7 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
     }
 
     @Override
-    public void onDestroy() {
+    protected void onDestroy() {
         Events.getInstance().unregister(this);
         super.onDestroy();
     }
@@ -110,12 +110,12 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
     }
 
     @Override
-    public void onNewIntent(Intent intent) {
+    protected void onNewIntent(Intent intent) {
         setIntent(intent);
     }
 
     @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
 
         Bundle bundle = getIntent().getExtras();
@@ -135,6 +135,18 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
         }
 
         show();
+    }
+
+    @Override
+    protected void onPause() {
+        // Don't leave toast dangling if e.g., Home button pressed
+        if (mBackPressedToast != null) {
+            View view = mBackPressedToast.getView();
+            if (view != null && view.isShown()) {
+                    mBackPressedToast.cancel();
+            }
+        }
+        super.onPause();
     }
 
     private void show() {
@@ -179,12 +191,10 @@ public class ActivityEditGroup extends ActivitySendIdentityByNfc
         }
         if (mBackPressedToast != null) {
             View view = mBackPressedToast.getView();
-            if (view != null) {
-                if (view.isShown()) {
-                    mBackPressedToast.cancel();
-                    super.onBackPressed();
-                    return;
-                }
+            if (view != null && view.isShown()) {
+                mBackPressedToast.cancel();
+                super.onBackPressed();
+                return;
             }
         }
         mBackPressedToast = Toast.makeText(this, R.string.prompt_edit_group_back, Toast.LENGTH_LONG);

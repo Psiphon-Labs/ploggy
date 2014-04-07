@@ -173,6 +173,7 @@ public class Protocol {
         public final String mContentType;
         public final String mContent;
         public final List<Resource> mAttachments;
+        public final Location mLocation;
         public final Date mCreatedTimestamp;
         public final Date mModifiedTimestamp;
         public final long mSequenceNumber;
@@ -185,6 +186,7 @@ public class Protocol {
                 String contentType,
                 String content,
                 List<Resource> attachments,
+                Location location,
                 Date createdTimestamp,
                 Date modifiedTimestamp,
                 long sequenceNumber,
@@ -195,6 +197,7 @@ public class Protocol {
             mContentType = contentType;
             mContent = content;
             mAttachments = attachments;
+            mLocation = location;
             mCreatedTimestamp = createdTimestamp;
             mModifiedTimestamp = modifiedTimestamp;
             mSequenceNumber = sequenceNumber;

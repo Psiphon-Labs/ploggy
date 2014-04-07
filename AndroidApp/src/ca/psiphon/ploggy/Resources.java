@@ -58,11 +58,12 @@ public class Resources {
     public static PostWithAttachments createPostWithAttachment(
             Data data,
             String postGroupId,
-            Date postTimestamp,
             String postContent,
             Data.LocalResource.Type localResourceType,
             String attachmentMimeType,
-            String attachmentFilePath) throws PloggyError {
+            String attachmentFilePath,
+            Protocol.Location postLocation,
+            Date postTimestamp) throws PloggyError {
          // Create a resource with a random ID and add it to the post
          // Friends only see the random ID, not the local resource file name
          // Note: never reusing resource IDs, even if same local e.g., file, has been published previously
@@ -87,6 +88,7 @@ public class Resources {
                          Protocol.POST_CONTENT_TYPE_DEFAULT,
                          postContent,
                          attachments,
+                         postLocation,
                          postTimestamp,
                          postTimestamp,
                          Protocol.UNASSIGNED_SEQUENCE_NUMBER,

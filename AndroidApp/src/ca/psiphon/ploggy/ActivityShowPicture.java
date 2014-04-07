@@ -33,7 +33,7 @@ import android.widget.ImageView;
  * This class subscribes to status events to update displayed data
  * while in the foreground.
  */
-public class ActivityShowPicture extends ActivitySendIdentityByNfc {
+public class ActivityShowPicture extends ActivityPloggyBase {
 
     private static final String LOG_TAG = "Show Picture";
 

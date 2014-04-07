@@ -55,7 +55,7 @@ import com.squareup.otto.Subscribe;
  * Navigation drawer example: https://developer.android.com/training/implementing-navigation/nav-drawer.html
  *
  */
-public class ActivityMain extends ActivitySendIdentityByNfc implements ListView.OnItemClickListener {
+public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemClickListener {
 
     private static final String LOG_TAG = "Main Activity";
 

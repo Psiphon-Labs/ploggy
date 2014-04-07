@@ -329,6 +329,7 @@ public class Tests {
             Date now = new Date();
             for (int i = 0; i < count; i++) {
                 String content = Utils.encodeBase64(Utils.getRandomBytes(250));
+                Protocol.Location  stubLocation = new Protocol.Location(now, 0.0, 0.0, "");
                 Protocol.Post post = new Protocol.Post(
                         Utils.makeId(),
                         groupId,
@@ -336,6 +337,7 @@ public class Tests {
                         Protocol.POST_CONTENT_TYPE_DEFAULT,
                         content,
                         attachments,
+                        stubLocation,
                         now,
                         now,
                         -1,

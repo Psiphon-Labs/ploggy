@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.concurrent.TimeUnit;
+
 import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -71,7 +73,9 @@ public class FragmentSelfDetail extends Fragment {
 
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
-        mRefreshUIExecutor = new Utils.FixedDelayExecutor(new Runnable() {@Override public void run() {show();}}, 5000);
+        mRefreshUIExecutor = new Utils.FixedDelayExecutor(
+                new Runnable() {@Override public void run() {show();}},
+                TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS));
 
         return view;
     }

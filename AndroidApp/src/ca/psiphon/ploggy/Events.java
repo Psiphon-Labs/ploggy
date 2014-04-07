@@ -108,12 +108,6 @@ public class Events {
     public static class TorCircuitEstablished {
     }
 
-    public static class BytesSentToFriend {
-    }
-
-    public static class BytesReceivedFromFriend {
-    }
-
     public static class UpdatedSelf {
 
         public UpdatedSelf() {
@@ -159,6 +153,12 @@ public class Events {
         public UpdatedFriendGroup(String friendId, String groupId) {
             mFriendId = friendId;
             mGroupId = groupId;
+        }
+    }
+
+    public static class RefreshSelfLocationFix {
+
+        public RefreshSelfLocationFix() {
         }
     }
 

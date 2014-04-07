@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.concurrent.TimeUnit;
+
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -63,7 +65,8 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
         // Refresh the message list every 5 seconds. This updates "time ago" displays.
         // TODO: event driven redrawing?
         mRefreshUIExecutor = new Utils.FixedDelayExecutor(
-                new Runnable() {@Override public void run() {updateGroups(false);}}, 5000);
+                new Runnable() {@Override public void run() {updateGroups(false);}},
+                TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS));
 
         setHasOptionsMenu(true);
 

@@ -155,14 +155,21 @@ public class FragmentComposePost extends Fragment implements View.OnClickListene
             if (mPicturePath != null || content.length() > 0) {
                 // TODO: Use AsyncTask? Could be slow as it copies/scales the picture.
                 Data data = Data.getInstance();
+                Protocol.Location location = null;
+                try {
+                    // **TODO** check Engine.currentlySharingLocation()
+                    location = data.getSelfLocation();
+                } catch (Data.NotFoundError e) {
+                }
                 Resources.PostWithAttachments post = Resources.createPostWithAttachment(
                         data,
                         mGroupId,
-                        new Date(),
                         content,
                         Data.LocalResource.Type.PICTURE,
                         mPictureMimeType,
-                        mPicturePath);
+                        mPicturePath,
+                        location,
+                        new Date());
                 data.addPost(post.mPost, post.mLocalResources);
                 mContentEdit.getEditableText().clear();
                 resetPicture();

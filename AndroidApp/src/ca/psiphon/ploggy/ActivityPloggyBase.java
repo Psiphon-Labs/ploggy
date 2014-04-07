@@ -19,6 +19,8 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.concurrent.TimeUnit;
+
 import android.content.Context;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
@@ -30,7 +32,10 @@ import android.support.v4.app.FragmentActivity;
 import android.widget.Toast;
 
 /**
- * Base class for all activities that send identity via NFC.
+ * Common base class for all activities.
+ *
+ * - Sends identity via NFC.
+ * - Triggers location fixes while in foreground.
  *
  * Implements NFC (Android Beam) identity exchange. Due to the "Touch to Beam" OS prompt enforced
  * for Beam for Android 4+, apps cannot automatically send a Beam in response to an incoming Beam
@@ -40,15 +45,17 @@ import android.widget.Toast;
  * This class is used as the base class for most/all Ploggy Activities so that identity is
  * exchanged when users initiate an Android Beam when any Ploggy UI is active.
  */
-public class ActivitySendIdentityByNfc extends FragmentActivity implements NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
+public class ActivityPloggyBase extends FragmentActivity implements NfcAdapter.CreateNdefMessageCallback, NfcAdapter.OnNdefPushCompleteCallback {
 
-    private static final String LOG_TAG = "Send Identity By NFC";
+    private static final String LOG_TAG = "Base Activity";
 
     private static final String NFC_MIME_TYPE = "application/ca.psiphon.ploggy.android.beam";
     private static final String NFC_AAR_PACKAGE_NAME = "ca.psiphon.ploggy";
 
     private boolean mNfcEnabled;
     private NfcAdapter mNfcAdapter;
+    private boolean mIsResumed;
+    private Utils.FixedDelayExecutor mLocationFixExecutor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +72,31 @@ public class ActivitySendIdentityByNfc extends FragmentActivity implements NfcAd
                 mNfcAdapter.setOnNdefPushCompleteCallback(this, this);
             }
         }
+
+        mIsResumed = false;
+        mLocationFixExecutor = new Utils.FixedDelayExecutor(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mIsResumed) {
+                            Events.getInstance().post(new Events.RefreshSelfLocationFix());
+                        }
+                    }
+                },
+                // TODO: preference?
+                TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mIsResumed = true;
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mIsResumed = false;
     }
 
     @Override

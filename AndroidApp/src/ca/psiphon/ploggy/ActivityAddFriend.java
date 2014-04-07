@@ -47,7 +47,7 @@ import android.widget.Toast;
  * This activity is invoked by various sources of serialized Identity blobs,
  * including .ploggy files (e.g., Email attachments), NFC messages, etc.
  */
-public class ActivityAddFriend extends ActivitySendIdentityByNfc implements View.OnClickListener {
+public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClickListener {
 
     private static final String LOG_TAG = "Add Friend";
 

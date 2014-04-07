@@ -326,6 +326,7 @@ public class Data extends SQLiteOpenHelper {
                 "contentType TEXT NOT NULL," +
                 "content TEXT NOT NULL," +
                 "attachments TEXT NOT NULL," +
+                "location TEXT NOT NULL," +
                 "createdTimestamp TEXT NOT NULL," +
                 "modifiedTimestamp TEXT NOT NULL," +
                 "sequenceNumber INTEGER NOT NULL," +
@@ -1080,6 +1081,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("contentType", post.mContentType);
             values.put("content", post.mContent);
             values.put("attachments", Json.toJson(post.mAttachments));
+            values.put("location", Json.toJson(post.mLocation));
             values.put("createdTimestamp", dateToString(post.mCreatedTimestamp));
             values.put("modifiedTimestamp", dateToString(post.mModifiedTimestamp));
             values.put("sequenceNumber", newSequenceNumber);
@@ -1177,7 +1179,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static final String SELECT_POST =
-            "SELECT id, groupId, publisherId, contentType, content, attachments, " +
+            "SELECT id, groupId, publisherId, contentType, content, attachments, location, " +
                     "createdTimestamp, modifiedTimestamp, sequenceNumber, state FROM Post";
 
     private static final IRowToObject<Post> mRowToPost =
@@ -1189,7 +1191,8 @@ public class Data extends SQLiteOpenHelper {
                         new Protocol.Post(
                             cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getString(3), cursor.getString(4),
                             new ArrayList<Protocol.Resource>(Arrays.asList(Json.fromJson(cursor.getString(5), Protocol.Resource[].class))),
-                            stringToDate(cursor.getString(6)), stringToDate(cursor.getString(7)), cursor.getLong(8),
+                            Json.fromJson(cursor.getString(6), Protocol.Location.class),
+                            stringToDate(cursor.getString(7)), stringToDate(cursor.getString(7)), cursor.getLong(9),
                             (state == Post.State.TOMBSTONE)),
                         state);
             }
