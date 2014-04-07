@@ -58,8 +58,6 @@ public class Protocol {
 
     public static final long UNASSIGNED_SEQUENCE_NUMBER = -1;
 
-    public static final int MAX_PUSH_PAYLOAD_OBJECT_COUNT = 10;
-
     // *TODO* should this limit be enforced?
     public static final int MAX_POST_SIZE = 10000;
 
@@ -103,21 +101,8 @@ public class Protocol {
         }
     }
 
-    public static class SyncRequest {
-        public final SyncState mSyncState;
-        public final List<String> mPushPayload;
-
-        public SyncRequest(
-                SyncState syncState,
-                List<String> pushPayload) {
-            mSyncState = syncState;
-            mPushPayload = pushPayload;
-        }
-    }
-
     public static class Payload {
         public enum Type {
-            SYNC_STATE,
             GROUP,
             POST,
             LOCATION
@@ -244,11 +229,6 @@ public class Protocol {
 
     public static void validateSyncState(SyncState syncState) throws PloggyError {
         // TODO: ...
-    }
-
-    public static void validateSyncRequest(SyncRequest syncRequest) throws PloggyError {
-        // TODO: ...
-        // *TODO* validateSyncRequest must validate payload objects
     }
 
     public static void validateGroup(Group group) throws PloggyError {

@@ -1512,22 +1512,15 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void putSyncRequest(
-            String friendId,
-            Protocol.SyncState syncState,
-            List<Protocol.Group> pushedGroups,
-            List<Protocol.Post> pushedPosts,
-            Set<String> needSyncFriendIds) throws PloggyError {
-        // TODO: don't start a transaction if no changes in syncRequest?
+    public boolean putSyncRequest(String friendId, Protocol.SyncState syncState) throws PloggyError {
+        boolean needSync = false;
         List<String> resignedGroups = new ArrayList<String>();
         try {
+            // TODO: don't start a transaction if no changes in syncRequest?
             mDatabase.beginTransactionNonExclusive();
 
             // Update friend sequence numbers
-            boolean needSync = putFriendSequenceNumbers(friendId, syncState);
-            if (needSync) {
-                needSyncFriendIds.add(friendId);
-            }
+            needSync = putFriendSequenceNumbers(friendId, syncState);
 
             // When publisher of group that friend wants to be removed from, remove memberships
             if (syncState.mGroupsToResignMembership.size() > 0) {
@@ -1557,25 +1550,6 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
 
-            // Process push payload
-
-            for (Protocol.Group group : pushedGroups) {
-                // ***TODO*** check proper sequence number processing
-                putReceivedGroup(friendId, group);
-                for (Identity.PublicIdentity publicIdentity : group.mMembers) {
-                    try {
-                        getFriendById(publicIdentity.mId);
-                        needSyncFriendIds.add(publicIdentity.mId);
-                    } catch (NotFoundError e) {
-                        // This group member is not a friend
-                    }
-                }
-            }
-            for (Protocol.Post post : pushedPosts) {
-                // ***TODO*** check proper sequence number processing; or don't store if out-of-order
-                putReceivedPost(friendId, post);
-            }
-
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
             throw new PloggyError(logTag(), e);
@@ -1585,17 +1559,8 @@ public class Data extends SQLiteOpenHelper {
         for (String groupId : resignedGroups) {
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
         }
-    }
 
-    public SyncPayloadIterator getSyncPayload(String friendId)
-            throws PloggyError {
-        // Use the local sequence numbers for friend
-
-        // ***TODO***
-        // ***TODO*** helper to make mGroupSequenceNumbers for friend or self?
-        Protocol.SyncState syncState = null;
-
-        return getSyncPayload(friendId, syncState);
+        return needSync;
     }
 
     public SyncPayloadIterator getSyncPayload(String friendId, Protocol.SyncState syncState)
@@ -1609,7 +1574,6 @@ public class Data extends SQLiteOpenHelper {
     public void putSyncResponse(
             String friendId,
             Protocol.SyncState requestSyncState,
-            Protocol.SyncState responseSyncState,
             List<Protocol.Group> receivedGroups,
             List<Protocol.Post> receivedPosts,
             Set<String> needSyncFriendIds) throws PloggyError {
@@ -1638,12 +1602,6 @@ public class Data extends SQLiteOpenHelper {
                             new String[]{groupId, friendId})) {
                         deleteGroup(groupId);
                     }
-                }
-            }
-            if (responseSyncState != null) {
-                boolean needSync = putFriendSequenceNumbers(friendId, responseSyncState);
-                if (needSync) {
-                    needSyncFriendIds.add(friendId);
                 }
             }
             for (Protocol.Group group : receivedGroups) {
@@ -1712,8 +1670,8 @@ public class Data extends SQLiteOpenHelper {
             long confirmedGroupSequenceNumber = groupSequenceNumbers.getValue().mConfirmedGroupSequenceNumber;
             long confirmedLastPostSequenceNumber = groupSequenceNumbers.getValue().mConfirmedLastPostSequenceNumber;
 
-            // Sync messages can overlap and arrive out-of-order, resulting in calls
-            // to putFriendSequenceNumbers with stale sequence numbers. So each update
+            // Sync messages can potentially overlap and arrive out-of-order, resulting in
+            // calls to putFriendSequenceNumbers with stale sequence numbers. So each update
             // checks the new value is fresher than the previous value.
 
             if (isGroupPublisher) {
