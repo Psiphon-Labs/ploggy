@@ -37,7 +37,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteOpenHelper;
-import ca.psiphon.ploggy.Protocol.SequenceNumbers;
 
 /**
  * Manages local, persistent Ploggy data. Implementation of sync protocol
@@ -1525,12 +1524,12 @@ public class Data extends SQLiteOpenHelper {
             mDatabase.beginTransactionNonExclusive();
 
             // Update friend sequence numbers
-
-            // ***TODO***
-            // ***TODO*** needSyncFriendIds += friends with offered > local max
+            boolean needSync = putFriendSequenceNumbers(friendId, syncState);
+            if (needSync) {
+                needSyncFriendIds.add(friendId);
+            }
 
             // When publisher of group that friend wants to be removed from, remove memberships
-
             if (syncState.mGroupsToResignMembership.size() > 0) {
                 String modifiedTimestamp = dateToString(new Date());
                 for (String groupId : syncState.mGroupsToResignMembership) {
@@ -1605,89 +1604,11 @@ public class Data extends SQLiteOpenHelper {
         return new SyncPayloadIterator(friendId, syncState);
     }
 
-    /*
-    private void confirmSentTo(String groupId, String friendId, long lastConfirmedGroupSequenceNumber, long lastConfirmedPostSequenceNumber)
-            throws PloggyError {
-        // Helper used by other confirmSentTo functions; assumes in transaction
-        try {
-            if (lastConfirmedGroupSequenceNumber != UNASSIGNED_SEQUENCE_NUMBER) {
-                ContentValues values = new ContentValues();
-                values.put("lastConfirmedGroupSequenceNumber", lastConfirmedGroupSequenceNumber);
-                mDatabase.update(
-                        "GroupMember",
-                        values,
-                        "groupId = ? AND memberId = ? AND lastConfirmedGroupSequenceNumber < CAST(? as INTEGER)",
-                        new String[]{groupId, friendId, Long.toString(lastConfirmedGroupSequenceNumber)});
-            }
-            if (lastConfirmedPostSequenceNumber != UNASSIGNED_SEQUENCE_NUMBER) {
-                ContentValues values = new ContentValues();
-                values.put("lastConfirmedPostSequenceNumber", lastConfirmedPostSequenceNumber);
-                mDatabase.update(
-                        "GroupMember",
-                        values,
-                        "groupId = ? AND memberId = ? AND lastConfirmedPostSequenceNumber < CAST(? as INTEGER)",
-                        new String[]{groupId, friendId, Long.toString(lastConfirmedPostSequenceNumber)});
-            }
-        } catch (SQLiteException e) {
-            throw new PloggyError(logTag(), e);
-        }
-    }
-
-    public void confirmSentTo(String friendId, Protocol.PullRequest pullRequest) throws PloggyError {
-        try {
-            mDatabase.beginTransactionNonExclusive();
-            for (Map.Entry<String, Protocol.SequenceNumbers> groupLastKnownSequenceNumbers :
-                    pullRequest.mGroupLastKnownSequenceNumbers.entrySet()) {
-                // TODO: case for groups in pullRequest.mGroupsToResignMembership?
-                String groupId = groupLastKnownSequenceNumbers.getKey();
-                long lastConfirmedGroupSequenceNumber = groupLastKnownSequenceNumbers.getValue().mGroupSequenceNumber;
-                long lastConfirmedPostSequenceNumber = groupLastKnownSequenceNumbers.getValue().mPostSequenceNumber;
-
-                if (1 != getCount(
-                        "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = (SELECT id FROM Self)",
-                        new String[]{groupId})) {
-                    lastConfirmedGroupSequenceNumber = UNASSIGNED_SEQUENCE_NUMBER;
-                }
-
-                confirmSentTo(groupId, friendId, lastConfirmedGroupSequenceNumber, lastConfirmedPostSequenceNumber);
-            }
-            mDatabase.setTransactionSuccessful();
-        } finally {
-            mDatabase.endTransaction();
-        }
-        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
-    }
-
-    // *TODO* when is this called? should be as soon as sync request is accepted? or move to putSyncResponse?
-    public void confirmSentTo(String friendId, Protocol.Group group) throws PloggyError {
-        try {
-            mDatabase.beginTransactionNonExclusive();
-            confirmSentTo(group.mId, friendId, group.mSequenceNumber, UNASSIGNED_SEQUENCE_NUMBER);
-            mDatabase.setTransactionSuccessful();
-        } finally {
-            mDatabase.endTransaction();
-        }
-        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
-    }
-
-    // *TODO* when is this called? should be as soon as sync request is accepted? or move to putSyncResponse?
-    public void confirmSentTo(String friendId, Protocol.Post post) throws PloggyError {
-        try {
-            mDatabase.beginTransactionNonExclusive();
-            confirmSentTo(post.mGroupId, friendId, UNASSIGNED_SEQUENCE_NUMBER, post.mSequenceNumber);
-            mDatabase.setTransactionSuccessful();
-        } finally {
-            mDatabase.endTransaction();
-        }
-        Events.getInstance(mInstanceName).post(new Events.UpdatedFriend(friendId));
-    }
-    */
-
     public static final int MAX_SYNC_RESPONSE_TRANSACTION_OBJECT_COUNT = 100;
 
     public void putSyncResponse(
             String friendId,
-            Protocol.SyncState syncState,
+            Protocol.SyncState requestSyncState,
             Protocol.SyncState responseSyncState,
             List<Protocol.Group> receivedGroups,
             List<Protocol.Post> receivedPosts,
@@ -1707,11 +1628,11 @@ public class Data extends SQLiteOpenHelper {
         try {
             mDatabase.beginTransactionNonExclusive();
 
-            if (syncState != null) {
+            if (requestSyncState != null) {
                 // The request was successful, so we can assume groupsToResignMembership were accepted by the
                 // friend and if the friend was the group publisher we are now removed as a group member. So
                 // fully delete the group in this case.
-                for (String groupId : syncState.mGroupsToResignMembership) {
+                for (String groupId : requestSyncState.mGroupsToResignMembership) {
                     if (1 == getCount(
                             "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
                             new String[]{groupId, friendId})) {
@@ -1720,9 +1641,10 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
             if (responseSyncState != null) {
-                putFriendSequenceNumbers(friendId, responseSyncState.mGroupSequenceNumbers);
-                // ***TODO***
-                // ***TODO*** needSyncFriendIds += member friends in updated group
+                boolean needSync = putFriendSequenceNumbers(friendId, responseSyncState);
+                if (needSync) {
+                    needSyncFriendIds.add(friendId);
+                }
             }
             for (Protocol.Group group : receivedGroups) {
                 putReceivedGroup(friendId, group);
@@ -1754,8 +1676,8 @@ public class Data extends SQLiteOpenHelper {
                     " posts from " +
                     getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
         }
-        if (syncState != null) {
-            for (String groupId : syncState.mGroupsToResignMembership) {
+        if (requestSyncState != null) {
+            for (String groupId : requestSyncState.mGroupsToResignMembership) {
                 Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, groupId));
             }
         }
@@ -1768,10 +1690,78 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    private void putFriendSequenceNumbers(
-            String friendId,
-            Map<String, SequenceNumbers> groupSequenceNumbers) {
-        // *TODO*
+    private boolean putFriendSequenceNumbers(String friendId, Protocol.SyncState syncState)
+            throws PloggyError {
+        // Helper used by other functions; assumes in transaction
+        boolean needSync = false;
+        Protocol.SyncState selfSyncState = getSyncState(friendId);
+        for (Map.Entry<String, Protocol.SequenceNumbers> groupSequenceNumbers :
+                syncState.mGroupSequenceNumbers.entrySet()) {
+            // TODO: case for groups in pullRequest.mGroupsToResignMembership?
+            String groupId = groupSequenceNumbers.getKey();
+            boolean isGroupPublisher =
+                    (1 == getCount(
+                            "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
+                            new String[]{groupId, friendId}));
+            boolean isGroupMember =
+                    (1 == getCount(
+                            "SELECT COUNT(*) FROM 'GroupMenber' WHERE groupId = ? AND memberId = ?",
+                            new String[]{groupId, friendId}));
+            long offeredGroupSequenceNumber = groupSequenceNumbers.getValue().mOfferedGroupSequenceNumber;
+            long offeredLastPostSequenceNumber = groupSequenceNumbers.getValue().mOfferedLastPostSequenceNumber;
+            long confirmedGroupSequenceNumber = groupSequenceNumbers.getValue().mConfirmedGroupSequenceNumber;
+            long confirmedLastPostSequenceNumber = groupSequenceNumbers.getValue().mConfirmedLastPostSequenceNumber;
+
+            // Sync messages can overlap and arrive out-of-order, resulting in calls
+            // to putFriendSequenceNumbers with stale sequence numbers. So each update
+            // checks the new value is fresher than the previous value.
+
+            if (isGroupPublisher) {
+                if (!needSync) {
+                    needSync =
+                        !selfSyncState.mGroupSequenceNumbers.containsKey(groupId)
+                        || (selfSyncState.mGroupSequenceNumbers.get(groupId).mConfirmedGroupSequenceNumber < offeredGroupSequenceNumber);
+                }
+                ContentValues values = new ContentValues();
+                values.put("offeredGroupSequenceNumber", offeredGroupSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND offeredGroupSequenceNumber < CAST(? as INTEGER)",
+                        new String[]{groupId, friendId, Long.toString(offeredGroupSequenceNumber)});
+            }
+
+            if (isGroupPublisher || isGroupMember) {
+                if (!needSync) {
+                    needSync =
+                        !selfSyncState.mGroupSequenceNumbers.containsKey(groupId)
+                        || (selfSyncState.mGroupSequenceNumbers.get(groupId).mConfirmedLastPostSequenceNumber < offeredLastPostSequenceNumber);
+                }
+                ContentValues values = new ContentValues();
+                values.put("offeredLastPostSequenceNumber", offeredLastPostSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND offeredLastPostSequenceNumber < CAST(? as INTEGER)",
+                        new String[]{groupId, friendId, Long.toString(offeredLastPostSequenceNumber)});
+                values = new ContentValues();
+                values.put("confirmedGroupSequenceNumber", confirmedGroupSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND confirmedGroupSequenceNumber < CAST(? as INTEGER)",
+                        new String[]{groupId, friendId, Long.toString(confirmedGroupSequenceNumber)});
+                values = new ContentValues();
+                values.put("confirmedLastPostSequenceNumber", confirmedLastPostSequenceNumber);
+                mDatabase.update(
+                        "GroupMember",
+                        values,
+                        "groupId = ? AND memberId = ? AND confirmedLastPostSequenceNumber < CAST(? as INTEGER)",
+                        new String[]{groupId, friendId, Long.toString(confirmedLastPostSequenceNumber)});
+            }
+        }
+
+        return needSync;
     }
 
     /*

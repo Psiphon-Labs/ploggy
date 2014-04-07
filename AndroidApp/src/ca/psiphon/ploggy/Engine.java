@@ -391,8 +391,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void stopHiddenService() {
-        // Friend poll depends on Tor wrapper, so stop it first
-        stopDownloadRetryTask();
         if (mTorWrapper != null) {
             mTorWrapper.stop();
         }
@@ -885,8 +883,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
         Protocol.SyncRequest syncRequest = Json.fromJson(requestBody, Protocol.SyncRequest.class);
         Protocol.validateSyncRequest(syncRequest);
-
-        // Push payload
+        // Extract/validate push payload
         List<Protocol.Group> pushedGroups = new ArrayList<Protocol.Group>();
         List<Protocol.Post> pushedPosts = new ArrayList<Protocol.Post>();
         for (String jsonPayload : syncRequest.mPushPayload) {
@@ -906,7 +903,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 break;
             }
         }
-
         Set<String> needSyncFriendIds = new HashSet<String>();
         mData.putSyncRequest(friend.mId, syncRequest.mSyncState, pushedGroups, pushedPosts, needSyncFriendIds);
         Data.SyncPayloadIterator syncPayloadIterator = mData.getSyncPayload(friend.mId, syncRequest.mSyncState);
