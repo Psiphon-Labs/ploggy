@@ -1186,7 +1186,7 @@ public class Data extends SQLiteOpenHelper {
         new IRowToObject<Post>() {
             @Override
             public Post rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
-                Post.State state = Post.State.valueOf(cursor.getString(9));
+                Post.State state = Post.State.valueOf(cursor.getString(10));
                 return new Post(
                         new Protocol.Post(
                             cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getString(3), cursor.getString(4),
