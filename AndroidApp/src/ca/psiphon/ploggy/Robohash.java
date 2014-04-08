@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -80,7 +80,9 @@ public class Robohash {
 
     private static final String LOG_TAG = "Robohash";
 
-    private static final String ASSETS_SUBDIRECTORY = "robohash";
+    // TODO: rename module if retiring robohashes
+    //private static final String ASSETS_SUBDIRECTORY = "robohash";
+    private static final String ASSETS_SUBDIRECTORY = "ploggyhash";
     private static final String CONFIG_FILENAME = "config.json";
 
     // TODO: subscribe to RemovedFriend events to clear associated bitmaps
