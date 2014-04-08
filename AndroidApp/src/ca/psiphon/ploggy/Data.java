@@ -1355,7 +1355,6 @@ public class Data extends SQLiteOpenHelper {
         private final String mFriendId;
         private long mGroupCount;
         private long mPostCount;
-        private Protocol.SyncState mSelfSyncState;
         private final Map<String, Protocol.SequenceNumbers> mGroupsToSend;
         private final Iterator<Map.Entry<String, Protocol.SequenceNumbers>> mGroupsToSendIterator;
         private ObjectCursor<Post> mPostCursor;
@@ -1366,7 +1365,6 @@ public class Data extends SQLiteOpenHelper {
             mFriendId = friendId;
             mGroupCount = 0;
             mPostCount = 0;
-            mSelfSyncState = getSyncState(friendId);
             mGroupsToSend = getGroupsToSend(friendId, syncState);
             mGroupsToSendIterator = mGroupsToSend.entrySet().iterator();
             mPostCursor = null;
@@ -1395,11 +1393,7 @@ public class Data extends SQLiteOpenHelper {
 
         private String getNext() {
             try {
-                if (mSelfSyncState != null) {
-                    Protocol.SyncState syncState = mSelfSyncState;
-                    mSelfSyncState = null;
-                    return Json.toJson(syncState);
-                } else if (mPostCursor != null && mPostCursor.hasNext()) {
+                if (mPostCursor != null && mPostCursor.hasNext()) {
                     mPostCount++;
                     return Json.toJson(mPostCursor.next().mPost);
                 } else {
@@ -1724,49 +1718,6 @@ public class Data extends SQLiteOpenHelper {
 
         return needSync;
     }
-
-    /*
-    public void putPushedGroup(String friendId, Protocol.Group group) throws PloggyError {
-        // Unlike putPushedObject, there's no pull trigger since all we would
-        // know is we missed an older version of the group object itself.
-        try {
-            mDatabase.beginTransactionNonExclusive();
-            putReceivedGroup(friendId, group);
-            mDatabase.setTransactionSuccessful();
-        } catch (SQLiteException e) {
-            throw new PloggyError(logTag(), e);
-        } finally {
-            mDatabase.endTransaction();
-        }
-        Log.addEntry(logTag(),"put group pushed from " + getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
-        Events.getInstance(mInstanceName).post(new Events.UpdatedFriendGroup(friendId, group.mId));
-    }
-
-    public boolean putPushedPost(String friendId, Protocol.Post post) throws PloggyError {
-        boolean triggerPull = false;
-        try {
-            mDatabase.beginTransactionNonExclusive();
-            // Trigger a pull from this friend if we *may* have missed an update
-            if (0 == getCount(
-                    "SELECT COUNT(*) FROM Post " +
-                        "WHERE id = ? AND publisherId = ? AND groupId = ? AND sequenceNumber >= CAST(? as INTEGER)",
-                    new String[]{post.mId, post.mPublisherId, post.mGroupId, Long.toString(post.mSequenceNumber - 1)})) {
-                Log.addEntry(logTag(), "pull triggered by push sequence number");
-                triggerPull = true;
-            }
-            putReceivedPost(friendId, post);
-            mDatabase.setTransactionSuccessful();
-        } catch (SQLiteException e) {
-            throw new PloggyError(logTag(), e);
-        } finally {
-            mDatabase.endTransaction();
-        }
-        // *TODO* temporary log?
-        Log.addEntry(logTag(),"put post pushed from " + getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname);
-        Events.getInstance(mInstanceName).post(new Events.UpdatedFriendPost(friendId, post.mGroupId, post.mId));
-        return triggerPull;
-    }
-    */
 
     private void putReceivedGroup(String friendId, Protocol.Group group)
             throws PloggyError, SQLiteException {
