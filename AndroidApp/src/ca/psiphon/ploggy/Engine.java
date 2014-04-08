@@ -119,6 +119,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     // unless in response to a received peer communication (so, use it on
     // start up, or when a friend is added, for example).
     private static final long POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS = TimeUnit.NANOSECONDS.convert(30, TimeUnit.SECONDS);
+    private static final long UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME = -1;
 
     public Engine() {
         this(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
@@ -134,6 +135,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
         mStopped = true;
+        mTorCircuitEstablishedTime = UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
     }
 
     private String logTag() {
@@ -251,8 +253,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
     }
 
+    private boolean isTorCircuitEstablished() {
+        return mTorCircuitEstablishedTime != UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
+    }
+
     private long getPostCircuitDelayInMilliseconds() {
-        // Note: before onTorCircuitEstablished, mTorCircuitEstablishedTime is 0... yielding very long delay
+        if (!isTorCircuitEstablished()) {
+            return 0;
+        }
         long delay = POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS - (System.nanoTime() - mTorCircuitEstablishedTime);
         if (delay < 0) {
             return 0;
@@ -404,7 +412,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     private void stopHiddenService() {
-        mTorCircuitEstablishedTime = 0;
+        mTorCircuitEstablishedTime = UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
         if (mTorWrapper != null) {
             mTorWrapper.stop();
         }
@@ -531,7 +539,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         }
 
-        // *TODO* assumes all taskType are Hidden Service requests
+        // *TODO* assumes all taskTypes are Hidden Service requests
         long postCircuitDelay = getPostCircuitDelayInMilliseconds();
         if (delayInMilliseconds < postCircuitDelay) {
             delayInMilliseconds = postCircuitDelay;
@@ -543,12 +551,17 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                 nickname = mData.getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname;
             } catch (PloggyError e) {
             }
-            Log.addEntry(
-                    logTag(),
-                    "scheduled " + taskType.name() + " for " + nickname +
-                    " in " + Long.toString(delayInMilliseconds) + "ms.");
 
-            state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
+            if (isTorCircuitEstablished()) {
+                Log.addEntry(
+                        logTag(),
+                        "scheduled " + taskType.name() + " for " + nickname +
+                        " in " + Long.toString(delayInMilliseconds) + "ms.");
+
+                state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
+            } else {
+                Log.addEntry(logTag(), "ignored " + taskType.name() + " for " + nickname);
+            }
         }
     }
 
