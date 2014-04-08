@@ -1666,7 +1666,7 @@ public class Data extends SQLiteOpenHelper {
                             new String[]{groupId, friendId}));
             boolean isGroupMember =
                     (1 == getCount(
-                            "SELECT COUNT(*) FROM 'GroupMenber' WHERE groupId = ? AND memberId = ?",
+                            "SELECT COUNT(*) FROM 'GroupMember' WHERE groupId = ? AND memberId = ?",
                             new String[]{groupId, friendId}));
             long offeredGroupSequenceNumber = groupSequenceNumbers.getValue().mOfferedGroupSequenceNumber;
             long offeredLastPostSequenceNumber = groupSequenceNumbers.getValue().mOfferedLastPostSequenceNumber;

@@ -245,17 +245,19 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             startWebClientConnectionPool();
             syncWithFriends();
             downloadFromFriends();
+            // *TODO* askLocationFromFriends(); -- if there isn't state to record pending requests
         } catch (PloggyError e) {
             Log.addEntry(logTag(), "failed to start friend poll after Tor circuit established");
         }
     }
 
     private long getPostCircuitDelayInMilliseconds() {
+        // Note: before onTorCircuitEstablished, mTorCircuitEstablishedTime is 0... yielding very long delay
         long delay = POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS - (System.nanoTime() - mTorCircuitEstablishedTime);
         if (delay < 0) {
             return 0;
         }
-        return TimeUnit.NANOSECONDS.convert(delay, TimeUnit.MILLISECONDS);
+        return TimeUnit.MILLISECONDS.convert(delay, TimeUnit.NANOSECONDS);
     }
 
     @Subscribe
@@ -396,12 +398,13 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         self.mPublicIdentity.mHiddenServiceAuthCookie,
                         self.mPrivateIdentity.mHiddenServicePrivateKey),
                 mWebServer.getListeningPort());
-        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry...
+        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry?
         mTorWrapper.start();
         // Note: startFriendPoll is deferred until onTorCircuitEstablished
     }
 
     private void stopHiddenService() {
+        mTorCircuitEstablishedTime = 0;
         if (mTorWrapper != null) {
             mTorWrapper.stop();
         }
@@ -477,7 +480,9 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
 
     private void syncWithMembers(Protocol.Group group) throws PloggyError {
         for (Identity.PublicIdentity member : group.mMembers) {
-            triggerFriendTask(member.mId, FriendTaskType.SYNC, 0);
+            if (!member.mId.equals(mData.getSelfId())) {
+                triggerFriendTask(member.mId, FriendTaskType.SYNC, 0);
+            }
         }
     }
 
@@ -533,9 +538,14 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         }
 
         if (state.mScheduledTask == null) {
+            String nickname = "";
+            try {
+                nickname = mData.getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname;
+            } catch (PloggyError e) {
+            }
             Log.addEntry(
                     logTag(),
-                    "scheduled " + taskType.name() + " for " + friendId +
+                    "scheduled " + taskType.name() + " for " + nickname +
                     " in " + Long.toString(delayInMilliseconds) + "ms.");
 
             state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
