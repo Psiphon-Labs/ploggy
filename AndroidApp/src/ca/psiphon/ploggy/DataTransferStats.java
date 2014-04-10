@@ -161,6 +161,7 @@ public class DataTransferStats {
     public static class InputStreamWrapper extends FilterInputStream {
         private final Data mData;
         private final String mFriendId;
+        private final InputStream mInputStream;
         private long mLastReport;
         private long mByteCount;
 
@@ -168,18 +169,20 @@ public class DataTransferStats {
             super(inputStream);
             mData = data;
             mFriendId = friendId;
+            mInputStream = inputStream;
             mLastReport = 0;
             mByteCount = 0;
         }
 
         @Override
         public void close() throws IOException {
+            mInputStream.close();
             updateByteCount(0, true);
         }
 
         @Override
         public int read() throws IOException {
-            int result = super.read();
+            int result = mInputStream.read();
             updateByteCount(1, false);
             return result;
         }
@@ -187,7 +190,7 @@ public class DataTransferStats {
         @Override
         public int read(byte[] b) throws IOException {
             // *TODO* check: does this call the super class read(b,off,len) and double count?
-            int result = super.read(b);
+            int result = mInputStream.read(b);
             if (result != -1) {
                 updateByteCount(result, false);
             }
@@ -196,7 +199,7 @@ public class DataTransferStats {
 
         @Override
         public int read(byte[] b, int off, int len) throws IOException {
-            int result = super.read(b, off, len);
+            int result = mInputStream.read(b, off, len);
             if (result != -1) {
                 updateByteCount(result, false);
             }
@@ -205,7 +208,7 @@ public class DataTransferStats {
 
         @Override
         public long skip(long n) throws IOException {
-            long result = super.skip(n);
+            long result = mInputStream.skip(n);
             updateByteCount(result, false);
             return result;
         }
@@ -234,6 +237,7 @@ public class DataTransferStats {
     public static class OutputStreamWrapper extends FilterOutputStream {
         private final Data mData;
         private final String mFriendId;
+        private final OutputStream mOutputStream;
         private long mLastReport;
         private long mByteCount;
 
@@ -241,30 +245,32 @@ public class DataTransferStats {
             super(outputStream);
             mData = data;
             mFriendId = friendId;
+            mOutputStream = outputStream;
             mLastReport = 0;
             mByteCount = 0;
         }
 
         @Override
         public void close() throws IOException {
+            mOutputStream.close();
             updateByteCount(0, true);
         }
 
         @Override
         public void write(int b) throws IOException {
-            super.write(b);
+            mOutputStream.write(b);
             updateByteCount(1, false);
         }
 
         @Override
         public void write(byte[] b) throws IOException {
-            super.write(b);
+            mOutputStream.write(b);
             updateByteCount(b.length, false);
         }
 
         @Override
         public void write(byte[] b, int off, int len) throws IOException {
-            super.write(b, off, len);
+            mOutputStream.write(b, off, len);
             updateByteCount(len, false);
         }
 
