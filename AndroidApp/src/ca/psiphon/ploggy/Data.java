@@ -955,40 +955,6 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
-    public void dumpGroupMembers() throws PloggyError {
-        Cursor cursor = null;
-        try {
-            String query =
-                "SELECT memberNickname, " +
-                        "offeredGroupSequenceNumber, " +
-                        "offeredLastPostSequenceNumber, " +
-                        "confirmedGroupSequenceNumber, " +
-                        "confirmedLastPostSequenceNumber " +
-                    "FROM GroupMember " +
-                    "ORDER BY memberNickname ASC, memberId ASC";
-            cursor = mDatabase.rawQuery(query, null);
-            cursor.moveToFirst();
-            while (!cursor.isAfterLast()) {
-                Log.addEntry(
-                        logTag(),
-                        "dumpGroupMembers: " +
-                        cursor.getString(0) + " " +
-                        Long.toString(cursor.getLong(1)) + " " +
-                        Long.toString(cursor.getLong(2)) + " " +
-                        Long.toString(cursor.getLong(3)) + " " +
-                        Long.toString(cursor.getLong(4))
-                        );
-                cursor.moveToNext();
-            }
-        } catch (SQLiteException e) {
-            throw new PloggyError(LOG_TAG, e);
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
-    }
-
     public ObjectCursor<Group> getVisibleGroups() throws PloggyError {
         return getObjectCursor(
                 SELECT_GROUP + " WHERE state IN (?, ?, ?)",
@@ -1306,7 +1272,6 @@ public class Data extends SQLiteOpenHelper {
         List<String> groupsToResignMembership = new ArrayList<String>();
         Cursor cursor = null;
         try {
-            mDatabase.beginTransactionNonExclusive();
             // Group state cases:
             // TOMBSTONE - don't pull
             // DEAD - don't pull because: no one is publishing; pull list would never shrink; reveals that group isn't yet locally deleted.
@@ -1379,7 +1344,6 @@ public class Data extends SQLiteOpenHelper {
             if (cursor != null) {
                 cursor.close();
             }
-            mDatabase.endTransaction();
         }
         return new Protocol.SyncState(groupSequenceNumbers, groupsToResignMembership);
     }
@@ -1593,11 +1557,7 @@ public class Data extends SQLiteOpenHelper {
         } catch (SQLiteException e) {
             throw new PloggyError(logTag(), e);
         } finally {
-            // ***TODO*** temporary
-            /**/dumpGroupMembers();
             mDatabase.endTransaction();
-            // ***TODO*** temporary
-            /**/dumpGroupMembers();
         }
         for (String groupId : resignedGroups) {
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
