@@ -68,7 +68,7 @@ public class Tests {
 
     private static final String ALICE_GROUP = "Alice's Group";
 
-    private static final int AWAIT_SYNC_TIMEOUT_SECONDS = 120;
+    private static final int AWAIT_SYNC_TIMEOUT_SECONDS = 600;
 
     public static void runComponentTests() {
         PloggyInstance alice = null;
@@ -104,8 +104,10 @@ public class Tests {
             String aliceGroupId = alice.addGroup(ALICE_GROUP);
 
             Log.addEntry(LOG_TAG, "Locally write and read 10K posts...");
+            // **TODO** temporary
             //alice.addPosts(aliceGroupId, 10000);
-            alice.addPosts(aliceGroupId, 100);
+            //alice.addPosts(aliceGroupId, 100);
+            alice.addPosts(aliceGroupId, 10);
             alice.loadPosts(aliceGroupId);
 
             Log.addEntry(LOG_TAG, "Add friends to group and sync group and posts...");
@@ -380,9 +382,13 @@ public class Tests {
                     return;
                 }
                 if (i % 10 == 0) {
+                    mData.dumpGroupMembers();
                     Log.addEntry(
                             LOG_TAG,
-                            mInstanceName + " awaiting sync for " + publicIdentity.mNickname);
+                            mInstanceName + " awaiting sync for " + publicIdentity.mNickname + "group(" + groupId.substring(0, 5) + "); " +
+                            " peer: " + Long.toString(sequenceNumbers.mConfirmedGroupSequenceNumber) + ", " + Long.toString(sequenceNumbers.mConfirmedLastPostSequenceNumber) +
+                            " self: " + Long.toString(group.mGroup.mSequenceNumber) + ", " + Long.toString(group.mLastPostSequenceNumber)
+                            );
                 }
             }
             throw new PloggyError(LOG_TAG, "awaitSync timed out");

@@ -553,14 +553,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
 
             if (isTorCircuitEstablished()) {
+                // *TODO* log level DEBUG
                 Log.addEntry(
                         logTag(),
-                        "scheduled " + taskType.name() + " for " + nickname +
+                        "[DEBUG] scheduled " + taskType.name() + " for " + nickname +
                         " in " + Long.toString(delayInMilliseconds) + "ms.");
 
                 state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
             } else {
-                Log.addEntry(logTag(), "ignored " + taskType.name() + " for " + nickname);
+                // *TODO* log level DEBUG
+                Log.addEntry(logTag(), "[DEBUG] ignored " + taskType.name() + " for " + nickname);
             }
         }
     }
@@ -673,7 +675,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     resetFriendBackoff(finalFriendId, FriendTaskType.SYNC);
                     while (true) {
                         if (!mTorWrapper.isCircuitEstablished()) {
-                            break;
+                            // No reschedule
+                            return;
                         }
                         Data.Friend friend = mData.getFriendById(finalFriendId);
                         Log.addEntry(logTag(), "sync with: " + friend.mPublicIdentity.mNickname);
@@ -696,12 +699,16 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                         Protocol.validateGroup(group);
                                         groups.add(group);
                                         responseContainsNewData.set(true);
+                                        // *TODO* log level DEBUG
+                                        Log.addEntry(logTag(), "[DEBUG] SyncWithFriendTask: got group " + Long.toString(group.mSequenceNumber));
                                         break;
                                     case POST:
                                         Protocol.Post post = (Protocol.Post)payload.mObject;
                                         Protocol.validatePost(post);
                                         posts.add(post);
                                         responseContainsNewData.set(true);
+                                        // *TODO* log level DEBUG
+                                        Log.addEntry(logTag(), "[DEBUG] SyncWithFriendTask: got post " + Long.toString(post.mSequenceNumber));
                                         break;
                                     default:
                                         break;
@@ -734,9 +741,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                         responseBodyHandler(responseBodyHandler);
                         webClientRequest.makeRequest();
 
-                        // Keep going if sync returned data. We could also keep going if there's
-                        // more data to push, but the peer now knows what this client is offering
-                        // and will make its own sync request.
+                        // Keep going if sync returned data. This ensures the peer will
+                        // receive a confirmation of all data synced so far.
                         if (!responseContainsNewData.get()) {
                             break;
                         }
@@ -757,6 +763,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     completedFriendTask(finalFriendId, FriendTaskType.SYNC);
                 }
 
+                // *TODO* race condition: syncWithMembers right now will get rescheduled to backoff time
+
                 long delay = getFriendBackoffInMillisecondsAndExtend(finalFriendId, FriendTaskType.SYNC);
                 triggerFriendTask(finalFriendId, FriendTaskType.SYNC, delay);
             }
@@ -772,10 +780,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     resetFriendBackoff(finalFriendId, FriendTaskType.DOWNLOAD);
                     while (true) {
                         if (!mTorWrapper.isCircuitEstablished()) {
-                            break;
+                            // No reschedule
+                            return;
                         }
                         if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
                                 && !Utils.isConnectedNetworkWifi(mContext)) {
+                            // *TODO* no reschedule?
                             // Will retry after next delay period
                             break;
                         }
@@ -784,7 +794,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         try {
                             download = mData.getNextInProgressDownload(finalFriendId);
                         } catch (Data.NotFoundError e) {
-                            break;
+                            // No reschedule
+                            return;
                         }
                         // TODO: there's a potential race condition between getDownloadedSize and
                         // openDownloadResourceForAppending; we may want to lock the file first.

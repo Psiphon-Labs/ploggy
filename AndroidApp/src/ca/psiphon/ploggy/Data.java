@@ -796,7 +796,7 @@ public class Data extends SQLiteOpenHelper {
                 mDatabase.insertOrThrow("GroupMember", null, memberValues);
             } else {
                 // Assumes memberId changes if memberNickname or memberPublicIdentity change
-                // Existing local lastConfirmedGroupSequenceNumber and lastConfirmedPostSequenceNumber
+                // Existing local confirmedGroupSequenceNumber and confirmedLastPostSequenceNumber
                 // are implicitly retained
                 existingMemberIds.remove(memberId);
             }
@@ -952,6 +952,40 @@ public class Data extends SQLiteOpenHelper {
             return getGroup(groupId);
         } catch (NotFoundError e) {
             throw new PloggyError(logTag(), "unexpected group not found");
+        }
+    }
+
+    public void dumpGroupMembers() throws PloggyError {
+        Cursor cursor = null;
+        try {
+            String query =
+                "SELECT memberNickname, " +
+                        "offeredGroupSequenceNumber, " +
+                        "offeredLastPostSequenceNumber, " +
+                        "confirmedGroupSequenceNumber, " +
+                        "confirmedLastPostSequenceNumber " +
+                    "FROM GroupMember " +
+                    "ORDER BY memberNickname ASC, memberId ASC";
+            cursor = mDatabase.rawQuery(query, null);
+            cursor.moveToFirst();
+            while (!cursor.isAfterLast()) {
+                Log.addEntry(
+                        logTag(),
+                        "dumpGroupMembers: " +
+                        cursor.getString(0) + " " +
+                        Long.toString(cursor.getLong(1)) + " " +
+                        Long.toString(cursor.getLong(2)) + " " +
+                        Long.toString(cursor.getLong(3)) + " " +
+                        Long.toString(cursor.getLong(4))
+                        );
+                cursor.moveToNext();
+            }
+        } catch (SQLiteException e) {
+            throw new PloggyError(LOG_TAG, e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
     }
 
@@ -1313,8 +1347,8 @@ public class Data extends SQLiteOpenHelper {
                             id,
                             new Protocol.SequenceNumbers(
                                     groupSequenceNumber,
-                                    Protocol.UNASSIGNED_SEQUENCE_NUMBER,
                                     offeredLastPostSequenceNumber,
+                                    groupSequenceNumber,
                                     confirmedLastPostSequenceNumber));
                     break;
                 case SUBSCRIBING:
@@ -1322,8 +1356,8 @@ public class Data extends SQLiteOpenHelper {
                             id,
                             new Protocol.SequenceNumbers(
                                     Protocol.UNASSIGNED_SEQUENCE_NUMBER,
-                                    groupSequenceNumber,
                                     offeredLastPostSequenceNumber,
+                                    groupSequenceNumber,
                                     confirmedLastPostSequenceNumber));
                     break;
                 case RESIGNING:
@@ -1395,7 +1429,10 @@ public class Data extends SQLiteOpenHelper {
             try {
                 if (mPostCursor != null && mPostCursor.hasNext()) {
                     mPostCount++;
-                    return Json.toJson(mPostCursor.next().mPost);
+                    Protocol.Post post = mPostCursor.next().mPost;
+                    // *TODO* log level DEBUG
+                    Log.addEntry(logTag(), "[DEBUG] SyncPayloadIterator: send post " + Long.toString(post.mSequenceNumber));
+                    return Json.toJson(post);
                 } else {
                     // Loop through PullRequest until there's something to send: either a group or a post
                     while (mGroupsToSendIterator.hasNext()) {
@@ -1409,10 +1446,15 @@ public class Data extends SQLiteOpenHelper {
                         if (group.mGroup.mPublisherId.equals(getSelfId()) &&
                                 group.mGroup.mSequenceNumber > sequenceNumbers.mConfirmedGroupSequenceNumber) {
                             mGroupCount++;
+                            // *TODO* log level DEBUG
+                            Log.addEntry(logTag(), "[DEBUG] SyncPayloadIterator: send group " + Long.toString(group.mGroup.mSequenceNumber));
                             return Json.toJson(group.mGroup);
                         } else if (mPostCursor.hasNext()) {
                             mPostCount++;
-                            return Json.toJson(mPostCursor.next().mPost);
+                            Protocol.Post post = mPostCursor.next().mPost;
+                            // *TODO* log level DEBUG
+                            Log.addEntry(logTag(), "[DEBUG] SyncPayloadIterator: send post " + Long.toString(post.mSequenceNumber));
+                            return Json.toJson(post);
                         }
                         // Else, we didn't have anything to send for this group, so loop around to the next one
                     }
@@ -1551,7 +1593,11 @@ public class Data extends SQLiteOpenHelper {
         } catch (SQLiteException e) {
             throw new PloggyError(logTag(), e);
         } finally {
+            // ***TODO*** temporary
+            /**/dumpGroupMembers();
             mDatabase.endTransaction();
+            // ***TODO*** temporary
+            /**/dumpGroupMembers();
         }
         for (String groupId : resignedGroups) {
             Events.getInstance(mInstanceName).post(new Events.UpdatedSelfGroup(groupId));
@@ -1603,6 +1649,8 @@ public class Data extends SQLiteOpenHelper {
             }
             for (Protocol.Group group : receivedGroups) {
                 putReceivedGroup(friendId, group);
+                // *TODO* log level DEBUG
+                Log.addEntry(logTag(), "[DEBUG] putSyncResponse: wrote group " + Long.toString(group.mSequenceNumber));
                 for (Identity.PublicIdentity publicIdentity : group.mMembers) {
                     try {
                         getFriendById(publicIdentity.mId);
@@ -1613,6 +1661,8 @@ public class Data extends SQLiteOpenHelper {
                 }
             }
             for (Protocol.Post post : receivedPosts) {
+                // *TODO* log level DEBUG
+                Log.addEntry(logTag(), "[DEBUG] putSyncResponse: wrote post " + Long.toString(post.mSequenceNumber));
                 putReceivedPost(friendId, post);
             }
             mDatabase.setTransactionSuccessful();
@@ -1654,11 +1704,11 @@ public class Data extends SQLiteOpenHelper {
                 syncState.mGroupSequenceNumbers.entrySet()) {
             // TODO: case for groups in pullRequest.mGroupsToResignMembership?
             String groupId = groupSequenceNumbers.getKey();
-            boolean isGroupPublisher =
+            boolean isFriendGroupPublisher =
                     (1 == getCount(
                             "SELECT COUNT(*) FROM 'Group' WHERE id = ? AND publisherId = ?",
                             new String[]{groupId, friendId}));
-            boolean isGroupMember =
+            boolean isFriendGroupMember =
                     (1 == getCount(
                             "SELECT COUNT(*) FROM 'GroupMember' WHERE groupId = ? AND memberId = ?",
                             new String[]{groupId, friendId}));
@@ -1671,7 +1721,7 @@ public class Data extends SQLiteOpenHelper {
             // calls to putFriendSequenceNumbers with stale sequence numbers. So each update
             // checks the new value is fresher than the previous value.
 
-            if (isGroupPublisher) {
+            if (isFriendGroupPublisher) {
                 if (!needSync) {
                     needSync =
                         !selfSyncState.mGroupSequenceNumbers.containsKey(groupId)
@@ -1686,7 +1736,7 @@ public class Data extends SQLiteOpenHelper {
                         new String[]{groupId, friendId, Long.toString(offeredGroupSequenceNumber)});
             }
 
-            if (isGroupPublisher || isGroupMember) {
+            if (isFriendGroupPublisher || isFriendGroupMember) {
                 if (!needSync) {
                     needSync =
                         !selfSyncState.mGroupSequenceNumbers.containsKey(groupId)
@@ -1699,6 +1749,7 @@ public class Data extends SQLiteOpenHelper {
                         values,
                         "groupId = ? AND memberId = ? AND offeredLastPostSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(offeredLastPostSequenceNumber)});
+
                 values = new ContentValues();
                 values.put("confirmedGroupSequenceNumber", confirmedGroupSequenceNumber);
                 mDatabase.update(
@@ -1706,6 +1757,7 @@ public class Data extends SQLiteOpenHelper {
                         values,
                         "groupId = ? AND memberId = ? AND confirmedGroupSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(confirmedGroupSequenceNumber)});
+
                 values = new ContentValues();
                 values.put("confirmedLastPostSequenceNumber", confirmedLastPostSequenceNumber);
                 mDatabase.update(
@@ -1820,6 +1872,7 @@ public class Data extends SQLiteOpenHelper {
             values.put("contentType", post.mContentType);
             values.put("content", post.mContent);
             values.put("attachments", Json.toJson(post.mAttachments));
+            values.put("location", Json.toJson(post.mLocation));
             values.put("createdTimestamp", dateToString(post.mCreatedTimestamp));
             values.put("modifiedTimestamp", dateToString(post.mModifiedTimestamp));
             values.put("sequenceNumber", post.mSequenceNumber);
