@@ -22,6 +22,7 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -161,6 +162,20 @@ public class TransportSecurity {
                 return socket;
             }
             return new DataTransferStats.SSLSocketWrapper(mData, socket);
+        }
+
+        @Override
+        public Socket createLayeredSocket(
+                Socket socket,
+                String host,
+                int port,
+                HttpParams params) throws IOException, UnknownHostException {
+            SSLSocket layeredSocket =
+                    (SSLSocket) super.createLayeredSocket(socket, host, port, params);
+            if (mData == null) {
+                return layeredSocket;
+            }
+            return new DataTransferStats.SSLSocketWrapper(mData, layeredSocket);
         }
 
         @Override
