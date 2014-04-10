@@ -188,14 +188,18 @@ public class DataTransferStats {
         public int read(byte[] b) throws IOException {
             // *TODO* check: does this call the super class read(b,off,len) and double count?
             int result = super.read(b);
-            updateByteCount(result, false);
+            if (result != -1) {
+                updateByteCount(result, false);
+            }
             return result;
         }
 
         @Override
         public int read(byte[] b, int off, int len) throws IOException {
             int result = super.read(b, off, len);
-            updateByteCount(result, false);
+            if (result != -1) {
+                updateByteCount(result, false);
+            }
             return result;
         }
 
