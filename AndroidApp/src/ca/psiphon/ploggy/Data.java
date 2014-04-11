@@ -703,7 +703,7 @@ public class Data extends SQLiteOpenHelper {
     public ObjectCursor<CandidateFriend> getCandidateFriends() throws PloggyError {
         return getObjectCursor(
                 "SELECT DISTINCT memberId, memberPublicIdentity FROM GroupMember " +
-                    "WHERE memberId NOT IN (SELECT id FROM Friend) " +
+                    "WHERE memberId NOT IN (SELECT id FROM Friend) AND memberID <> (SELECT id FROM Self) " +
                     "ORDER BY memberNickname ASC, memberId ASC",
                 null,
                 mRowToCandidateFriend);
