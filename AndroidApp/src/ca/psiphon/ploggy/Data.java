@@ -559,7 +559,7 @@ public class Data extends SQLiteOpenHelper {
     public void updateFriendSentOrThrow(String friendId, Date lastSentToTimestamp, long additionalBytesSentTo)
             throws PloggyError {
         try {
-            updateFriendReceived(friendId, lastSentToTimestamp, additionalBytesSentTo);
+            updateFriendSent(friendId, lastSentToTimestamp, additionalBytesSentTo);
         } catch (NotFoundError e) {
             throw new PloggyError(logTag(), "unexpected friend not found");
         }

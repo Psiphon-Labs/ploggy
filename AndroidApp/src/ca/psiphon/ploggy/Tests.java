@@ -421,7 +421,7 @@ public class Tests {
                 Log.addEntry(
                         LOG_TAG,
                         mInstanceName + " data usage for friend " + friend.mPublicIdentity.mNickname + ": " +
-                            Utils.byteCountToDisplaySize(friend.mBytesSentTo, false) + " sent to " +
+                            Utils.byteCountToDisplaySize(friend.mBytesSentTo, false) + " sent to; " +
                             Utils.byteCountToDisplaySize(friend.mBytesReceivedFrom, false) + " received from ");
             }
         }
