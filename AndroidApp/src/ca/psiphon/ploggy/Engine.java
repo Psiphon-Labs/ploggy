@@ -101,6 +101,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private static class FriendTaskState {
         public Runnable mTaskInstance = null;
         public Future<?> mScheduledTask = null;
+        public long mDueTimeInMilliseconds = 0;
         public long mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
     }
 
@@ -368,7 +369,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     @Subscribe
     public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
         // Schedule immediate download, if not already downloading from friend
-        triggerFriendTask(addedDownload.mFriendId, FriendTaskType.DOWNLOAD, 0);
+        scheduleFriendTask(addedDownload.mFriendId, FriendTaskType.DOWNLOAD, 0);
     }
 
     private void startHiddenService() throws PloggyError {
@@ -460,25 +461,25 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     }
 
     public void askLocationFromFriend(String friendId) throws PloggyError {
-        triggerFriendTask(friendId, FriendTaskType.ASK_LOCATION, 0);
+        scheduleFriendTask(friendId, FriendTaskType.ASK_LOCATION, 0);
     }
 
     public void reportLocationToFriends() throws PloggyError {
         for (String friendId : mLocationRecipients) {
-            triggerFriendTask(friendId, FriendTaskType.REPORT_LOCATION, 0);
+            scheduleFriendTask(friendId, FriendTaskType.REPORT_LOCATION, 0);
             mLocationRecipients.clear();
         }
     }
 
     private void syncWithFriends() throws PloggyError {
         for (Data.Friend friend : mData.getFriendsIterator()) {
-            triggerFriendTask(friend.mId, FriendTaskType.SYNC, 0);
+            scheduleFriendTask(friend.mId, FriendTaskType.SYNC, 0);
         }
     }
 
     private void downloadFromFriends() throws PloggyError {
         for (Data.Friend friend : mData.getFriendsIterator()) {
-            triggerFriendTask(friend.mId, FriendTaskType.DOWNLOAD, 0);
+            scheduleFriendTask(friend.mId, FriendTaskType.DOWNLOAD, 0);
         }
     }
 
@@ -489,7 +490,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
     private void syncWithMembers(Protocol.Group group) throws PloggyError {
         for (Identity.PublicIdentity member : group.mMembers) {
             if (!member.mId.equals(mData.getSelfId())) {
-                triggerFriendTask(member.mId, FriendTaskType.SYNC, 0);
+                scheduleFriendTask(member.mId, FriendTaskType.SYNC, 0);
             }
         }
     }
@@ -505,11 +506,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return state;
     }
 
-    private synchronized void triggerFriendTask(
+    private synchronized void scheduleFriendTask(
             String friendId, FriendTaskType taskType, long delayInMilliseconds) {
-        // Schedules one sync/download per friend at a time.
-        // Cache instantiated task functions
+        // Schedules one sync/download/etc. per friend at a time.
         FriendTaskState state = getFriendTaskState(friendId, taskType);
+
+        // Cache instantiated task functions
         if (state.mTaskInstance == null) {
             switch (taskType) {
             case ASK_LOCATION:
@@ -527,25 +529,25 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
             }
         }
 
-        // If a Future is present, the task is in progress or in queue.
-        // Try to cancel it and reschedule. When cancel fails, task is
-        // running and not rescheduled.
-        // *TODO* [no longer true for sync/download with retries] On completion, tasks remove their Futures from mFriendTaskFutures.
-        // *TODO* *** race condition ***: in progress task can exit without e.g., pushing new data
-
-        if (state.mScheduledTask != null) {
-            if (state.mScheduledTask.cancel(false)) {
-                state.mScheduledTask = null;
-            }
-        }
-
         // *TODO* assumes all taskTypes are Hidden Service requests
         long postCircuitDelay = getPostCircuitDelayInMilliseconds();
         if (delayInMilliseconds < postCircuitDelay) {
             delayInMilliseconds = postCircuitDelay;
         }
 
-        if (state.mScheduledTask == null) {
+        // If a Future is present, the task is in progress or in queue.
+        // Try to cancel it and reschedule. When cancel fails, task is
+        // running and not rescheduled.
+
+        long nowInMilliseconds = TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS);
+
+        if (state.mScheduledTask != null) {
+            if (nowInMilliseconds + delayInMilliseconds < state.mDueTimeInMilliseconds) {
+                state.mScheduledTask.cancel(false);
+            }
+        }
+
+        if (state.mScheduledTask == null || state.mScheduledTask.isDone()) {
             String nickname = "";
             try {
                 nickname = mData.getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname;
@@ -560,29 +562,22 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         " in " + Long.toString(delayInMilliseconds) + "ms.");
 
                 state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
-            } else {
-                // *TODO* log level DEBUG
-                Log.addEntry(logTag(), "[DEBUG] ignored " + taskType.name() + " for " + nickname);
+                state.mDueTimeInMilliseconds = nowInMilliseconds + delayInMilliseconds;
             }
         }
     }
 
-    private synchronized void completedFriendTask(String friendId, FriendTaskType taskType) {
-        FriendTaskState state = getFriendTaskState(friendId, taskType);
-        state.mScheduledTask = null;
-    }
-
-   private synchronized long getFriendBackoffInMillisecondsAndExtend(String friendId, FriendTaskType taskType) {
+   private synchronized long getFriendBackoffInMilliseconds(
+           String friendId, FriendTaskType taskType, boolean lastRunGotData) {
        FriendTaskState state = getFriendTaskState(friendId, taskType);
        long backoff = state.mBackoff;
-       state.mBackoff *= REQUEST_RETRY_BACKOFF_FACTOR;
+       if (!lastRunGotData) {
+           state.mBackoff *= REQUEST_RETRY_BACKOFF_FACTOR;
+       } else {
+           state.mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
+       }
        return backoff;
     }
-
-   private synchronized void resetFriendBackoff(String friendId, FriendTaskType taskType) {
-       FriendTaskState state = getFriendTaskState(friendId, taskType);
-       state.mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
-   }
 
     // TODO: refactor common code in makeTask functions?
 
@@ -616,8 +611,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     } catch (PloggyError e2) {
                         Log.addEntry(logTag(), "failed to ask location");
                     }
-                } finally {
-                    completedFriendTask(finalFriendId, FriendTaskType.ASK_LOCATION);
                 }
             }
         };
@@ -655,8 +648,6 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     } catch (PloggyError e2) {
                         Log.addEntry(logTag(), "failed to report location");
                     }
-                } finally {
-                    completedFriendTask(finalFriendId, FriendTaskType.REPORT_LOCATION);
                 }
             }
         };
@@ -667,12 +658,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
+                boolean gotData = false;
                 try {
                     // Pull until no payload data is received. Each subsequent pull
                     // explicitly acknowledges the received data via the last received
                     // sequence numbers passed in the previous pull request. So typically,
                     // two pull requests are executed.
-                    resetFriendBackoff(finalFriendId, FriendTaskType.SYNC);
                     while (true) {
                         if (!mTorWrapper.isCircuitEstablished()) {
                             // No reschedule
@@ -725,7 +716,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                                 // includes the request peer, based on offered sequence numbers; as well as group members
                                 // for newly discovered groups.
                                 for (String friendId : needSyncFriendIds) {
-                                    triggerFriendTask(friendId, FriendTaskType.SYNC, 0);
+                                    scheduleFriendTask(friendId, FriendTaskType.SYNC, 0);
                                 }
                             }
                         };
@@ -746,6 +737,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                         if (!responseContainsNewData.get()) {
                             break;
                         }
+                        gotData = true;
                     }
                 } catch (Data.NotFoundError e) {
                     // Friend was deleted while task was enqueued. Ignore error.
@@ -759,14 +751,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     } catch (PloggyError e2) {
                         Log.addEntry(logTag(), "failed to sync");
                     }
-                } finally {
-                    completedFriendTask(finalFriendId, FriendTaskType.SYNC);
                 }
 
-                // *TODO* race condition: syncWithMembers right now will get rescheduled to backoff time
-
-                long delay = getFriendBackoffInMillisecondsAndExtend(finalFriendId, FriendTaskType.SYNC);
-                triggerFriendTask(finalFriendId, FriendTaskType.SYNC, delay);
+                final long finalDelay = getFriendBackoffInMilliseconds(finalFriendId, FriendTaskType.SYNC, gotData);
+                submitTask(
+                    new Runnable() {@Override public void run() {scheduleFriendTask(finalFriendId, FriendTaskType.SYNC, finalDelay);}},
+                    0);
             }
         };
     }
@@ -776,8 +766,8 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return new Runnable() {
             @Override
             public void run() {
+                boolean gotData = false;
                 try {
-                    resetFriendBackoff(finalFriendId, FriendTaskType.DOWNLOAD);
                     while (true) {
                         if (!mTorWrapper.isCircuitEstablished()) {
                             // No reschedule
@@ -822,6 +812,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                             webClientRequest.makeRequest();
                         }
                         mData.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
+                        gotData = true;
                         // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)
                         // TODO: 404/403: denied by peer? -- change Download state to reflect this and don't retry (e.g., new state: CANCELLED)
                     }
@@ -837,12 +828,12 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
                     } catch (PloggyError e2) {
                         Log.addEntry(logTag(), "failed to download");
                     }
-                } finally {
-                    completedFriendTask(finalFriendId, FriendTaskType.DOWNLOAD);
                 }
 
-                long delay = getFriendBackoffInMillisecondsAndExtend(finalFriendId, FriendTaskType.DOWNLOAD);
-                triggerFriendTask(finalFriendId, FriendTaskType.DOWNLOAD, delay);
+                final long finalDelay = getFriendBackoffInMilliseconds(finalFriendId, FriendTaskType.DOWNLOAD, gotData);
+                submitTask(
+                    new Runnable() {@Override public void run() {scheduleFriendTask(finalFriendId, FriendTaskType.DOWNLOAD, finalDelay);}},
+                    0);
             }
         };
     }
@@ -900,7 +891,7 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         boolean needSync = mData.putSyncRequest(friend.mId, requestSyncState);
         Data.SyncPayloadIterator syncPayloadIterator = mData.getSyncPayload(friend.mId, requestSyncState);
         if (needSync) {
-            triggerFriendTask(friend.mId, FriendTaskType.SYNC, 0);
+            scheduleFriendTask(friend.mId, FriendTaskType.SYNC, 0);
         }
         // *TODO* log too noisy during regular operation?
         Log.addEntry(logTag(), "served sync request for " + friend.mPublicIdentity.mNickname);
