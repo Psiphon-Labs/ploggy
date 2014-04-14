@@ -38,6 +38,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -55,7 +56,8 @@ public class ActivityEditGroup extends ActivityPloggyBase
 
     private boolean mIsNewGroup;
     private String mGroupId;
-    private EditText mNameText;
+    private ImageView mGroupAvatarImage;
+    private EditText mNameEdit;
     private ListView mMemberList;
     private Adapters.GroupMemberArrayAdapter mMemberAdapter;
     private ActionMode mActionMode;
@@ -79,8 +81,12 @@ public class ActivityEditGroup extends ActivityPloggyBase
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_group);
 
-        mNameText = (EditText) findViewById(R.id.edit_group_name_text);
-        mNameText.addTextChangedListener(new TextWatcher() {
+        mGroupAvatarImage = (ImageView)findViewById(R.id.edit_group_avatar_image);
+        // *TODO* Hangout-like multi-avatar image?
+        mGroupAvatarImage.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+
+        mNameEdit = (EditText) findViewById(R.id.edit_group_name_edit);
+        mNameEdit.addTextChangedListener(new TextWatcher() {
             @Override
             public void afterTextChanged(Editable s) {
                 setHasEdits(true);
@@ -118,16 +124,12 @@ public class ActivityEditGroup extends ActivityPloggyBase
     protected void onResume() {
         super.onResume();
 
-        Bundle bundle = getIntent().getExtras();
-        if (bundle == null) {
-            finish();
-            return;
-        }
-
-        mIsNewGroup = bundle.containsKey(EXTRA_GROUP_ID);
-
-        if (mIsNewGroup) {
-            mGroupId = bundle.getString(EXTRA_GROUP_ID);
+        mIsNewGroup = true;
+        if (getIntent() != null &&
+            getIntent().getExtras() != null &&
+            getIntent().getExtras().containsKey(EXTRA_GROUP_ID)) {
+            mIsNewGroup = false;
+            mGroupId = getIntent().getExtras().getString(EXTRA_GROUP_ID);
             if (mGroupId == null) {
                 finish();
                 return;
@@ -151,7 +153,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
 
     private void show() {
         if (mIsNewGroup) {
-            mNameText.setText("");
+            mNameEdit.setText("");
             mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
             mMemberList.setAdapter(mMemberAdapter);
             mIsReadOnly = false;
@@ -159,7 +161,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
             try {
                 Data data = Data.getInstance();
                 Data.Group group = data.getGroupOrThrow(mGroupId);
-                mNameText.setText(group.mGroup.mName);
+                mNameEdit.setText(group.mGroup.mName);
                 mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
                 mMemberAdapter.addAll(group.mGroup.mMembers);
                 mMemberAdapter.sort(new Identity.PublicIdentityComparator());
@@ -172,7 +174,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
                 Log.addEntry(LOG_TAG, "failed to show group");
             }
         }
-        mNameText.setEnabled(!mIsReadOnly);
+        mNameEdit.setEnabled(!mIsReadOnly);
         setHasEdits(false);
     }
 
@@ -231,7 +233,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
     }
 
     private void doAddGroupMember() {
-        String name = mNameText.getText().toString();
+        String name = mNameEdit.getText().toString();
         AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
         alertDialog.setIcon(R.drawable.ic_action_add_group_member);
         alertDialog.setTitle(getString(R.string.prompt_edit_group_add_member, name));
@@ -312,7 +314,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
             if (mSaveButton == null) {
                 return;
             }
-            String name = mNameText.getText().toString();
+            String name = mNameEdit.getText().toString();
             try {
                 List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
                 for (int i = 0; i < mMemberAdapter.getCount(); i++) {
