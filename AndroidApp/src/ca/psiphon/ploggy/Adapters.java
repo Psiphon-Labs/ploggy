@@ -145,7 +145,7 @@ public class Adapters {
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
                 }
 
-                if (friendLocation.mTimestamp != null) {
+                if (friendLocation != null) {
                     locationTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, friendLocation.mTimestamp, true));
                     if (friendLocation.mStreetAddress.length() > 0) {
