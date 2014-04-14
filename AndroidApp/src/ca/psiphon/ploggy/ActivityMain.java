@@ -98,6 +98,7 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         return intent;
     }
 
+    private static boolean mAnimatedDrawerHint = false;
     private DrawerLayout mDrawerLayout;
     private ActionBarDrawerToggle mDrawerToggle;
     private int mDrawerState;
@@ -200,15 +201,18 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         ActivityGenerateSelf.checkLaunchGenerateSelf(this);
 
         // Animate the navigation drawer on first run
-        // *TODO* check for first run
-        mDrawerLayout.postDelayed(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        mDrawerLayout.openDrawer(mDrawerList);
-                    }
-                },
-                1000);
+        if (!mAnimatedDrawerHint) {
+            mDrawerLayout.postDelayed(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            mDrawerLayout.openDrawer(mDrawerList);
+                            // TODO: now close the drawer? Is this only a peek?
+                        }
+                    },
+                    1000);
+            mAnimatedDrawerHint = true;
+        }
 
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
