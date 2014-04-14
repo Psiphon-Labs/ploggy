@@ -26,6 +26,9 @@ import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ListView;
@@ -78,19 +81,26 @@ public class FragmentGroupPosts extends Fragment {
         mPostList = (ListView)view.findViewById(R.id.post_list);
         mPostList.setAdapter(mPostAdapter);
 
+        boolean canPost = true;
         boolean canEdit = true;
         try {
             Data.Group group = Data.getInstance().getGroupOrThrow(mGroupId);
-            canEdit = (group.mState == Data.Group.State.PUBLISHING ||
-                       group.mState == Data.Group.State.SUBSCRIBING);
+            canPost = (group.mState == Data.Group.State.PUBLISHING || group.mState == Data.Group.State.SUBSCRIBING);
+            canEdit = (group.mState == Data.Group.State.PUBLISHING);
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to check group state");
         }
 
-        if (canEdit) {
+        // *TODO* recheck canPost/canEdit in UpdatedSelfGroup/UpdatedFriendGroup
+
+        if (canPost) {
             mFragmentComposePost = FragmentComposePost.newInstance(mGroupId);
             FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
             transaction.add(R.id.fragment_compose_post, mFragmentComposePost).commit();
+        }
+
+        if (canEdit) {
+            setHasOptionsMenu(true);
         }
 
         // Refresh the message list every 5 seconds. This updates download state and "time ago" displays.
@@ -103,8 +113,12 @@ public class FragmentGroupPosts extends Fragment {
     }
 
     @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onDestroyView() {
+        if (mFragmentComposePost != null) {
+            FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
+            transaction.remove(mFragmentComposePost).commitAllowingStateLoss();
+        }
+        super.onDestroyView();
     }
 
     @Override
@@ -128,12 +142,18 @@ public class FragmentGroupPosts extends Fragment {
     }
 
     @Override
-    public void onDestroyView() {
-        if (mFragmentComposePost != null) {
-            FragmentTransaction transaction = getChildFragmentManager().beginTransaction();
-            transaction.remove(mFragmentComposePost).commitAllowingStateLoss();
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.group_posts_actions, menu);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_edit_group) {
+            ActivityEditGroup.startEditGroup(getActivity(), mGroupId);
+            return true;
         }
-        super.onDestroyView();
+        return super.onOptionsItemSelected(item);
     }
 
     @Override

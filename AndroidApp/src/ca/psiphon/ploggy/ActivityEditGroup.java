@@ -35,6 +35,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
@@ -69,7 +70,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
     private static final String EXTRA_GROUP_ID = "GROUP_ID";
 
     public static void startEditGroup(Context context, String groupId) {
-        Intent intent = new Intent(context, ActivityShowPicture.class);
+        Intent intent = new Intent(context, ActivityEditGroup.class);
         Bundle bundle = new Bundle();
         bundle.putString(EXTRA_GROUP_ID, groupId);
         intent.putExtras(bundle);
@@ -137,6 +138,9 @@ public class ActivityEditGroup extends ActivityPloggyBase
         }
 
         show();
+
+        // Don't show the keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
 
     @Override

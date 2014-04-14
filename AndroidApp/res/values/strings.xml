@@ -20,6 +20,7 @@
     <string name="candidate_friend_list_group_seperator">, </string>
     <string name="action_add_friend">Add Friend</string>
     <string name="action_add_group">Add Group</string>
+    <string name="action_edit_group">Edit Group</string>
     <string name="action_add_group_member">Add Member</string>
     <string name="action_generate_self">Re-generate Your Identity</string>
     <string name="action_email_self">Email Your Identity</string>
