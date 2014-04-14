@@ -38,6 +38,7 @@ import android.os.Parcelable;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -63,6 +64,8 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
         return intent;
     }
 
+    private TextView mHint;
+    private RelativeLayout mFriendSection;
     private ImageView mFriendAvatarImage;
     private TextView mFriendNicknameText;
     private TextView mFriendFingerprintText;
@@ -74,6 +77,8 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_friend);
 
+        mHint = (TextView)findViewById(R.id.add_friend_hint_label);
+        mFriendSection = (RelativeLayout)findViewById(R.id.add_friend_friend_section);
         mFriendAvatarImage = (ImageView)findViewById(R.id.add_friend_friend_avatar_image);
         mFriendNicknameText = (TextView)findViewById(R.id.add_friend_friend_nickname_text);
         mFriendFingerprintText = (TextView)findViewById(R.id.add_friend_friend_fingerprint_text);
@@ -85,6 +90,8 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
     protected void showFriend() {
         if (mReceivedFriend != null) {
             try {
+                mHint.setVisibility(View.INVISIBLE);
+                mFriendSection.setVisibility(View.VISIBLE);
                 Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);
                 mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));
@@ -92,6 +99,9 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to show friend");
             }
+        } else {
+            mHint.setVisibility(View.VISIBLE);
+            mFriendSection.setVisibility(View.INVISIBLE);
         }
     }
 
@@ -126,63 +136,64 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
         super.onResume();
         // TODO: ActivityGenerateSelf.checkLaunchGenerateSelf(this);?
         // TODO: foreground dispatch causes onResume to be called?
-
         Identity.PublicIdentity publicIdentity = null;
         Intent intent = getIntent();
-        if (intent.getAction().equals(ACTION_ADD_FRIEND)) {
-            try {
-                publicIdentity =
-                    Json.fromJson(
-                        intent.getStringExtra(ACTION_ADD_FRIEND_EXTRA_PUBLIC_IDENTITY),
-                        Identity.PublicIdentity.class);
-            } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "failed to parse JSON intent");
-            }
-        } else if (intent.getAction().equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
-            try {
-                Parcelable[] ndefMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
-                NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
-                String payload = new String(ndefMessage.getRecords()[0].getPayload());
-                publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
-            } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
-            }
-        } else {
-            // Extract friend public identity from email attachment (or file)
-            InputStream inputStream = null;
-            try {
-                Uri uri = intent.getData();
-
-                if (uri.toString().startsWith(ADD_FRIEND_IDENTITY_LINK_PREFIX)) {
-                    inputStream = Utils.makeInputStream(uri.getFragment());
+        if (intent != null && intent.getAction() != null) {
+            if (intent.getAction().equals(ACTION_ADD_FRIEND)) {
+                try {
+                    publicIdentity =
+                        Json.fromJson(
+                            intent.getStringExtra(ACTION_ADD_FRIEND_EXTRA_PUBLIC_IDENTITY),
+                            Identity.PublicIdentity.class);
+                } catch (PloggyError e) {
+                    Log.addEntry(LOG_TAG, "failed to parse JSON intent");
                 }
-                else {
-                    String scheme = uri.getScheme();
-                    if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-                        ContentResolver contentResolver = getContentResolver();
-                        inputStream = contentResolver.openInputStream(uri);
-                    } else {
-                        String filePath = uri.getEncodedPath();
-                        if (filePath != null) {
-                            inputStream = new FileInputStream(new File(filePath));
+            } else if (intent.getAction().equals(NfcAdapter.ACTION_NDEF_DISCOVERED)) {
+                try {
+                    Parcelable[] ndefMessages = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+                    NdefMessage ndefMessage = (NdefMessage)ndefMessages[0];
+                    String payload = new String(ndefMessage.getRecords()[0].getPayload());
+                    publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
+                } catch (PloggyError e) {
+                    Log.addEntry(LOG_TAG, "failed to handle inbound NFC message");
+                }
+            } else {
+                // Extract friend public identity from email attachment (or file)
+                InputStream inputStream = null;
+                try {
+                    Uri uri = intent.getData();
+
+                    if (uri.toString().startsWith(ADD_FRIEND_IDENTITY_LINK_PREFIX)) {
+                        inputStream = Utils.makeInputStream(uri.getFragment());
+                    }
+                    else {
+                        String scheme = uri.getScheme();
+                        if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
+                            ContentResolver contentResolver = getContentResolver();
+                            inputStream = contentResolver.openInputStream(uri);
+                        } else {
+                            String filePath = uri.getEncodedPath();
+                            if (filePath != null) {
+                                inputStream = new FileInputStream(new File(filePath));
+                            }
                         }
                     }
-                }
 
-                if (inputStream != null) {
-                    String payload = Utils.readInputStreamToString(inputStream);
-                    publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
-                }
-            } catch (IOException e) {
-                Log.addEntry(LOG_TAG, e.getMessage());
-                Log.addEntry(LOG_TAG, "failed to open .ploggy file");
-            } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "failed to open .ploggy file");
-            } finally {
-                if (inputStream != null) {
-                    try {
-                        inputStream.close();
-                    } catch (IOException e) {
+                    if (inputStream != null) {
+                        String payload = Utils.readInputStreamToString(inputStream);
+                        publicIdentity = Json.fromJson(payload, Identity.PublicIdentity.class);
+                    }
+                } catch (IOException e) {
+                    Log.addEntry(LOG_TAG, e.getMessage());
+                    Log.addEntry(LOG_TAG, "failed to open .ploggy file");
+                } catch (PloggyError e) {
+                    Log.addEntry(LOG_TAG, "failed to open .ploggy file");
+                } finally {
+                    if (inputStream != null) {
+                        try {
+                            inputStream.close();
+                        } catch (IOException e) {
+                        }
                     }
                 }
             }
@@ -190,6 +201,7 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
 
         // TODO: display validation error message in Activity?
         // TODO: update add_friend_description_text on success/failure?
+        mReceivedFriend = null;
         if (publicIdentity != null) {
             try {
                 Protocol.validatePublicIdentity(publicIdentity);
@@ -200,6 +212,7 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
                 Log.addEntry(LOG_TAG, "failed to display friend");
             }
         }
+        showFriend();
 
         // Use foreground dispatch to ensure repeated incoming beams don't create new activities
         setupForegroundDispatch();

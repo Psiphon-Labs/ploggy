@@ -61,6 +61,7 @@
     <string name="button_generate_self_regenerate">Re-generate</string>
     <string name="button_generate_self_save">Save</string>
     <string name="prompt_generate_self_progress">Generating key material…</string>
+    <string name="label_add_friend_hint">To add a friend, use Android Beam with two devices running Ploggy in the foreground; or click a .ploggy link...</string>
     <string name="label_add_friend_title">Add Friend</string>
     <string name="label_add_friend_friend_fingerprint">Fingerprint:</string>
     <string name="button_add_friend_add">Add</string>
@@ -94,7 +95,7 @@
     <string name="button_edit_group_save">Save</string>
     <string name="prompt_edit_group_back">Press back again to discard changes</string>
     <string name="prompt_edit_group_already_exists">A group with the name %1$s already exists</string>
-    <string name="prompt_edit_group_saved">Saved group %1$s</string>
+    <string name="prompt_edit_group_saved">Saved %1$s</string>
     <string name="format_download_progress">%1$.1f%%</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
