@@ -644,7 +644,7 @@ public class Data extends SQLiteOpenHelper {
     }
 
     public ObjectCursor<Friend> getFriends() throws PloggyError {
-        return getObjectCursor(SELECT_FRIEND, null, mRowToFriend);
+        return getObjectCursor(SELECT_FRIEND + " ORDER BY nickname ASC", null, mRowToFriend);
     }
 
     public ObjectIterator<Friend> getFriendsIterator() throws PloggyError {
@@ -665,7 +665,7 @@ public class Data extends SQLiteOpenHelper {
             where.append(")");
         }
         return getObjectCursor(
-                SELECT_FRIEND + where.toString(),
+                SELECT_FRIEND + where.toString() + " ORDER BY nickname ASC",
                 exceptIds.toArray(new String[exceptIds.size()]),
                 mRowToFriend);
     }
@@ -957,7 +957,7 @@ public class Data extends SQLiteOpenHelper {
 
     public ObjectCursor<Group> getVisibleGroups() throws PloggyError {
         return getObjectCursor(
-                SELECT_GROUP + " WHERE state IN (?, ?, ?)",
+                SELECT_GROUP + " WHERE state IN (?, ?, ?) ORDER BY name ASC",
                 new String[]{Group.State.PUBLISHING.name(), Group.State.SUBSCRIBING.name(), Group.State.ORPHANED.name()},
                 mRowToGroup);
     }
@@ -970,7 +970,8 @@ public class Data extends SQLiteOpenHelper {
         return getObjectCursor(
                 SELECT_GROUP +
                     " WHERE state IN (?, ?) AND" +
-                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.id AND contentType = ? AND state = ?)",
+                    " EXISTS (SELECT 1 FROM Post WHERE Post.groupId = 'Group'.id AND contentType = ? AND state = ?) " +
+                    " ORDER BY name ASC",
                 new String[]{
                         Group.State.RESIGNING.name(),
                         Group.State.TOMBSTONE.name(),
@@ -986,7 +987,7 @@ public class Data extends SQLiteOpenHelper {
     // *TODO* no UI for this yet...
     public ObjectCursor<Group> getHiddenGroups() throws PloggyError {
         return getObjectCursor(
-                SELECT_GROUP + " WHERE state IN (?, ?)",
+                SELECT_GROUP + " WHERE state IN (?, ?) ORDER BY name ASC",
                 new String[]{Group.State.RESIGNING.name(), Group.State.TOMBSTONE.name()},
                 mRowToGroup);
     }
