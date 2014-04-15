@@ -91,6 +91,9 @@ public class FragmentFriendList extends ListFragment implements ActionMode.Callb
         Events.getInstance().register(this);
         mRefreshUIExecutor.start();
         getActivity().setTitle(R.string.navigation_drawer_item_friend_list);
+
+        // Update adapter for data changes while not in foreground
+        mFriendAdapter.update(true);
     }
 
     @Override

@@ -227,6 +227,9 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
                 // *TODO* mDrawerList.setItemChecked(position, true); ...?
             }
         }
+
+        // Update adapter for data changes while not in foreground
+        mDrawerAdapter.update();
     }
 
     @Override

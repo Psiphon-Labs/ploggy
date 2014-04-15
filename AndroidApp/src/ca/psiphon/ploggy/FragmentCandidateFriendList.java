@@ -69,6 +69,9 @@ public class FragmentCandidateFriendList extends ListFragment {
         super.onResume();
         Events.getInstance().register(this);
         getActivity().setTitle(R.string.navigation_drawer_item_candidate_friend_list);
+
+        // Update adapter for data changes while not in foreground
+        mCandidateFriendAdapter.update(true);
     }
 
     @Override

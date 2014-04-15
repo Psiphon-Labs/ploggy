@@ -132,6 +132,9 @@ public class FragmentGroupPosts extends Fragment {
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to mark as read posts");
         }
+
+        // Update adapter for data changes while not in foreground
+        mPostAdapter.update(true);
     }
 
     @Override
