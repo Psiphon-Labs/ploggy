@@ -325,8 +325,14 @@ public class Adapters {
                     // No recent post to display
                 }
                 if (mostRecentPost != null) {
-                    postPublisherText.setText(
-                            data.getFriendByIdOrThrow(mostRecentPost.mPost.mPublisherId).mPublicIdentity.mNickname);
+                    // TODO: getNickname helper
+                    String nickname;
+                    if (mostRecentPost.mPost.mPublisherId.equals(data.getSelfId())) {
+                        nickname = data.getSelfOrThrow().mPublicIdentity.mNickname;
+                    } else {
+                        nickname = data.getFriendByIdOrThrow(mostRecentPost.mPost.mPublisherId).mPublicIdentity.mNickname;
+                    }
+                    postPublisherText.setText(nickname);
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
