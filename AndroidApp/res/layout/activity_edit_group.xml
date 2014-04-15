@@ -49,7 +49,7 @@
             android:layout_toRightOf="@+id/edit_group_avatar"
             android:text="@string/label_edit_group_name"
             android:typeface="sans"
-            android:textSize="12dip"
+            android:textSize="24dip"
             android:textStyle="bold" />
  
         <EditText
@@ -59,7 +59,10 @@
             android:layout_toRightOf="@+id/edit_group_avatar"
             android:layout_below="@+id/edit_group_name_label"
             android:typeface="sans"
-            android:textSize="12dip" />
+            android:textSize="24dip"
+            android:inputType="text|textCapSentences|textAutoCorrect"
+            android:imeOptions="actionDone"
+            android:singleLine="true" />
 
     </RelativeLayout>
 

@@ -62,6 +62,8 @@
             android:layout_below="@+id/generate_self_nickname_label"
             android:typeface="sans"
             android:textSize="24dip"
+            android:inputType="text|textCapSentences|textAutoCorrect"
+            android:imeOptions="actionDone"
             android:singleLine="true" />
  
         <TextView
