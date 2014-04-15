@@ -11,8 +11,8 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="navigation_drawer_item_self_detail">You</string>
-    <string name="navigation_drawer_item_group_list">All Groups</string>
-    <string name="navigation_drawer_item_friend_list">All Friends</string>
+    <string name="navigation_drawer_item_group_list">Manage Groups</string>
+    <string name="navigation_drawer_item_friend_list">Manage Friends</string>
     <string name="navigation_drawer_item_candidate_friend_list">Friends of Friends</string>
     <string name="navigation_drawer_item_log_entries">Activity Log</string>
     <string name="navigation_draw_header_groups">Groups</string>
