@@ -81,12 +81,14 @@ public class ActivityPloggyBase extends FragmentActivity implements NfcAdapter.C
     @Override
     protected void onResume() {
         super.onResume();
+        Events.getInstance().register(this);
         mLocationFixExecutor.start();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        Events.getInstance().unregister(this);
         mLocationFixExecutor.stop();
     }
 

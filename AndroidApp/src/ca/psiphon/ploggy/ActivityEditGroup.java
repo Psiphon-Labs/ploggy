@@ -156,14 +156,15 @@ public class ActivityEditGroup extends ActivityPloggyBase
     }
 
     private void show() {
-        if (mIsNewGroup) {
-            mNameEdit.setText("");
-            mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
-            mMemberList.setAdapter(mMemberAdapter);
-            mIsReadOnly = false;
-        } else {
-            try {
-                Data data = Data.getInstance();
+        try {
+            Data data = Data.getInstance();
+            if (mIsNewGroup) {
+                mNameEdit.setText("");
+                mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
+                mMemberAdapter.add(data.getSelfOrThrow().mPublicIdentity);
+                mMemberList.setAdapter(mMemberAdapter);
+                mIsReadOnly = false;
+            } else {
                 Data.Group group = data.getGroupOrThrow(mGroupId);
                 mNameEdit.setText(group.mGroup.mName);
                 mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
@@ -174,9 +175,9 @@ public class ActivityEditGroup extends ActivityPloggyBase
                 // Disable editing when not self published group
                 boolean isSelfPublished = group.mGroup.mPublisherId.equals(data.getSelfId());
                 mIsReadOnly = !isSelfPublished;
-            } catch (PloggyError e) {
-                Log.addEntry(LOG_TAG, "failed to show group");
             }
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to show group");
         }
         mNameEdit.setEnabled(!mIsReadOnly);
         setHasEdits(false);
@@ -219,7 +220,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
             if (item.getItemId() == R.id.action_add_group_member) {
-                item.setVisible(mIsReadOnly);
+                item.setVisible(!mIsReadOnly);
             }
         }
         return super.onPrepareOptionsMenu(menu);
@@ -255,6 +256,8 @@ public class ActivityEditGroup extends ActivityPloggyBase
                         return Data.getInstance().getFriendsExcept(memberIds);
                     }
                 });
+        // *TODO* display Toast instead of dialog when there are no candidate friends
+        // (can't check finalCandidateGroupMemberAdapter.getCount() == 0 yet due to AsyncTask)
         alertDialog.setAdapter(
                 finalCandidateGroupMemberAdapter,
                 new DialogInterface.OnClickListener() {
@@ -284,7 +287,9 @@ public class ActivityEditGroup extends ActivityPloggyBase
 
     @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-        mode.getMenuInflater().inflate(R.menu.edit_group_context, menu);
+        if (!mIsReadOnly) {
+            mode.getMenuInflater().inflate(R.menu.edit_group_context, menu);
+        }
         return true;
     }
 
@@ -293,8 +298,15 @@ public class ActivityEditGroup extends ActivityPloggyBase
         if (item.getItemId() == R.id.action_edit_group_remove_member) {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
             Identity.PublicIdentity member = mMemberAdapter.getItem(info.position);
-            mMemberAdapter.remove(member);
-            mMemberAdapter.notifyDataSetChanged();
+            try {
+                if (!member.mId.equals(Data.getInstance().getSelfOrThrow().mId)) {
+                    mMemberAdapter.remove(member);
+                    mMemberAdapter.notifyDataSetChanged();
+                }
+                // TODO: else display toast?
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to remove group member");
+            }
             setHasEdits(true);
             mode.finish();
             return true;
