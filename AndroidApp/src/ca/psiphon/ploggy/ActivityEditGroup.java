@@ -303,6 +303,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
                     mMemberAdapter.remove(member);
                     mMemberAdapter.notifyDataSetChanged();
                 }
+                // *TODO* what's the UI for resigning from a group?
                 // TODO: else display toast?
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to remove group member");
