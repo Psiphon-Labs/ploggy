@@ -87,7 +87,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Robohash.setRobohashImage(context, avatarImage, true, friend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, true, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
 
                 // *TODO* don't do sub-queries here, do in background thread
@@ -197,7 +197,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Robohash.setRobohashImage(context, avatarImage, true, candidateFriend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, true, candidateFriend.mPublicIdentity);
                 nicknameText.setText(candidateFriend.mPublicIdentity.mNickname);
 
                 // *TODO* don't do sub-queries here, do in background thread
@@ -240,7 +240,7 @@ public class Adapters {
             try {
                 Data.Friend friend = getCursor().get(position);
 
-                Robohash.setRobohashImage(context, avatarImage, true, friend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, true, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
 
             } catch (PloggyError e) {
@@ -272,7 +272,7 @@ public class Adapters {
 
             Identity.PublicIdentity publicIdentity = getItem(position);
 
-            Robohash.setRobohashImage(context, avatarImage, true, publicIdentity);
+            Avatar.setAvatarImage(context, avatarImage, true, publicIdentity);
             nicknameText.setText(publicIdentity.mNickname);
 
             return view;
@@ -311,8 +311,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                // *TODO* Hangout-like multi-avatar image?
-                avatarImage.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+                Avatar.setAvatarImage(context, avatarImage, true, group.mGroup);
 
                 nameText.setText(group.mGroup.mName);
 
@@ -406,7 +405,7 @@ public class Adapters {
                     Log.addEntry(LOG_TAG, "failed to load post attachment");
                 }
 
-                Robohash.setRobohashImage(context, avatarImage, true, publisher);
+                Avatar.setAvatarImage(context, avatarImage, true, publisher);
                 nicknameText.setText(publisher.mNickname);
                 contentText.setText(post.mPost.mContent);
 

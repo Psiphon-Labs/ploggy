@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -54,8 +54,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Random;
 
 import org.json.JSONArray;
@@ -67,18 +65,19 @@ import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.widget.ImageView;
 
 /**
- * Unique avatars derived from identity fingerprints - to aid visual verification.
+ * Unique avatars derived from identities.
  *
  * Port of Robohash (http://robohash.org) to Java.
  */
-public class Robohash {
+public class Avatar {
 
-    private static final String LOG_TAG = "Robohash";
+    private static final String LOG_TAG = "Avatar";
 
     private static final String ASSETS_SUBDIRECTORY = "robohash";
     private static final String CONFIG_FILENAME = "config.json";
@@ -87,16 +86,99 @@ public class Robohash {
     private static BitmapCache mCache = new BitmapCache();
     private static JSONObject mConfig = null;
 
-    public static void setRobohashImage(
+    public static void setAvatarImage(
+            Context context,
+            ImageView imageView) {
+        setAvatarImage(context, imageView, false);
+    }
+
+    public static void setAvatarImage(
             Context context,
             ImageView imageView,
             boolean cacheCandidate,
             Identity.PublicIdentity publicIdentity) {
-        if (publicIdentity != null) {
+        setAvatarImage(context, imageView, cacheCandidate, publicIdentity.mId);
+    }
+
+    public static void setAvatarImage(
+            Context context,
+            ImageView imageView,
+            boolean cacheCandidate,
+            Protocol.Group group) {
+        String[] ids = new String[group.mMembers.size()];
+        int index = 0;
+        for (Identity.PublicIdentity publicIdentity : group.mMembers) {
+            ids[index++] = publicIdentity.mId;
+        }
+        setAvatarImage(context, imageView, cacheCandidate, ids);
+    }
+
+    private static void setAvatarImage(
+            Context context,
+            ImageView imageView,
+            boolean cacheCandidate,
+            String ... ids) {
+        if (ids.length > 0) {
             try {
-                imageView.setImageBitmap(Robohash.getRobohash(
-                        context, cacheCandidate, publicIdentity.getFingerprint()));
-                return;
+                // TODO: cache compound avatar bitmaps?
+                Bitmap firstBitmap = Avatar.getRobohash(context, cacheCandidate, ids[0]);
+                if (ids.length == 1) {
+                    imageView.setImageBitmap(firstBitmap);
+                    return;
+                }
+
+                int width = firstBitmap.getWidth();
+                int height = firstBitmap.getHeight();
+                Bitmap bitmap = Bitmap.createBitmap(width*2, height*2, Bitmap.Config.ARGB_8888);
+                Canvas canvas = new Canvas(bitmap);
+                Paint paint = new Paint();
+                paint.setAlpha(255);
+                Rect srcRect = new Rect(0, 0, width, height);
+                Rect destRect = new Rect(0, 0, width, height);
+
+                if (ids.length == 2) {
+                    canvas.drawBitmap(firstBitmap, srcRect, destRect, paint);
+                    destRect = new Rect(width, height, width*2, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[1]), srcRect, destRect, paint);
+                    imageView.setImageBitmap(bitmap);
+                    return;
+                } else if (ids.length == 3) {
+                    destRect = new Rect(width/2, 0, width/2+width, height);
+                    canvas.drawBitmap(firstBitmap, srcRect, destRect, paint);
+                    destRect = new Rect(0, height, width, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[1]), srcRect, destRect, paint);
+                    destRect = new Rect(width, height, width*2, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[2]), srcRect, destRect, paint);
+                    imageView.setImageBitmap(bitmap);
+                    return;
+                } else if (ids.length == 4) {
+                    canvas.drawBitmap(firstBitmap, srcRect, destRect, paint);
+                    destRect = new Rect(width, 0, width*2, height);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[1]), srcRect, destRect, paint);
+                    destRect = new Rect(0, height, width, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[2]), srcRect, destRect, paint);
+                    destRect = new Rect(width, height, width*2, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[3]), srcRect, destRect, paint);
+                    imageView.setImageBitmap(bitmap);
+                    return;
+                } else if (ids.length > 4) {
+                    canvas.drawBitmap(firstBitmap, srcRect, destRect, paint);
+                    destRect = new Rect(width, 0, width*2, height);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[1]), srcRect, destRect, paint);
+                    destRect = new Rect(0, height, width, height*2);
+                    canvas.drawBitmap(Avatar.getRobohash(context, cacheCandidate, ids[2]), srcRect, destRect, paint);
+                    String text = "+" + Integer.toString(ids.length - 3);
+                    Paint textPaint = new Paint();
+                    textPaint.setColor(Color.BLACK);
+                    textPaint.setTextSize((int) (width/4 * context.getResources().getDisplayMetrics().density));
+                    Rect textBounds = new Rect();
+                    textPaint.getTextBounds(text, 0, text.length(), textBounds);
+                    int x = width + (width - textBounds.width())/2;
+                    int y = height + (height + textBounds.height())/2;
+                    canvas.drawText(text, x, y, textPaint);
+                    imageView.setImageBitmap(bitmap);
+                    return;
+                }
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to create image");
             }
@@ -104,21 +186,17 @@ public class Robohash {
         imageView.setImageResource(R.drawable.ic_unknown_avatar);
     }
 
-    public static Bitmap getRobohash(
+    private static Bitmap getRobohash(
             Context context,
             boolean cacheCandidate,
-            byte[] data) throws PloggyError {
+            String id) throws PloggyError {
         try {
-            MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            byte[] digest = sha1.digest(data);
-
-            String key = Utils.formatFingerprint(digest);
-            Bitmap cachedBitmap = mCache.get(key);
+            Bitmap cachedBitmap = mCache.get(id);
             if (cachedBitmap != null) {
                 return cachedBitmap;
             }
 
-            ByteBuffer byteBuffer = ByteBuffer.wrap(digest);
+            ByteBuffer byteBuffer = ByteBuffer.wrap(id.getBytes());
             byteBuffer.order(ByteOrder.BIG_ENDIAN);
             // TODO: SecureRandom SHA1PRNG (but not LinuxSecureRandom)
             Random random = new Random(byteBuffer.getLong());
@@ -150,7 +228,7 @@ public class Robohash {
             }
 
             if (cacheCandidate) {
-                mCache.set(key, robotBitmap);
+                mCache.set(id, robotBitmap);
             }
 
             return robotBitmap;
@@ -158,8 +236,6 @@ public class Robohash {
         } catch (IOException e) {
             throw new PloggyError(LOG_TAG, e);
         } catch (JSONException e) {
-            throw new PloggyError(LOG_TAG, e);
-        } catch (NoSuchAlgorithmException e) {
             throw new PloggyError(LOG_TAG, e);
         }
     }

@@ -92,7 +92,7 @@ public class ActivityAddFriend extends ActivityPloggyBase implements View.OnClic
             try {
                 mHint.setVisibility(View.INVISIBLE);
                 mFriendSection.setVisibility(View.VISIBLE);
-                Robohash.setRobohashImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
+                Avatar.setAvatarImage(this, mFriendAvatarImage, true, mReceivedFriend.mPublicIdentity);
                 mFriendNicknameText.setText(mReceivedFriend.mPublicIdentity.mNickname);
                 mFriendFingerprintText.setText(Utils.formatFingerprint(mReceivedFriend.mPublicIdentity.getFingerprint()));
                 return;

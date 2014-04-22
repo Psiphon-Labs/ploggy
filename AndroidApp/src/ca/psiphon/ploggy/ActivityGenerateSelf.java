@@ -88,9 +88,9 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
         try {
             if (publicIdentity.mNickname.length() > 0) {
-                Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
+                Avatar.setAvatarImage(this, mAvatarImage, false, publicIdentity);
             } else {
-                Robohash.setRobohashImage(this, mAvatarImage, false, null);
+                Avatar.setAvatarImage(this, mAvatarImage);
             }
             mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
         } catch (PloggyError e) {
@@ -120,7 +120,7 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
     }
 
     private void startGenerating() {
-        Robohash.setRobohashImage(this, mAvatarImage, false, null);
+        Avatar.setAvatarImage(this, mAvatarImage);
         mNicknameEdit.setText("");
         mFingerprintText.setText("");
         mRegenerateButton.setEnabled(false);

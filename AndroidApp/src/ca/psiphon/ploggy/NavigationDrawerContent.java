@@ -93,7 +93,7 @@ public class NavigationDrawerContent {
                     for (Data.Group group : data.getVisibleGroupsIterator()) {
                         rows.add(new Item(
                                 new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_POSTS, group.mGroup.mId),
-                                R.drawable.ic_navigation_drawer_group_posts,
+                                group.mGroup,
                                 group.mGroup.mName));
                     }
                     rows.add(
@@ -101,7 +101,7 @@ public class NavigationDrawerContent {
                     for (Data.Friend friend : data.getFriendsIterator()) {
                         rows.add(new Item(
                                 new ActivityMain.ViewTag(ActivityMain.ViewType.FRIEND_DETAIL, friend.mId),
-                                R.drawable.ic_navigation_drawer_friend_detail,
+                                friend.mPublicIdentity,
                                 friend.mPublicIdentity.mNickname));
                     }
                     return rows;
@@ -175,11 +175,31 @@ public class NavigationDrawerContent {
 
         private final ActivityMain.ViewTag mViewTag;
         private final int mIconResourceId;
+        private final Identity.PublicIdentity mPublicIdentity;
+        private final Protocol.Group mGroup;
         private final String mText;
 
         public Item(ActivityMain.ViewTag viewTag, int iconResourceId, String text) {
             mViewTag = viewTag;
             mIconResourceId = iconResourceId;
+            mPublicIdentity = null;
+            mGroup = null;
+            mText = text;
+        }
+
+        public Item(ActivityMain.ViewTag viewTag, Identity.PublicIdentity publicIdentity, String text) {
+            mViewTag = viewTag;
+            mIconResourceId = -1;
+            mPublicIdentity = publicIdentity;
+            mGroup = null;
+            mText = text;
+        }
+
+        public Item(ActivityMain.ViewTag viewTag, Protocol.Group group, String text) {
+            mViewTag = viewTag;
+            mIconResourceId = -1;
+            mPublicIdentity = null;
+            mGroup = group;
             mText = text;
         }
 
@@ -203,7 +223,13 @@ public class NavigationDrawerContent {
 
             ImageView icon = (ImageView) view.findViewById(R.id.navigation_drawer_item_icon);
             TextView text = (TextView) view.findViewById(R.id.navigation_drawer_item_text);
-            icon.setImageResource(mIconResourceId);
+            if (mPublicIdentity != null) {
+                Avatar.setAvatarImage(view.getContext(), icon, true, mPublicIdentity);
+            } else if (mGroup != null) {
+                Avatar.setAvatarImage(view.getContext(), icon, true, mGroup);
+            } else {
+                icon.setImageResource(mIconResourceId);
+            }
             text.setText(mText);
 
             return view;
