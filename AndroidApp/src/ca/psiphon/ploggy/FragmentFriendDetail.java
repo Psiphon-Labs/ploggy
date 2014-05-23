@@ -158,7 +158,7 @@ public class FragmentFriendDetail extends Fragment {
                 // Won't be able to display friend location
             }
 
-            Avatar.setAvatarImage(context, mAvatarImage, true, friend.mPublicIdentity);
+            Avatar.setAvatarImage(context, mAvatarImage, friend.mPublicIdentity);
             mNicknameText.setText(friend.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(friend.mPublicIdentity.getFingerprint()));
 

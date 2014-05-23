@@ -229,9 +229,9 @@ public class NavigationDrawerContent {
             ImageView icon = (ImageView) view.findViewById(R.id.navigation_drawer_item_icon);
             TextView text = (TextView) view.findViewById(R.id.navigation_drawer_item_text);
             if (mPublicIdentity != null) {
-                Avatar.setAvatarImage(view.getContext(), icon, true, mPublicIdentity);
+                Avatar.setAvatarImage(view.getContext(), icon, mPublicIdentity);
             } else if (mGroup != null) {
-                Avatar.setAvatarImage(view.getContext(), icon, true, mSelfId, mGroup);
+                Avatar.setGroupAvatarImage(view.getContext(), icon, mSelfId, mGroup);
             } else {
                 icon.setImageResource(mIconResourceId);
             }

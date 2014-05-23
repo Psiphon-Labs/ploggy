@@ -88,7 +88,8 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
         try {
             if (publicIdentity.mNickname.length() > 0) {
-                Avatar.setAvatarImage(this, mAvatarImage, false, publicIdentity);
+                // Temporary, uncached avatar -- since nickname may be changing
+                Avatar.setTemporaryAvatarImage(this, mAvatarImage, publicIdentity);
             } else {
                 Avatar.setAvatarImage(this, mAvatarImage);
             }

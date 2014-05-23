@@ -83,8 +83,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
         setContentView(R.layout.activity_edit_group);
 
         mGroupAvatarImage = (ImageView)findViewById(R.id.edit_group_avatar_image);
-        // *TODO* Hangout-like multi-avatar image?
-        mGroupAvatarImage.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+        Avatar.setGroupAvatarImage(mGroupAvatarImage);
 
         mNameEdit = (EditText) findViewById(R.id.edit_group_name_edit);
         mNameEdit.addTextChangedListener(new TextWatcher() {
@@ -176,11 +175,20 @@ public class ActivityEditGroup extends ActivityPloggyBase
                 boolean isSelfPublished = group.mGroup.mPublisherId.equals(data.getSelfId());
                 mIsReadOnly = !isSelfPublished;
             }
+            showAvatar();
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to show group");
         }
         mNameEdit.setEnabled(!mIsReadOnly);
         setHasEdits(false);
+    }
+
+    private void showAvatar() {
+        try {
+            Avatar.setGroupAvatarImage(this, mGroupAvatarImage, Data.getInstance().getSelfId(), mMemberAdapter);
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to show group avatar");
+        }
     }
 
     private void setHasEdits(boolean hasEdits) {
@@ -268,6 +276,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
                         mMemberAdapter.sort(new Identity.PublicIdentityComparator());
                         // *TODO* ensure new member is visible
                         mMemberAdapter.notifyDataSetChanged();
+                        showAvatar();
                         setHasEdits(true);
                         dialog.dismiss();
                     }
@@ -302,6 +311,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
                 if (!member.mId.equals(Data.getInstance().getSelfOrThrow().mId)) {
                     mMemberAdapter.remove(member);
                     mMemberAdapter.notifyDataSetChanged();
+                    showAvatar();
                 }
                 // *TODO* what's the UI for resigning from a group?
                 // TODO: else display toast?

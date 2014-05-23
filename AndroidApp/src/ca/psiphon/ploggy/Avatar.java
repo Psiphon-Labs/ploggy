@@ -54,6 +54,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import org.json.JSONArray;
@@ -92,34 +94,65 @@ public class Avatar {
         setAvatarImage(context, imageView, false);
     }
 
-    public static void setAvatarImage(
+    public static void setTemporaryAvatarImage(
             Context context,
             ImageView imageView,
-            boolean cacheCandidate,
             Identity.PublicIdentity publicIdentity) {
-        setAvatarImage(context, imageView, cacheCandidate, publicIdentity.mId);
+        // Don't cache temporary avatar image
+        setAvatarImage(context, imageView, false, publicIdentity.mId);
     }
 
     public static void setAvatarImage(
             Context context,
             ImageView imageView,
-            boolean cacheCandidate,
+            Identity.PublicIdentity publicIdentity) {
+        setAvatarImage(context, imageView, true, publicIdentity.mId);
+    }
+
+    public static void setGroupAvatarImage(
+            Context context,
+            ImageView imageView,
             String selfId,
             Protocol.Group group) {
+        setGroupAvatarImage(context, imageView, selfId, group.mMembers);
+    }
+
+    public static void setGroupAvatarImage(
+            ImageView imageView) {
+        imageView.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+    }
+
+    public static void setGroupAvatarImage(
+            Context context,
+            ImageView imageView,
+            String selfId,
+            Adapters.GroupMemberArrayAdapter membersAdapter) {
+        List<Identity.PublicIdentity> members = new ArrayList<Identity.PublicIdentity>();
+        for (int i = 0; i < membersAdapter.getCount(); i++) {
+            members.add(membersAdapter.getItem(i));
+        }
+        setGroupAvatarImage(context, imageView, selfId, members);
+    }
+
+    public static void setGroupAvatarImage(
+            Context context,
+            ImageView imageView,
+            String selfId,
+            List<Identity.PublicIdentity> members) {
         // Group avatar is a composition of member avatars with self excluded.
         // In the case where only self is in the group, a generic icon is used.
-        if (group.mMembers.size() == 1 && group.mMembers.get(0).equals(selfId)) {
-            imageView.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+        if (members.size() == 1 && members.get(0).equals(selfId)) {
+            setGroupAvatarImage(imageView);
             return;
         }
-        String[] ids = new String[group.mMembers.size()-1];
+        String[] ids = new String[members.size()-1];
         int index = 0;
-        for (Identity.PublicIdentity publicIdentity : group.mMembers) {
+        for (Identity.PublicIdentity publicIdentity : members) {
             if (!publicIdentity.mId.equals(selfId)) {
                 ids[index++] = publicIdentity.mId;
             }
         }
-        setAvatarImage(context, imageView, cacheCandidate, ids);
+        setAvatarImage(context, imageView, true, ids);
     }
 
     private static void setAvatarImage(

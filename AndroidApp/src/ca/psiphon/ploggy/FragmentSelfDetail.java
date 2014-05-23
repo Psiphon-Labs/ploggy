@@ -119,7 +119,7 @@ public class FragmentSelfDetail extends Fragment {
                 // Won't be able to compute distance
             }
 
-            Avatar.setAvatarImage(context, mAvatarImage, true, self.mPublicIdentity);
+            Avatar.setAvatarImage(context, mAvatarImage, self.mPublicIdentity);
             mNicknameText.setText(self.mPublicIdentity.mNickname);
             mFingerprintText.setText(Utils.formatFingerprint(self.mPublicIdentity.getFingerprint()));
 

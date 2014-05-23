@@ -87,7 +87,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Avatar.setAvatarImage(context, avatarImage, true, friend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
 
                 // *TODO* don't do sub-queries here, do in background thread
@@ -201,7 +201,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Avatar.setAvatarImage(context, avatarImage, true, candidateFriend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, candidateFriend.mPublicIdentity);
                 nicknameText.setText(candidateFriend.mPublicIdentity.mNickname);
 
                 // *TODO* don't do sub-queries here, do in background thread
@@ -244,7 +244,7 @@ public class Adapters {
             try {
                 Data.Friend friend = getCursor().get(position);
 
-                Avatar.setAvatarImage(context, avatarImage, true, friend.mPublicIdentity);
+                Avatar.setAvatarImage(context, avatarImage, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
 
             } catch (PloggyError e) {
@@ -276,7 +276,7 @@ public class Adapters {
 
             Identity.PublicIdentity publicIdentity = getItem(position);
 
-            Avatar.setAvatarImage(context, avatarImage, true, publicIdentity);
+            Avatar.setAvatarImage(context, avatarImage, publicIdentity);
             nicknameText.setText(publicIdentity.mNickname);
 
             return view;
@@ -315,7 +315,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Avatar.setAvatarImage(context, avatarImage, true, data.getSelfId(), group.mGroup);
+                Avatar.setGroupAvatarImage(context, avatarImage, data.getSelfId(), group.mGroup);
 
                 nameText.setText(group.mGroup.mName);
 
@@ -411,7 +411,7 @@ public class Adapters {
                     Log.addEntry(LOG_TAG, "failed to load post attachment");
                 }
 
-                Avatar.setAvatarImage(context, avatarImage, true, publisher);
+                Avatar.setAvatarImage(context, avatarImage, publisher);
                 nicknameText.setText(publisher.mNickname);
                 contentText.setText(post.mPost.mContent);
 
