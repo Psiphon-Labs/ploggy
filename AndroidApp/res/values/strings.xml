@@ -98,6 +98,8 @@
     <string name="prompt_edit_group_already_exists">A group with the name %1$s already exists</string>
     <string name="prompt_edit_group_saved">Saved %1$s</string>
     <string name="format_download_progress">%1$.1f%%</string>
+    <string name="no_posts">No posts</string>
+    <string name="no_location">No location</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
     <string name="preference_use_geocoder_summary">Use 3rd party service to map current latitude/longitude to street address</string>

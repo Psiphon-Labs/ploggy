@@ -143,6 +143,8 @@ public class Adapters {
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
+                } else {
+                    postContentText.setText(R.string.no_posts);
                 }
 
                 if (friendLocation != null) {
@@ -163,6 +165,8 @@ public class Adapters {
                     } else {
                         locationDistanceText.setText(R.string.prompt_unknown_distance);
                     }
+                } else {
+                    locationStreetAddressText.setText(R.string.no_location);
                 }
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display friend");
@@ -335,6 +339,8 @@ public class Adapters {
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
+                } else {
+                    postContentText.setText(R.string.no_posts);
                 }
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display group");
