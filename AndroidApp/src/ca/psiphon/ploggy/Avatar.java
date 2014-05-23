@@ -69,8 +69,10 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Paint.Style;
 import android.graphics.Rect;
 import android.widget.ImageView;
+import ca.psiphon.ploggy.widgets.RoundedDrawable;
 
 /**
  * Unique avatars derived from identities.
@@ -174,6 +176,9 @@ public class Avatar {
                 Bitmap bitmap = Bitmap.createBitmap(width*2, height*2, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
                 Paint paint = new Paint();
+                paint.setAntiAlias(true);
+                paint.setDither(true);
+                paint.setFilterBitmap(true);
                 paint.setAlpha(255);
                 Rect srcRect = new Rect(0, 0, width, height);
                 Rect destRect = new Rect(0, 0, width, height);
@@ -258,22 +263,34 @@ public class Avatar {
             Bitmap robotBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas robotCanvas = new Canvas(robotBitmap);
 
+            Paint paint = new Paint();
+            paint.setAntiAlias(true);
+            paint.setDither(true);
+            paint.setFilterBitmap(true);
+            paint.setAlpha(255);
+            paint.setColor(Color.LTGRAY);
+            paint.setStyle(Style.FILL);
+
+            robotCanvas.drawRect(0, 0, width, height, paint);
+
             for (int i = 0; i < parts.length(); i++) {
                 JSONArray partChoices = parts.getJSONArray(i);
                 String selection = partChoices.getString(random.nextInt(partChoices.length()));
                 Bitmap partBitmap = loadAssetToBitmap(assetManager, selection);
                 Rect rect = new Rect(0, 0, width, height);
-                Paint paint = new Paint();
-                paint.setAlpha(255);
                 robotCanvas.drawBitmap(partBitmap, rect, rect, paint);
                 partBitmap.recycle();
             }
 
+            RoundedDrawable roundedDrawable = RoundedDrawable.fromBitmap(robotBitmap);
+            roundedDrawable.setCornerRadius(width/2);
+            Bitmap avatarBitmap = roundedDrawable.toBitmap();
+
             if (cacheCandidate) {
-                mCache.set(id, robotBitmap);
+                mCache.set(id, avatarBitmap);
             }
 
-            return robotBitmap;
+            return avatarBitmap;
 
         } catch (IOException e) {
             throw new PloggyError(LOG_TAG, e);
