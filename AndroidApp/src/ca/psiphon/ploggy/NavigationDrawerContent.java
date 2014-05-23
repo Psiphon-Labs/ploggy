@@ -93,6 +93,7 @@ public class NavigationDrawerContent {
                     for (Data.Group group : data.getVisibleGroupsIterator()) {
                         rows.add(new Item(
                                 new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_POSTS, group.mGroup.mId),
+                                data.getSelfId(),
                                 group.mGroup,
                                 group.mGroup.mName));
                     }
@@ -176,6 +177,7 @@ public class NavigationDrawerContent {
         private final ActivityMain.ViewTag mViewTag;
         private final int mIconResourceId;
         private final Identity.PublicIdentity mPublicIdentity;
+        private final String mSelfId;
         private final Protocol.Group mGroup;
         private final String mText;
 
@@ -183,6 +185,7 @@ public class NavigationDrawerContent {
             mViewTag = viewTag;
             mIconResourceId = iconResourceId;
             mPublicIdentity = null;
+            mSelfId = null;
             mGroup = null;
             mText = text;
         }
@@ -191,14 +194,16 @@ public class NavigationDrawerContent {
             mViewTag = viewTag;
             mIconResourceId = -1;
             mPublicIdentity = publicIdentity;
+            mSelfId = null;
             mGroup = null;
             mText = text;
         }
 
-        public Item(ActivityMain.ViewTag viewTag, Protocol.Group group, String text) {
+        public Item(ActivityMain.ViewTag viewTag, String selfId, Protocol.Group group, String text) {
             mViewTag = viewTag;
             mIconResourceId = -1;
             mPublicIdentity = null;
+            mSelfId = selfId;
             mGroup = group;
             mText = text;
         }
@@ -226,7 +231,7 @@ public class NavigationDrawerContent {
             if (mPublicIdentity != null) {
                 Avatar.setAvatarImage(view.getContext(), icon, true, mPublicIdentity);
             } else if (mGroup != null) {
-                Avatar.setAvatarImage(view.getContext(), icon, true, mGroup);
+                Avatar.setAvatarImage(view.getContext(), icon, true, mSelfId, mGroup);
             } else {
                 icon.setImageResource(mIconResourceId);
             }

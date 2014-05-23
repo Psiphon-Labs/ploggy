@@ -104,11 +104,20 @@ public class Avatar {
             Context context,
             ImageView imageView,
             boolean cacheCandidate,
+            String selfId,
             Protocol.Group group) {
-        String[] ids = new String[group.mMembers.size()];
+        // Group avatar is a composition of member avatars with self excluded.
+        // In the case where only self is in the group, a generic icon is used.
+        if (group.mMembers.size() == 1 && group.mMembers.get(0).equals(selfId)) {
+            imageView.setImageResource(R.drawable.ic_navigation_drawer_group_list);
+            return;
+        }
+        String[] ids = new String[group.mMembers.size()-1];
         int index = 0;
         for (Identity.PublicIdentity publicIdentity : group.mMembers) {
-            ids[index++] = publicIdentity.mId;
+            if (!publicIdentity.mId.equals(selfId)) {
+                ids[index++] = publicIdentity.mId;
+            }
         }
         setAvatarImage(context, imageView, cacheCandidate, ids);
     }

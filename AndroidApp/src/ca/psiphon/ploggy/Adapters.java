@@ -315,7 +315,7 @@ public class Adapters {
 
                 Data data = Data.getInstance();
 
-                Avatar.setAvatarImage(context, avatarImage, true, group.mGroup);
+                Avatar.setAvatarImage(context, avatarImage, true, data.getSelfId(), group.mGroup);
 
                 nameText.setText(group.mGroup.mName);
 
