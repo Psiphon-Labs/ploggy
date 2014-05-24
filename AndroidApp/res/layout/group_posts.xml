@@ -14,6 +14,8 @@
         android:layout_width="match_parent"
         android:layout_height="0dip"
         android:layout_weight="1"
+        android:divider="@null"
+        android:dividerHeight="0dip"
         android:transcriptMode="normal"
         android:stackFromBottom="true" />
 

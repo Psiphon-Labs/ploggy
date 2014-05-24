@@ -363,15 +363,16 @@ public class Adapters {
             View view = convertView;
             if (view == null) {
                 LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                view = inflater.inflate(R.layout.post_list_row, null);
+                // *TODO* swap avatar/content order and background image for sent vs. received
+                view = inflater.inflate(R.layout.post, null);
             }
 
-            ImageView avatarImage = (ImageView)view.findViewById(R.id.message_avatar_image);
-            TextView nicknameText = (TextView)view.findViewById(R.id.message_nickname_text);
-            TextView contentText = (TextView)view.findViewById(R.id.message_content_text);
-            TextView pictureDownloadText = (TextView)view.findViewById(R.id.message_picture_download_text);
-            ImageView pictureThumbnailImage = (ImageView)view.findViewById(R.id.message_picture_thumbnail);
-            TextView timestampText = (TextView)view.findViewById(R.id.message_timestamp_text);
+            ImageView avatarImage = (ImageView)view.findViewById(R.id.post_publisher_avatar_image);
+            TextView nicknameText = (TextView)view.findViewById(R.id.post_publisher_nickname_text);
+            TextView contentText = (TextView)view.findViewById(R.id.post_content_text);
+            TextView pictureDownloadText = (TextView)view.findViewById(R.id.post_picture_download_text);
+            ImageView pictureThumbnailImage = (ImageView)view.findViewById(R.id.post_picture_thumbnail);
+            TextView timestampText = (TextView)view.findViewById(R.id.post_timestamp_text);
 
             try {
                 Data.Post post = getCursor().get(position);
