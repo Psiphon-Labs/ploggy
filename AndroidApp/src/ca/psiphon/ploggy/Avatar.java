@@ -268,7 +268,7 @@ public class Avatar {
             paint.setDither(true);
             paint.setFilterBitmap(true);
             paint.setAlpha(255);
-            paint.setColor(Color.LTGRAY);
+            paint.setColor(0xFF87CEEB); // SkyBlue
             paint.setStyle(Style.FILL);
 
             robotCanvas.drawRect(0, 0, width, height, paint);
