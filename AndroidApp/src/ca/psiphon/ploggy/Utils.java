@@ -44,6 +44,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
@@ -194,10 +195,16 @@ public class Utils {
         new LinuxSecureRandom();
     }
 
+    @SuppressLint("TrulyRandom") // use of initSecureRandom() addresses this issue
     public static byte[] getRandomBytes(int byteCount) {
         byte[] buffer = new byte[byteCount];
         new SecureRandom().nextBytes(buffer);
         return buffer;
+    }
+
+    @SuppressLint("TrulyRandom") // use of initSecureRandom() addresses this issue
+    public static int getRandomInt(int n) {
+        return new SecureRandom().nextInt(n);
     }
 
     public static String encodeBase64(byte[] data) {

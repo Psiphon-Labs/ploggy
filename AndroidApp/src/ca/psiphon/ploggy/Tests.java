@@ -27,8 +27,12 @@ import java.util.Timer;
 import java.util.TimerTask;
 
 import android.net.TrafficStats;
+import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
+import android.widget.Toast;
+import ca.psiphon.ploggy.Data.AlreadyExistsError;
+import ca.psiphon.ploggy.Data.NotFoundError;
 
 import com.squareup.otto.Subscribe;
 
@@ -60,17 +64,26 @@ public class Tests {
                 2000);
     }
 
+    public static void scheduleAddEchoBot() {
+        mTimer.schedule(
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        Tests.addEchoBot();
+                    }
+                },
+                0);
+    }
 
     private static final String ALICE = "Alice";
     private static final String BOB = "Bob";
     private static final String CAROL = "Carol";
     private static final String EVE = "Eve";
-
     private static final String ALICE_GROUP = "Alice's Group";
 
     private static final int AWAIT_SYNC_TIMEOUT_SECONDS = 600;
 
-    public static void runComponentTests() {
+    private static void runComponentTests() {
         PloggyInstance alice = null;
         PloggyInstance bob = null;
         PloggyInstance carol = null;
@@ -176,8 +189,8 @@ public class Tests {
     }
 
     private static class PloggyInstance {
-        private final String mInstanceName;
-        private Data mData;
+        protected final String mInstanceName;
+        protected Data mData;
         private Thread mThread;
         private Looper mThreadLooper;
         private boolean mStarted;
@@ -199,7 +212,8 @@ public class Tests {
                        Looper.prepare();
                        mThreadLooper = Looper.myLooper();
                        // Note: both Data and Engine initialization should occur after this Events instance is associated with this thread
-                       Events.getInstance(mInstanceName);
+                       Events events = Events.getInstance(mInstanceName);
+                       events.register(PloggyInstance.this);
                        mData = Data.getInstance(mInstanceName);
                        HiddenService.KeyMaterial selfHiddenServiceKeyMaterial = HiddenService.generateKeyMaterial(mInstanceName);
                        X509.KeyMaterial selfX509KeyMaterial = X509.generateKeyMaterial(selfHiddenServiceKeyMaterial.mHostname);
@@ -220,7 +234,9 @@ public class Tests {
                        Looper.loop();
                        Log.addEntry(LOG_TAG, "Stopping Engine for " + mInstanceName);
                        engine.stop();
+                       events.unregister(PloggyInstance.this);
                        mData = null;
+                       // TODO: delete all references to Data and Events instances?
                    } catch (PloggyError e) {
                        mStartError = e;
                        Log.addEntry(LOG_TAG, "Engine start failed");
@@ -328,9 +344,9 @@ public class Tests {
             String publisherId = getPublicIdentity().mId;
             List<Protocol.Resource> attachments = new ArrayList<Protocol.Resource>();
             Date now = new Date();
+            Protocol.Location stubLocation = new Protocol.Location(now, 0.0, 0.0, "");
             for (int i = 0; i < count; i++) {
                 String content = Utils.encodeBase64(Utils.getRandomBytes(250));
-                Protocol.Location  stubLocation = new Protocol.Location(now, 0.0, 0.0, "");
                 Protocol.Post post = new Protocol.Post(
                         Utils.makeId(),
                         groupId,
@@ -456,6 +472,74 @@ public class Tests {
                 "App data usage: " +
                     Utils.byteCountToDisplaySize(bytesSent, false) + " sent " +
                     Utils.byteCountToDisplaySize(bytesReceived, false) + " received ");
+    }
+
+    private static class EchoBotInstance extends PloggyInstance {
+
+        public EchoBotInstance() throws PloggyError {
+            super(String.format("echobot-%06d", Utils.getRandomInt(100000)));
+        }
+
+        @Override
+        public void start() throws PloggyError, InterruptedException {
+            super.start();
+            try {
+                Data mainUserData = Data.getInstance();
+                Data.Friend mainUserFriend = new Data.Friend(mainUserData.getSelfOrThrow().mPublicIdentity, new Date());
+                Data.Friend echoBotFriend = new Data.Friend(getPublicIdentity(), new Date());
+                mData.addFriend(mainUserFriend);
+                mainUserData.addFriend(echoBotFriend);
+            } catch (AlreadyExistsError e) {
+                throw new PloggyError(LOG_TAG, e);
+            }
+            Handler handler = new Handler(Looper.getMainLooper());
+            final String prompt = "Added " + mInstanceName;
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast toast = Toast.makeText(Utils.getApplicationContext(), prompt, Toast.LENGTH_SHORT);
+                    toast.show();
+                }
+            });
+        }
+
+        @Subscribe
+        public synchronized void onUpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
+            try {
+                Date now = new Date();
+                Protocol.Post post = new Protocol.Post(
+                        Utils.makeId(),
+                        updatedFriendPost.mGroupId,
+                        getPublicIdentity().mId,
+                        Protocol.POST_CONTENT_TYPE_DEFAULT,
+                        "Echo: " + mData.getPost(updatedFriendPost.mPostId).mPost.mContent,
+                        new ArrayList<Protocol.Resource>(),
+                        new Protocol.Location(now, 0.0, 0.0, ""),
+                        now,
+                        now,
+                        -1,
+                        false);
+                mData.addPost(post, null);
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to echo post");
+            } catch (NotFoundError e) {
+                Log.addEntry(LOG_TAG, "failed to echo post: original post not found");
+            }
+        }
+    }
+
+    private static List<EchoBotInstance> mEchoBots = new ArrayList<EchoBotInstance>();
+
+    private static void addEchoBot() {
+        try {
+            EchoBotInstance echoBot;
+            echoBot = new EchoBotInstance();
+            mEchoBots.add(echoBot);
+            echoBot.start();
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to add echobot");
+        } catch (InterruptedException e) {
+        }
     }
 }
 

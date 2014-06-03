@@ -15,12 +15,16 @@
           android:title="@string/action_run_tests"
           android:orderInCategory="1004"
           android:showAsAction="never" />
+    <item android:id="@+id/action_add_echo_bot"
+          android:title="@string/action_add_echo_bot"
+          android:orderInCategory="1005"
+          android:showAsAction="never" />
     <item android:id="@+id/action_settings"
           android:title="@string/action_settings"
-          android:orderInCategory="1005"
+          android:orderInCategory="1006"
           android:showAsAction="never" />
     <item android:id="@+id/action_quit"
           android:title="@string/action_quit"
-          android:orderInCategory="1006"
+          android:orderInCategory="1007"
           android:showAsAction="never" />
 </menu>

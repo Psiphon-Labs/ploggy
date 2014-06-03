@@ -284,6 +284,9 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
             Tests.scheduleComponentTests();
             displayView(new ViewTag(ViewType.LOG_ENTRIES));
             return true;
+        case R.id.action_add_echo_bot:
+            Tests.scheduleAddEchoBot();
+            return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));
             return true;
