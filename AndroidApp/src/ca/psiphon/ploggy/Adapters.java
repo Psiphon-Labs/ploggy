@@ -83,7 +83,10 @@ public class Adapters {
             locationDistanceText.setText("");
 
             try {
-                Data.Friend friend = getCursor().get(position);
+                Data.Friend friend = getItem(position);
+                if (friend == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
 
                 Data data = Data.getInstance();
 
@@ -197,7 +200,10 @@ public class Adapters {
             TextView groupsText = (TextView)view.findViewById(R.id.candidate_friend_list_groups_text);
 
             try {
-                Data.CandidateFriend candidateFriend = getCursor().get(position);
+                Data.CandidateFriend candidateFriend = getItem(position);
+                if (candidateFriend == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
 
                 Data data = Data.getInstance();
 
@@ -242,7 +248,10 @@ public class Adapters {
             TextView nicknameText = (TextView)view.findViewById(R.id.group_member_list_name_text);
 
             try {
-                Data.Friend friend = getCursor().get(position);
+                Data.Friend friend = getItem(position);
+                if (friend == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
 
                 Avatar.setAvatarImage(context, avatarImage, friend.mPublicIdentity);
                 nicknameText.setText(friend.mPublicIdentity.mNickname);
@@ -274,10 +283,18 @@ public class Adapters {
             ImageView avatarImage = (ImageView)view.findViewById(R.id.group_member_list_avatar_image);
             TextView nicknameText = (TextView)view.findViewById(R.id.group_member_list_name_text);
 
-            Identity.PublicIdentity publicIdentity = getItem(position);
+            try {
+                Identity.PublicIdentity publicIdentity = getItem(position);
+                if (publicIdentity == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
 
-            Avatar.setAvatarImage(context, avatarImage, publicIdentity);
-            nicknameText.setText(publicIdentity.mNickname);
+                Avatar.setAvatarImage(context, avatarImage, publicIdentity);
+                nicknameText.setText(publicIdentity.mNickname);
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display group member");
+                // *TODO* view.<field>.setBlank();
+            }
 
             return view;
         }
@@ -311,7 +328,10 @@ public class Adapters {
             postTimestampText.setText("");
 
             try {
-                Data.Group group = getCursor().get(position);
+                Data.Group group = getItem(position);
+                if (group == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
 
                 Data data = Data.getInstance();
 
@@ -375,7 +395,11 @@ public class Adapters {
             TextView timestampText = (TextView)view.findViewById(R.id.post_timestamp_text);
 
             try {
-                Data.Post post = getCursor().get(position);
+                Data.Post post = getItem(position);
+                if (post == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
+
                 // *TODO* post.mState..?
 
                 Data data = Data.getInstance();
@@ -450,6 +474,13 @@ public class Adapters {
             }
 
             return view;
+        }
+
+        @Override
+        public Data.Post getItem(int position) {
+            // Inverted display (newest posts at bottom)
+            // This is intended to be used along with android:stackFromBottom="true"
+            return super.getItem(super.getCount() - position - 1);
         }
     }
 
