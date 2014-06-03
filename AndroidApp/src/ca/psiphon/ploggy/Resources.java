@@ -121,10 +121,13 @@ public class Resources {
         }
     }
 
-    private static File getTemporaryCopyFile(String resourceId) {
+    private static File getTemporaryCopyFile(String resourceId) throws PloggyError {
         File directory = Utils.getApplicationContext().getCacheDir();
         directory.mkdirs();
-        return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, resourceId));
+        // Hex encoding is file-system safe. Assumes resourceId is base64-encoded byte array.
+        // Fixes: java.io.FileNotFoundException: /data/data/ca.psiphon.ploggy/cache/YZ/NEZP34fZz8pdc+DgNc90wnV+WN/tKsIFTsuZxF6o=.ploggyLocalResource: open failed: ENOENT (No such file or directory)
+        String filename = Utils.encodeHex(Utils.decodeBase64(resourceId));
+        return new File(directory, String.format(LOCAL_RESOURCE_TEMPORARY_COPY_FILENAME_FORMAT_STRING, filename));
     }
 
     private static File makeScaledDownPictureFileCopy(String sourceFilePath, String resourceId) throws PloggyError {

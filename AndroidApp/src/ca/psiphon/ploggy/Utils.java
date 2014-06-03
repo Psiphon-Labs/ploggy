@@ -223,8 +223,19 @@ public class Utils {
         return encodeBase64(getRandomBytes(Protocol.ID_LENGTH));
     }
 
+    // from:
+    // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+    public static String encodeHex(byte[] data)  {
+        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        char[] chars = new char[data.length * 2];
+        for (int i = 0; i < data.length; i++)  {
+            chars[i*2] = hexArray[(data[i] & 0xFF)/16];
+            chars[i*2 + 1] = hexArray[(data[i] & 0xFF)%16];
+        }
+        return new String(chars);
+    }
+
     public static String formatFingerprint(byte[] fingerprintBytes) {
-        // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
         char[] chars = new char[fingerprintBytes.length * 3 - 1];
         for (int i = 0; i < fingerprintBytes.length; i++)  {
