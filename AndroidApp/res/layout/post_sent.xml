@@ -21,8 +21,9 @@
 
             <TextView
                 android:id="@+id/post_content_text"
-                android:layout_width="fill_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:layout_marginRight="4dip"
                 android:typeface="sans"
                 android:textSize="12dip" />
@@ -31,6 +32,7 @@
                 android:id="@+id/post_picture_download_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_weight="0"
                 android:layout_centerVertical="true"
                 android:background="@drawable/ic_picture_download_state"
                 android:gravity="center"
@@ -41,6 +43,7 @@
                 android:id="@+id/post_picture_thumbnail"
                 android:layout_width="@dimen/picture_thumbnail_width"
                 android:layout_height="@dimen/picture_thumbnail_height"
+                android:layout_weight="0"
                 android:layout_centerVertical="true" />
 
         </LinearLayout>

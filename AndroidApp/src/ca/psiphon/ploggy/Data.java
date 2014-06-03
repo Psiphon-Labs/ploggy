@@ -227,21 +227,18 @@ public class Data extends SQLiteOpenHelper {
         public final Type mType;
         public final String mMimeType;
         public final String mFilePath;
-        public final String mTempFilePath;
 
         public LocalResource(
                 String resourceId,
                 String groupId,
                 Type type,
                 String mimeType,
-                String filePath,
-                String tempFilePath) {
+                String filePath) {
             mResourceId = resourceId;
             mGroupId = groupId;
             mType = type;
             mMimeType = mimeType;
             mFilePath = filePath;
-            mTempFilePath = tempFilePath;
         }
     }
 
@@ -338,8 +335,7 @@ public class Data extends SQLiteOpenHelper {
                 "groupId TEXT NOT NULL," +
                 "type INTEGER NOT NULL," +
                 "mimeType TEXT NOT NULL," +
-                "filePath TEXT NOT NULL," +
-                "tempFilePath TEXT NOT NULL)",
+                "filePath TEXT NOT NULL)",
 
             "CREATE TABLE Download (" +
                 "publisherId TEXT," +
@@ -1103,7 +1099,6 @@ public class Data extends SQLiteOpenHelper {
                     localResourceValues.put("type", localResource.mType.name());
                     localResourceValues.put("mimeType", localResource.mMimeType);
                     localResourceValues.put("filePath", localResource.mFilePath);
-                    localResourceValues.put("tempFilePath", localResource.mTempFilePath);
                     mDatabase.insertOrThrow("LocalResource", null, localResourceValues);
                     attachmentIndex++;
                 }
@@ -1855,7 +1850,6 @@ public class Data extends SQLiteOpenHelper {
             values.put("type", localResource.mType.name());
             values.put("mimeType", localResource.mMimeType);
             values.put("filePath", localResource.mFilePath);
-            values.put("tempFilePath", localResource.mTempFilePath);
             mDatabase.insertOrThrow("LocalResource", null, values);
             mDatabase.setTransactionSuccessful();
         } catch (SQLiteException e) {
@@ -1866,15 +1860,16 @@ public class Data extends SQLiteOpenHelper {
     }
 
     private static final String SELECT_LOCAL_RESOURCE =
-            "SELECT resourceId, groupId, type, mimeType, filePath, tempFilePath FROM LocalResource";
+            "SELECT resourceId, groupId, type, mimeType, filePath FROM LocalResource";
 
     private static final IRowToObject<LocalResource> mRowToLocalResource =
         new IRowToObject<LocalResource>() {
             @Override
             public LocalResource rowToObject(SQLiteDatabase database, Cursor cursor) throws PloggyError {
                 return new LocalResource(
-                        cursor.getString(0), cursor.getString(1), LocalResource.Type.valueOf(cursor.getString(2)),
-                        cursor.getString(3), cursor.getString(4), cursor.getString(5));
+                        cursor.getString(0), cursor.getString(1),
+                        LocalResource.Type.valueOf(cursor.getString(2)),
+                        cursor.getString(3), cursor.getString(4));
             }
         };
 

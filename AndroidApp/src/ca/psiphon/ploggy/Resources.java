@@ -78,7 +78,7 @@ public class Resources {
                  file = makeScaledDownPictureFileCopy(attachmentFilePath, resourceId);
              }
              attachments.add(new Protocol.Resource(resourceId, attachmentMimeType, file.length()));
-             localResources.add(new Data.LocalResource(resourceId, postGroupId, localResourceType, attachmentMimeType, attachmentFilePath, null));
+             localResources.add(new Data.LocalResource(resourceId, postGroupId, localResourceType, attachmentMimeType, attachmentFilePath));
          }
          return new PostWithAttachments(
                  new Protocol.Post(
