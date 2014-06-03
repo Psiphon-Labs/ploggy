@@ -25,6 +25,7 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Asynchronously obtain location fixes from Android OS.
@@ -52,7 +53,7 @@ public class LocationFixer implements android.location.LocationListener {
 
     LocationFixer(Engine engine) {
         mEngine = engine;
-        mHandler = new Handler();
+        mHandler = new Handler(Looper.getMainLooper());
         mFixInProgress = false;
         initRunnables();
     }
