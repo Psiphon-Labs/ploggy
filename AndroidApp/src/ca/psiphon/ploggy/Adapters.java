@@ -26,6 +26,7 @@ import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Adapter;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
@@ -373,8 +374,35 @@ public class Adapters {
 
     public static class PostAdapter extends ObjectCursorAdapter<Data.Post> {
 
+        private static final int POST_SENT_VIEW = 0;
+        private static final int POST_RECEIVED_VIEW = 1;
+
         public PostAdapter(Context context, CursorFactory<Data.Post> cursorFactory) {
             super(context, cursorFactory);
+        }
+
+        @Override
+        public int getViewTypeCount() {
+            return 2;
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            try {
+                Data.Post post = getItem(position);
+                if (post == null) {
+                    throw new PloggyError(LOG_TAG, "item not found");
+                }
+
+                Data data = Data.getInstance();
+
+                boolean isSelfPublished = post.mPost.mPublisherId.equals(data.getSelfId());
+
+                return isSelfPublished ? POST_SENT_VIEW : POST_RECEIVED_VIEW;
+            } catch (PloggyError e) {
+                Log.addEntry(LOG_TAG, "failed to display post");
+            }
+            return Adapter.IGNORE_ITEM_VIEW_TYPE;
         }
 
         @Override
@@ -383,8 +411,14 @@ public class Adapters {
             View view = convertView;
             if (view == null) {
                 LayoutInflater inflater = (LayoutInflater)context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-                // *TODO* swap avatar/content order and background image for sent vs. received
-                view = inflater.inflate(R.layout.post, null);
+                switch (getItemViewType(position)) {
+                case POST_SENT_VIEW:
+                    view = inflater.inflate(R.layout.post_sent, null);
+                    break;
+                case POST_RECEIVED_VIEW:
+                    view = inflater.inflate(R.layout.post_received, null);
+                    break;
+                }
             }
 
             ImageView avatarImage = (ImageView)view.findViewById(R.id.post_publisher_avatar_image);
