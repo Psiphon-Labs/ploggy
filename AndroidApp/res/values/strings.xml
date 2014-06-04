@@ -33,10 +33,20 @@
     <string name="action_friend_list_delete_friend">Delete Friend</string>
     <string name="action_group_list_delete_group">Delete Group</string>
     <string name="action_compose_post_remove_picture">Remove picture from post</string>
+    <string name="select_groups">Select groups</string>
+    <plurals name="select_groups_subtitle">
+        <item quantity="one">%1$d group selected</item>
+        <item quantity="other">%1$d groups selected</item>
+    </plurals>
     <string name="label_delete_group_title">Delete Group</string>
     <string name="label_delete_group_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_group_positive">Delete</string>
     <string name="label_delete_group_negative">Cancel</string>
+    <string name="select_friends">Select friends</string>
+    <plurals name="select_friends_subtitle">
+        <item quantity="one">%1$d friend selected</item>
+        <item quantity="other">%1$d friends selected</item>
+    </plurals>
     <string name="label_delete_friend_title">Delete Friend</string>
     <string name="label_delete_friend_message">Are you sure you want to delete %1$s?</string>
     <string name="label_delete_friend_positive">Delete</string>

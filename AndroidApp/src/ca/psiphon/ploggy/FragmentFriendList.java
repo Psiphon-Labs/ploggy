@@ -33,6 +33,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
@@ -44,7 +45,8 @@ import com.squareup.otto.Subscribe;
  * This class subscribes to friend and status events to update displayed data
  * while in the foreground.
  */
-public class FragmentFriendList extends ListFragment implements ActionMode.Callback, View.OnLongClickListener {
+public class FragmentFriendList extends ListFragment
+    implements AdapterView.OnItemLongClickListener, AbsListView.MultiChoiceModeListener {
 
     private static final String LOG_TAG = "Friend List";
 
@@ -82,7 +84,11 @@ public class FragmentFriendList extends ListFragment implements ActionMode.Callb
         if (mFriendAdapter != null) {
             setListAdapter(mFriendAdapter);
         }
-        registerForContextMenu(getListView());
+        ListView listView = getListView();
+        listView.setLongClickable(true);
+        listView.setOnItemLongClickListener(this);
+        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        listView.setMultiChoiceModeListener(this);
     }
 
     @Override
@@ -130,19 +136,27 @@ public class FragmentFriendList extends ListFragment implements ActionMode.Callb
     }
 
     @Override
-    public boolean onLongClick(View view) {
+    public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
         if (mActionMode == null) {
             mActionMode = getActivity().startActionMode(this);
-            // *TODO* need setItemChecked + android:background="?android:attr/activatedBackgroundIndicator" ...?
-            view.setSelected(true);
             return true;
         }
         return false;
     }
 
     @Override
+    public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked) {
+        mode.setSubtitle(
+                getResources().getQuantityString(
+                        R.plurals.select_friends_subtitle,
+                        getListView().getCheckedItemCount(),
+                        getListView().getCheckedItemCount()));
+    }
+
+    @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
         mode.getMenuInflater().inflate(R.menu.friend_list_context, menu);
+        mode.setTitle(R.string.select_friends);
         return true;
     }
 

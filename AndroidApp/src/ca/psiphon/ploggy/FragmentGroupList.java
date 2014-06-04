@@ -33,6 +33,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
@@ -41,7 +42,8 @@ import com.squareup.otto.Subscribe;
 /**
  * User interface which displays a list of groups.
  */
-public class FragmentGroupList extends ListFragment implements ActionMode.Callback, View.OnLongClickListener {
+public class FragmentGroupList extends ListFragment
+implements AdapterView.OnItemLongClickListener, AbsListView.MultiChoiceModeListener {
 
     private static final String LOG_TAG = "Group List";
 
@@ -79,7 +81,11 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
         if (mGroupAdapter != null) {
             setListAdapter(mGroupAdapter);
         }
-        registerForContextMenu(getListView());
+        ListView listView = getListView();
+        listView.setLongClickable(true);
+        listView.setOnItemLongClickListener(this);
+        listView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        listView.setMultiChoiceModeListener(this);
     }
 
     @Override
@@ -127,24 +133,33 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
     }
 
     @Override
-    public boolean onLongClick(View view) {
+    public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
         if (mActionMode == null) {
             mActionMode = getActivity().startActionMode(this);
-            view.setSelected(true);
             return true;
         }
         return false;
     }
 
     @Override
+    public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked) {
+        mode.setSubtitle(
+                getResources().getQuantityString(
+                        R.plurals.select_groups_subtitle,
+                        getListView().getCheckedItemCount(),
+                        getListView().getCheckedItemCount()));
+    }
+
+    @Override
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-        mode.getMenuInflater().inflate(R.menu.friend_list_context, menu);
+        mode.getMenuInflater().inflate(R.menu.group_list_context, menu);
+        mode.setTitle(R.string.select_groups);
         return true;
     }
 
     @Override
     public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-        if (item.getItemId() == R.id.action_friend_list_delete_friend) {
+        if (item.getItemId() == R.id.action_group_list_delete_group) {
             AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
             promptDeleteGroup((Data.Group)getListView().getItemAtPosition(info.position));
             mode.finish();
@@ -174,7 +189,7 @@ public class FragmentGroupList extends ListFragment implements ActionMode.Callba
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             try {
-                                Data.getInstance().removeFriend(finalGroup.mGroup.mId);
+                                Data.getInstance().removeGroup(finalGroup.mGroup.mId);
                             } catch (PloggyError e) {
                                 Log.addEntry(LOG_TAG, "failed to delete group: " + finalGroup.mGroup.mName);
                             }

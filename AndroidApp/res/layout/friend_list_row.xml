@@ -3,7 +3,8 @@
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="4dip" >
+    android:padding="4dip"
+    android:background="?android:attr/activatedBackgroundIndicator" >
  
     <LinearLayout
         android:id="@+id/friend_list_avatar"
