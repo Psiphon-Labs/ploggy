@@ -19,11 +19,6 @@
 
 package ca.psiphon.ploggy;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -77,13 +72,30 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         public final ViewType mType;
         public final String mId;
 
-        ViewTag(ViewType type) {
+        private static final String BUNDLE_KEY_VIEW_TYPE = "ViewTag.mType";
+        private static final String BUNDLE_KEY_ID = "ViewTag.mId";
+
+        public ViewTag(ViewType type) {
             this(type, null);
         }
 
-        ViewTag(ViewType type, String id) {
+        public ViewTag(ViewType type, String id) {
             mType = type;
             mId = id;
+        }
+
+        public ViewTag(Bundle bundle) {
+            this(ViewType.valueOf(bundle.getString(BUNDLE_KEY_VIEW_TYPE)), bundle.getString(BUNDLE_KEY_ID));
+        }
+
+        public void save(Bundle bundle) {
+            bundle.putString(BUNDLE_KEY_VIEW_TYPE, mType.name());
+            bundle.putString(BUNDLE_KEY_ID, mId);
+        }
+
+        @Override
+        public String toString() {
+            return mType.name() + mId;
         }
     }
 
@@ -106,11 +118,7 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
     private NavigationDrawerContent.Adapter mDrawerAdapter;
     private CharSequence mTitle;
     private CharSequence mDrawerTitle;
-    private List<ViewTag> mFragmentBackStack;
-    private Map<ViewTag, Fragment> mFragmentCache;
-
-    private static final int FRAGMENT_BACK_STACK_SIZE = 2;
-    private static final int FRAGMENT_CACHE_SIZE = 10;
+    private ViewTag mDisplayedViewTag;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -154,21 +162,26 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         getActionBar().setDisplayHomeAsUpEnabled(true);
         getActionBar().setHomeButtonEnabled(true);
 
-        mFragmentBackStack = new ArrayList<ViewTag>();
-        mFragmentCache = new LinkedHashMap<ViewTag, Fragment>();
-
-        // *TODO* restore selected view
-        //if (savedInstanceState != null) {
-        //    actionBar.setSelectedNavigationItem(savedInstanceState.getInt("currentTab", 0));
-        //}
-        // *TODO* persist the starting view in preferences
-        displayView(new ViewTag(ViewType.SELF_DETAIL));
+        if (savedInstanceState != null) {
+            displayView(new ViewTag(savedInstanceState));
+        } else {
+            // *TODO* persist the starting view in preferences
+            displayView(new ViewTag(ViewType.SELF_DETAIL));
+        }
     }
 
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
         mDrawerToggle.syncState();
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mDisplayedViewTag != null) {
+            mDisplayedViewTag.save(outState);
+        }
     }
 
     @Override
@@ -181,13 +194,6 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         mDrawerToggle.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        // *TODO* persist selected view
-        //outState.putInt("currentTab", getActionBar().getSelectedNavigationIndex());
-        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -299,131 +305,24 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         }
     }
 
-    @Override
-    public void onBackPressed() {
-
-        if (mDrawerLayout.isDrawerOpen(mDrawerList)) {
-            super.onBackPressed();
-            return;
-        }
-
-        // Custom back stack allows for FIFO max depth and uses
-        // our fragment cache. The cache supports multiple instances
-        // of the same Fragment subclass but for different data.
-        // E.g., multiple FragmentGroupPostLists. This is all to allow
-        // for quick navigation between group "chat" views while also
-        // popping in and out of e.g., Activity Log.
-
-        // TODO: could this be implemented with stock addToBackStack
-        // and fragment tags such as "<viewType>"+"<id>"?
-        // Here's the main concern:
-        // http://developer.android.com/guide/components/fragments.html#Transactions
-        // "If you do not call addToBackStack() when you perform a transaction that
-        //  removes a fragment, then that fragment is destroyed when the transaction
-        //  is committed and the user cannot navigate back to it. Whereas, if you do
-        //  call addToBackStack() when removing a fragment, then the fragment is stopped
-        //  and will be resumed if the user navigates back."
-
-        // TODO: this ignores at least two Android design guidelines:
-        // do not use the back stack for lateral navigation; and populate
-        // the back stack synthetically for deep links. Is this acceptable?
-
-        if (mFragmentBackStack.size() <= 1) {
-            // *TODO* add one more step, back to open drawer, before back to home screen?
-            // There's nothing but the oldest fragment, so let the OS
-            // handle it -- goes back to the home screen.
-            super.onBackPressed();
-            return;
-        }
-
-        // Pop and detach the top (currently displayed) fragment and attach the
-        // next fragment down in the stack. Both fragments remain in the cache.
-
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-
-        ViewTag currentTag = mFragmentBackStack.remove(mFragmentBackStack.size()-1);
-        Fragment currentFragment = mFragmentCache.get(currentTag);
-        if (currentFragment == null) {
-            throw new RuntimeException("unexpected fragment cache state in onBackPressed");
-        }
-        if (!currentFragment.isVisible()) {
-            throw new RuntimeException("unexpected fragment visible state in onBackPressed");
-        }
-
-        fragmentTransaction.detach(currentFragment);
-
-        // Re-attach or add the previous view in the back stack
-
-        ViewTag previousTag = mFragmentBackStack.get(mFragmentBackStack.size()-1);
-        Fragment previousFragment = mFragmentCache.get(previousTag);
-
-        if (previousFragment == null) {
-            // The previous fragment in the back stack may no longer be in the cache
-            previousFragment = makeFragment(previousTag);
-            fragmentTransaction.add(R.id.content_frame, previousFragment);
-        } else {
-            touchFragment(previousTag);
-            fragmentTransaction.attach(previousFragment);
-        }
-
-        fragmentTransaction.commit();
-
-        // *TODO* mDrawerList.setItemChecked(position, true); ...? + setTitle ?
-    }
-
     private void displayView(ViewTag viewTag) {
-        // Do nothing when view is already currently displayed
-        if (mFragmentBackStack.size() > 0 &&
-                mFragmentBackStack.get(mFragmentBackStack.size()-1).equals(viewTag)) {
-            return;
-        }
-
+        mDisplayedViewTag = viewTag;
         FragmentManager fragmentManager = getSupportFragmentManager();
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-
-        // Detach current view and leave on the back stack
-
-        if (mFragmentBackStack.size() > 0) {
-            ViewTag currentTag = mFragmentBackStack.get(mFragmentBackStack.size()-1);
-            Fragment currentFragment = mFragmentCache.get(currentTag);
-            if (currentFragment == null) {
-                throw new RuntimeException("unexpected fragment cache state in displayView");
+        Fragment fragment = fragmentManager.findFragmentByTag(viewTag.toString());
+        if (fragment != null) {
+            if (fragment.isVisible()) {
+                return;
             }
-            if (!currentFragment.isVisible()) {
-                throw new RuntimeException("unexpected fragment visible state in displayView");
-            }
-
-            fragmentTransaction.detach(currentFragment);
-        }
-
-        // Re-attach or add new view (using cached fragment if present) and push on back stack
-
-        Fragment nextFragment = mFragmentCache.get(viewTag);
-        if (nextFragment == null) {
-            nextFragment = makeFragment(viewTag);
-            fragmentTransaction.add(R.id.content_frame, nextFragment);
         } else {
-            touchFragment(viewTag);
-            fragmentTransaction.attach(nextFragment);
+            fragment = makeFragment(viewTag);
         }
-        mFragmentBackStack.add(viewTag);
-
+        boolean isFirstFragment = (null == fragmentManager.findFragmentById(R.id.content_frame));
+        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
+        fragmentTransaction.replace(R.id.content_frame, fragment, viewTag.toString());
+        if (!isFirstFragment) {
+            fragmentTransaction.addToBackStack(null);
+        }
         fragmentTransaction.commit();
-
-        // Enforce maximum back stack depth. This leaves popped fragments in
-        // the cache since users may soon navigate to them again via the drawer.
-
-        while (mFragmentBackStack.size() > FRAGMENT_BACK_STACK_SIZE) {
-            Fragment fragment = mFragmentCache.get(mFragmentBackStack.remove(0));
-            if (fragment != null) {
-                // TODO: since FragmentTransaction is asynchronous, would this
-                // assertion fail when FRAGMENT_BACK_STACK_SIZE is only 1?
-                if (!fragment.isDetached()) {
-                    throw new RuntimeException("unexpected fragment detatched state in displayView");
-                }
-            }
-        }
 
         // *TODO* have Fragment set the parent's title -- e.g., once Friend/Group loaded
         //setTitle(title);
@@ -431,11 +330,6 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
 
     // Create and cache the specified fragment type
     private Fragment makeFragment(ViewTag viewTag) {
-        // Assumes caller has already checked the cache and is expecting a new, unattached Fragment
-        if (mFragmentCache.get(viewTag) != null) {
-            throw new RuntimeException("unexpected fragment cache state in makeFragment");
-        }
-
         Fragment fragment = null;
         switch (viewTag.mType) {
         case SELF_DETAIL:
@@ -462,30 +356,7 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         default:
             break;
         }
-
-        // When cache is full, eject the oldest cache entry which isn't attached
-        while (mFragmentCache.size() >= FRAGMENT_CACHE_SIZE) {
-            Map.Entry<ViewTag, Fragment> oldestEntry = mFragmentCache.entrySet().iterator().next();
-            if (oldestEntry.getValue().isVisible()) {
-                throw new RuntimeException("unexpected fragment visible state in makeFragment");
-            }
-            mFragmentCache.remove(oldestEntry.getKey());
-        }
-
-        // Add new fragment to the cache
-        mFragmentCache.put(viewTag, fragment);
-
         return fragment;
-    }
-
-    // Makes the specified fragment the newest item in the cache
-    protected void touchFragment(ViewTag viewTag) {
-        Fragment fragment = mFragmentCache.remove(viewTag);
-        // Assumes caller has already checked the cache
-        if (fragment == null) {
-            throw new RuntimeException("unexpected fragment cache state in touchFragment");
-        }
-        mFragmentCache.put(viewTag, fragment);
     }
 
     @Subscribe
