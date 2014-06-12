@@ -202,10 +202,20 @@ public class Events {
         public final String mGroupId;
         public final String mPostId;
 
-        public UpdatedFriendPost(String friendId,String groupId,  String postId) {
-            mGroupId = groupId;
+        public UpdatedFriendPost(String friendId, String groupId, String postId) {
             mFriendId = friendId;
+            mGroupId = groupId;
             mPostId = postId;
+        }
+    }
+
+    public static class UpdatedFriendConfirmedPosts {
+        public final String mFriendId;
+        public final String mGroupId;
+
+        public UpdatedFriendConfirmedPosts(String friendId, String groupId) {
+            mFriendId = friendId;
+            mGroupId = groupId;
         }
     }
 

@@ -435,6 +435,8 @@ public class Adapters {
             TextView pictureDownloadText = (TextView)view.findViewById(R.id.post_picture_download_text);
             ImageView pictureThumbnailImage = (ImageView)view.findViewById(R.id.post_picture_thumbnail);
             TextView timestampText = (TextView)view.findViewById(R.id.post_timestamp_text);
+            // NOTE: postDeliveryState will be null for R.layout.post_received
+            ImageView postDeliveryState = (ImageView)view.findViewById(R.id.post_delivery_state_image);
 
             try {
                 Data.Post post = getItem(position);
@@ -510,6 +512,21 @@ public class Adapters {
                 }
 
                 timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, post.mPost.mModifiedTimestamp, true));
+
+                if (postDeliveryState != null) {
+                    switch (data.getPostSyncStateOrThrow(post.mPost.mId)) {
+                    case NO_SYNC:
+                        postDeliveryState.setImageResource(R.drawable.ic_not_delivered);
+                        break;
+                    case PARTIAL_SYNC:
+                        postDeliveryState.setImageResource(R.drawable.ic_partially_delivered);
+                        break;
+                    case FULL_SYNC:
+                        postDeliveryState.setImageResource(R.drawable.ic_fully_delivered);
+                        break;
+                    }
+                }
+
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display post");
                 // *TODO* view.<field>.setBlank();

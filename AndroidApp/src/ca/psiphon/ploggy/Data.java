@@ -220,6 +220,12 @@ public class Data extends SQLiteOpenHelper {
         }
     }
 
+    public enum SyncState {
+        NO_SYNC,
+        PARTIAL_SYNC,
+        FULL_SYNC
+    }
+
     public static class LocalResource {
         public final String mResourceId;
         public final String mGroupId;
@@ -1274,6 +1280,50 @@ public class Data extends SQLiteOpenHelper {
                 mRowToPost);
     }
 
+    public ObjectCursor<Friend> getSyncedFriendsForPost(String postId) throws PloggyError {
+        return getObjectCursor(
+                SELECT_FRIEND +
+                    " WHERE (SELECT confirmedLastPostSequenceNumber FROM GroupMember WHERE GroupMember.memberId = Friend.id) >= (SELECT sequenceNumber FROM Post WHERE id = ?) " +
+                    " ORDER BY nickname ASC",
+                new String[]{postId},
+                mRowToFriend);
+    }
+
+    public SyncState getPostSyncStateOrThrow(String postId) throws PloggyError {
+        // *TODO* more efficient in SQL?
+        ObjectCursor<Friend> friendCursor = null;
+        try {
+            String selfId = getSelfId();
+            Post post = getPost(postId);
+            if (!post.mPost.mPublisherId.equals(selfId)) {
+                throw new PloggyError(logTag(), "unknown sync state for post not published by self");
+            }
+            Group group = getGroup(post.mPost.mGroupId);
+            SyncState syncState = SyncState.NO_SYNC;
+            int syncedCount = 0;
+            for (Map.Entry<String, Protocol.SequenceNumbers> memberSequenceNumbers : group.mMemberSequenceNumbers.entrySet()) {
+                if (!memberSequenceNumbers.getKey().equals(selfId) &&
+                        memberSequenceNumbers.getValue().mConfirmedLastPostSequenceNumber >= post.mPost.mSequenceNumber) {
+                    syncedCount++;
+                }
+            }
+            // self is member, so if syncedCount == size-1, all peers have synced
+            if (syncedCount == group.mMemberSequenceNumbers.size() - 1) {
+                syncState = SyncState.FULL_SYNC;
+            }
+            else if (syncedCount > 0) {
+                syncState = SyncState.PARTIAL_SYNC;
+            }
+            return syncState;
+        } catch (NotFoundError e) {
+            throw new PloggyError(logTag(), "unexpected record not found");
+        } finally {
+            if (friendCursor != null) {
+                friendCursor.close();
+            }
+        }
+    }
+
     public Protocol.SyncState getSyncState(String friendId)
             throws PloggyError {
         Map<String, Protocol.SequenceNumbers> groupSequenceNumbers = new LinkedHashMap<String, Protocol.SequenceNumbers>();
@@ -1728,11 +1778,16 @@ public class Data extends SQLiteOpenHelper {
 
                 values = new ContentValues();
                 values.put("confirmedLastPostSequenceNumber", confirmedLastPostSequenceNumber);
-                mDatabase.update(
+                int count = mDatabase.update(
                         "GroupMember",
                         values,
                         "groupId = ? AND memberId = ? AND confirmedLastPostSequenceNumber < CAST(? as INTEGER)",
                         new String[]{groupId, friendId, Long.toString(confirmedLastPostSequenceNumber)});
+
+                if (count > 0) {
+                    // The friend has confirmed posts (or sequence numbers) that were not previously confirmed
+                    Events.getInstance(mInstanceName).post(new Events.UpdatedFriendConfirmedPosts(friendId, groupId));
+                }
             }
         }
 

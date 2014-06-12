@@ -196,6 +196,13 @@ public class FragmentGroupPosts extends Fragment {
         }
     }
 
+    @Subscribe
+    public void UpdatedFriendPost(Events.UpdatedFriendConfirmedPosts updatedFriendConfirmedPosts) {
+        if (updatedFriendConfirmedPosts.mGroupId.equals(mGroupId)) {
+            updatePosts(true);
+        }
+    }
+
     private void updateTitle() {
         try {
             Data.Group group = Data.getInstance().getGroupOrThrow(mGroupId);

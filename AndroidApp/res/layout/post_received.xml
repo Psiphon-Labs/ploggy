@@ -77,22 +77,12 @@
             android:textColor="#808080" />
 
         <ImageView
-            android:id="@+id/post_delivery_state_image"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:layout_below="@+id/post_content"
-            android:layout_alignParentRight="true"
-            android:layout_marginLeft="4dip"
-            android:src="@drawable/ic_partially_delivered" />
-
-        <ImageView
             android:id="@+id/post_location_image"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
             android:layout_below="@+id/post_content"
-            android:layout_toLeftOf="@+id/post_delivery_state_image"
+            android:layout_alignParentRight="true"
             android:layout_marginLeft="4dip"
             android:src="@drawable/ic_location" />
 
