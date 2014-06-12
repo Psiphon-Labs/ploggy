@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -34,6 +35,10 @@ import android.widget.TextView;
 public class NavigationDrawerContent {
 
     private static final String LOG_TAG = "Navigation Drawer Content";
+
+    // *TODO* refactor this entire module
+    // - once the UI settles, we may not need all this code (HEADER case, etc.)
+    // - refactor/combine with Adapters.GroupAdapter to render Group list items?
 
     public interface Row {
 
@@ -65,10 +70,13 @@ public class NavigationDrawerContent {
                     Data data = Data.getInstance();
                     Context context = mAdapter.getContext();
                     List<Row> rows = new ArrayList<Row>();
+                    // *TODO* remove obsolete code once UI is settled
+                    /* -- obsolete
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.SELF_DETAIL),
                             R.drawable.ic_navigation_drawer_self_detail,
                             context.getString(R.string.navigation_drawer_item_self_detail)));
+                    */
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_LIST),
                             R.drawable.ic_navigation_drawer_group_list,
@@ -82,12 +90,14 @@ public class NavigationDrawerContent {
                             new ActivityMain.ViewTag(ActivityMain.ViewType.CANDIDATE_FRIEND_LIST),
                             R.drawable.ic_navigation_drawer_candidate_friend_list,
                             context.getString(R.string.navigation_drawer_item_candidate_friend_list)));
+                    /* -- obsolete
                     rows.add(new Item(
                             new ActivityMain.ViewTag(ActivityMain.ViewType.LOG_ENTRIES),
                             R.drawable.ic_navigation_drawer_log_entries,
                             context.getString(R.string.navigation_drawer_item_log_entries)));
                     rows.add(
                         new Header(context.getString(R.string.navigation_draw_header_groups)));
+                    */
                     // TODO: only display N most recent groups/friends
                     // TODO: for groups, display counter with number of unread posts
                     for (Data.Group group : data.getVisibleGroupsIterator()) {
@@ -97,6 +107,7 @@ public class NavigationDrawerContent {
                                 group.mGroup,
                                 group.mGroup.mName));
                     }
+                    /* -- obsolete
                     rows.add(
                         new Header(context.getString(R.string.navigation_draw_header_friends)));
                     for (Data.Friend friend : data.getFriendsIterator()) {
@@ -105,6 +116,7 @@ public class NavigationDrawerContent {
                                 friend.mPublicIdentity,
                                 friend.mPublicIdentity.mNickname));
                     }
+                    */
                     return rows;
                 } catch (PloggyError e) {
                     Log.addEntry(LOG_TAG, "make navigation drawer content failed");
@@ -227,7 +239,9 @@ public class NavigationDrawerContent {
             }
 
             ImageView icon = (ImageView) view.findViewById(R.id.navigation_drawer_item_icon);
-            TextView text = (TextView) view.findViewById(R.id.navigation_drawer_item_text);
+            TextView nameText = (TextView) view.findViewById(R.id.navigation_drawer_item_name_text);
+            TextView detailText = (TextView) view.findViewById(R.id.navigation_drawer_item_detail_text);
+
             if (mPublicIdentity != null) {
                 Avatar.setAvatarImage(view.getContext(), icon, mPublicIdentity);
             } else if (mGroup != null) {
@@ -235,7 +249,27 @@ public class NavigationDrawerContent {
             } else {
                 icon.setImageResource(mIconResourceId);
             }
-            text.setText(mText);
+
+            nameText.setText(mText);
+
+            if (mGroup != null) {
+                // *TODO* subquery anti-pattern; also, not in background thread
+                int unreadPostCount = 0;
+                try {
+                    unreadPostCount = Data.getInstance().getUnreadPostsCount(mGroup.mId);
+                } catch (PloggyError e) {
+                    Log.addEntry(LOG_TAG, "failed to get unread posts count");
+                }
+                detailText.setVisibility(View.VISIBLE);
+                detailText.setTypeface(null, unreadPostCount > 0 ? Typeface.BOLD : Typeface.NORMAL);
+                detailText.setText(
+                        Utils.getApplicationContext().getResources().getQuantityString(
+                                R.plurals.unread_posts_notification_content_title,
+                                unreadPostCount,
+                                unreadPostCount));
+            } else {
+                detailText.setVisibility(View.GONE);
+            }
 
             return view;
         }

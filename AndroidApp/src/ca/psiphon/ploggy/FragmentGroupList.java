@@ -229,6 +229,11 @@ implements AdapterView.OnItemLongClickListener, AbsListView.MultiChoiceModeListe
         updateGroups(true);
     }
 
+    @Subscribe
+    public void markedAsReadPosts(Events.MarkedAsReadPosts markedAsReadPosts) {
+        updateGroups(true);
+    }
+
     private void updateGroups(boolean requery) {
         mGroupAdapter.update(requery);
     }

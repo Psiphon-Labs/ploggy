@@ -22,6 +22,7 @@ package ca.psiphon.ploggy;
 import java.io.File;
 
 import android.content.Context;
+import android.graphics.Typeface;
 import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -360,6 +361,13 @@ public class Adapters {
                     postContentText.setText(mostRecentPost.mPost.mContent);
                     postTimestampText.setText(
                             Utils.DateFormatter.formatRelativeDatetime(context, mostRecentPost.mPost.mModifiedTimestamp, true));
+                    if (mostRecentPost.mState == Data.Post.State.UNREAD) {
+                        postPublisherText.setTypeface(null, Typeface.BOLD);
+                        postContentText.setTypeface(null, Typeface.BOLD);
+                    } else {
+                        postPublisherText.setTypeface(null, Typeface.NORMAL);
+                        postContentText.setTypeface(null, Typeface.NORMAL);
+                    }
                 } else {
                     postContentText.setText(R.string.no_posts);
                 }

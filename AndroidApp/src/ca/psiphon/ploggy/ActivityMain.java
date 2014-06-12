@@ -277,6 +277,9 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
             return true;
         }
         switch (item.getItemId()) {
+        case R.id.action_show_self_detail:
+            displayView(new ViewTag(ViewType.SELF_DETAIL));
+            return true;
         case R.id.action_generate_self:
             startActivity(new Intent(this, ActivityGenerateSelf.class));
             return true;
@@ -295,6 +298,9 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
             return true;
         case R.id.action_settings:
             startActivity(new Intent(this, ActivitySettings.class));
+            return true;
+        case R.id.action_show_activity_log:
+            displayView(new ViewTag(ViewType.LOG_ENTRIES));
             return true;
         case R.id.action_quit:
             stopService(new Intent(this, PloggyService.class));
@@ -376,6 +382,16 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
 
     @Subscribe
     public void onUpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
+        mDrawerAdapter.update();
+    }
+
+    @Subscribe
+    public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
+        mDrawerAdapter.update();
+    }
+
+    @Subscribe
+    public void markedAsReadPosts(Events.MarkedAsReadPosts markedAsReadPosts) {
         mDrawerAdapter.update();
     }
 }

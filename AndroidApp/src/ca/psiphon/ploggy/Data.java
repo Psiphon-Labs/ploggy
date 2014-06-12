@@ -1239,6 +1239,18 @@ public class Data extends SQLiteOpenHelper {
         return new ObjectIterator<Post>(getUnreadPosts(groupId));
     }
 
+    public int getUnreadPostsCount(String groupId) throws PloggyError {
+        ObjectCursor<Data.Post> unreadPostsCursor = null;
+        try {
+            unreadPostsCursor = getUnreadPosts(groupId);
+            return unreadPostsCursor.getCount();
+        } finally {
+            if (unreadPostsCursor != null) {
+                unreadPostsCursor.close();
+            }
+        }
+    }
+
     public ObjectCursor<Post> getPosts(String groupId) throws PloggyError {
         return getObjectCursor(
                 SELECT_POST +
