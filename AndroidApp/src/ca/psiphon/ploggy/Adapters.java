@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.File;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.os.AsyncTask;
@@ -231,9 +232,9 @@ public class Adapters {
         }
     }
 
-    public static class CandidateGroupMemberAdapter extends ObjectCursorAdapter<Data.Friend> {
+    public static class GroupMemberAdapter extends ObjectCursorAdapter<Data.Friend> {
 
-        public CandidateGroupMemberAdapter(Context context, CursorFactory<Data.Friend> cursorFactory) {
+        public GroupMemberAdapter(Context context, CursorFactory<Data.Friend> cursorFactory) {
             super(context, cursorFactory);
         }
 
@@ -437,6 +438,7 @@ public class Adapters {
             TextView timestampText = (TextView)view.findViewById(R.id.post_timestamp_text);
             // NOTE: postDeliveryState will be null for R.layout.post_received
             ImageView postDeliveryState = (ImageView)view.findViewById(R.id.post_delivery_state_image);
+            ImageView postLocation = (ImageView)view.findViewById(R.id.post_location_image);
 
             try {
                 Data.Post post = getItem(position);
@@ -513,19 +515,88 @@ public class Adapters {
 
                 timestampText.setText(Utils.DateFormatter.formatRelativeDatetime(context, post.mPost.mModifiedTimestamp, true));
 
+                final Context finalContext = context;
+
                 if (postDeliveryState != null) {
+
+                    int deliveryStateIcon;
+                    int deliveryStateTitle;
+                    int deliveryStateMessage = -1;
                     switch (data.getPostSyncStateOrThrow(post.mPost.mId)) {
                     case NO_SYNC:
-                        postDeliveryState.setImageResource(R.drawable.ic_not_delivered);
+                        deliveryStateIcon = R.drawable.ic_not_delivered;
+                        deliveryStateTitle = R.string.post_not_delivered_title;
+                        deliveryStateMessage = R.string.post_not_delivered_message;
                         break;
                     case PARTIAL_SYNC:
-                        postDeliveryState.setImageResource(R.drawable.ic_partially_delivered);
+                        deliveryStateIcon = R.drawable.ic_partially_delivered;
+                        deliveryStateTitle = R.string.post_partially_delivered_title;
                         break;
                     case FULL_SYNC:
-                        postDeliveryState.setImageResource(R.drawable.ic_fully_delivered);
+                        deliveryStateIcon = R.drawable.ic_fully_delivered;
+                        deliveryStateTitle = R.string.post_fully_delivered_title;
                         break;
+                    default:
+                        throw new PloggyError(LOG_TAG, "invalid sync state");
                     }
+
+                    postDeliveryState.setImageResource(deliveryStateIcon);
+
+                    final int finalDeliveryStateIcon = deliveryStateIcon;
+                    final int finalDeliveryStateTitle = deliveryStateTitle;
+                    final int finalDeliveryStateMessage = deliveryStateMessage;
+                    final String finalPostId = post.mPost.mId;
+                    postDeliveryState.setOnClickListener(
+                            new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    AlertDialog.Builder alertDialog = new AlertDialog.Builder(finalContext);
+                                    alertDialog.setIcon(finalDeliveryStateIcon);
+                                    alertDialog.setTitle(finalDeliveryStateTitle);
+                                    if (finalDeliveryStateMessage == -1) {
+                                        Adapters.GroupMemberAdapter groupMemberAdapter =
+                                            new Adapters.GroupMemberAdapter(
+                                                finalContext,
+                                                new Adapters.CursorFactory<Data.Friend>() {
+                                                    @Override
+                                                    public Data.ObjectCursor<Data.Friend> makeCursor() throws PloggyError {
+                                                        return Data.getInstance().getSyncedFriendsForPost(finalPostId);
+                                                    }
+                                                });
+                                        alertDialog.setAdapter(groupMemberAdapter, null);
+                                    } else {
+                                        alertDialog.setMessage(finalDeliveryStateMessage);
+                                    }
+                                    alertDialog.show();
+                                }
+                            });
                 }
+
+                String postLocationStreetAddress;
+                if (post.mPost.mLocation != null) {
+                    if (post.mPost.mLocation.mStreetAddress.length() > 0) {
+                        postLocationStreetAddress = post.mPost.mLocation.mStreetAddress;
+                    } else {
+                        postLocationStreetAddress = context.getString(R.string.prompt_no_street_address_reported);
+                    }
+                } else {
+                    postLocationStreetAddress = context.getString(R.string.no_location);
+                }
+
+                final String finalPostLocationStreetAddress = postLocationStreetAddress;
+
+                // TODO: display full location info (including distance)
+                postLocation.setOnClickListener(
+                        new View.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                AlertDialog.Builder alertDialog = new AlertDialog.Builder(finalContext);
+                                alertDialog.setIcon(R.drawable.ic_location);
+                                alertDialog.setTitle(R.string.post_location_title);
+                                alertDialog.setMessage(finalPostLocationStreetAddress);
+                                alertDialog.show();
+                            }
+                        });
 
             } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to display post");

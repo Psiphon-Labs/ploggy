@@ -114,6 +114,12 @@
     <string name="format_download_progress">%1$.1f%%</string>
     <string name="no_posts">No posts</string>
     <string name="no_location">No location</string>
+    <string name="post_location_title">Publication location</string>
+    <string name="post_not_delivered_title">Not delivered</string>
+    <string name="post_not_delivered_message">No one has received this post</string>
+    <string name="post_partially_delivered_title">Partially delivered</string>
+    <string name="post_fully_delivered_title">Fully delivered</string>
+    <string name="post_fully_delivered">All group members have received this post</string>
     <string name="preference_privacy_title">Privacy</string>
     <string name="preference_use_geocoder_title">Use Geocoder</string>
     <string name="preference_use_geocoder_summary">Use 3rd party service to map current latitude/longitude to street address</string>

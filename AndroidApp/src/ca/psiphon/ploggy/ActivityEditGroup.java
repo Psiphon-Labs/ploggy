@@ -250,8 +250,8 @@ public class ActivityEditGroup extends ActivityPloggyBase
         AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
         alertDialog.setIcon(R.drawable.ic_action_add_group_member);
         alertDialog.setTitle(getString(R.string.prompt_edit_group_add_member, name));
-        final Adapters.CandidateGroupMemberAdapter finalCandidateGroupMemberAdapter =
-            new Adapters.CandidateGroupMemberAdapter(
+        final Adapters.GroupMemberAdapter finalCandidateGroupMemberAdapter =
+            new Adapters.GroupMemberAdapter(
                 this,
                 new Adapters.CursorFactory<Data.Friend>() {
                     @Override
