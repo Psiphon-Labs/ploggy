@@ -223,13 +223,17 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
-        if (getIntent().getAction() != null && getIntent().getAction().equals(ACTION_DISPLAY_VIEW)) {
+        if (getIntent() != null &&
+                getIntent().getAction() != null &&
+                getIntent().getAction().equals(ACTION_DISPLAY_VIEW)) {
             Bundle extras = getIntent().getExtras();
             if (extras != null) {
                 ViewTag viewTag = new ViewTag(
                         ViewType.valueOf(extras.getString(ACTION_DISPLAY_VIEW_EXTRA_TAG_TYPE)),
                         extras.getString(ACTION_DISPLAY_VIEW_EXTRA_TAG_ID));
                 displayView(viewTag);
+                // displayView sets mDisplayedViewTag which tracks the last view to restore, so clear the intent
+                setIntent(null);
                 // *TODO* mDrawerList.setItemChecked(position, true); ...?
             }
         }
