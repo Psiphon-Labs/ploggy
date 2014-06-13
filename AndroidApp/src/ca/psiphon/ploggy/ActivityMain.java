@@ -72,8 +72,8 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         public final ViewType mType;
         public final String mId;
 
-        private static final String BUNDLE_KEY_VIEW_TYPE = "ViewTag.mType";
-        private static final String BUNDLE_KEY_ID = "ViewTag.mId";
+        private static final String BUNDLE_KEY_VIEW_TYPE = "VIEW_TAG_TYPE";
+        private static final String BUNDLE_KEY_ID = "VIEW_TAG_ID";
 
         public ViewTag(ViewType type) {
             this(type, null);
@@ -223,6 +223,11 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
         // Don't show the keyboard until edit selected
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
+
+        // Update adapter for data changes while not in foreground
+        mDrawerAdapter.update();
+
+        // Display requested view
         if (getIntent() != null &&
                 getIntent().getAction() != null &&
                 getIntent().getAction().equals(ACTION_DISPLAY_VIEW)) {
@@ -237,9 +242,6 @@ public class ActivityMain extends ActivityPloggyBase implements ListView.OnItemC
                 // *TODO* mDrawerList.setItemChecked(position, true); ...?
             }
         }
-
-        // Update adapter for data changes while not in foreground
-        mDrawerAdapter.update();
     }
 
     @Override

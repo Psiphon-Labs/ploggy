@@ -56,16 +56,11 @@ public class ActivityShowPicture extends ActivityPloggyBase {
         setContentView(R.layout.activity_show_picture);
 
         mPicture = (ImageView)findViewById(R.id.show_picture_image);
-    }
 
-    @Override
-    public void onNewIntent(Intent intent) {
-        setIntent(intent);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
+        if (getIntent() == null) {
+            finish();
+            return;
+        }
 
         Bundle bundle = getIntent().getExtras();
         if (bundle == null) {

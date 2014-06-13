@@ -53,13 +53,14 @@ public class ActivityEditGroup extends ActivityPloggyBase
 
     private static final String LOG_TAG = "Edit Group";
 
-    public static final String GROUP_ID_BUNDLE_KEY = "groupId";
+    private static final String SAVED_INSTANCE_BUNDLE_KEY_GROUP_ID = "GROUP_ID";
+    private static final String SAVED_INSTANCE_BUNDLE_KEY_GROUP_NAME = "GROUP_NAME";
+    private static final String SAVED_INSTANCE_BUNDLE_KEY_GROUP_MEMBERS = "GROUP_MEMBERS";
 
-    private boolean mIsNewGroup;
-    private String mGroupId;
     private ImageView mGroupAvatarImage;
     private EditText mNameEdit;
     private ListView mMemberList;
+    private String mGroupId;
     private Adapters.GroupMemberArrayAdapter mMemberAdapter;
     private ActionMode mActionMode;
     private Button mSaveButton;
@@ -98,89 +99,70 @@ public class ActivityEditGroup extends ActivityPloggyBase
         mSaveButton = (Button) findViewById(R.id.edit_group_save_button);
         mSaveButton.setOnClickListener(this);
 
-        Events.getInstance().register(this);
-    }
-
-    @Override
-    protected void onDestroy() {
-        Events.getInstance().unregister(this);
-        super.onDestroy();
-    }
-
-    @Subscribe
-    public void onUpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
-        // When displaying a friend's group, show updates received in the background
-        if (mGroupId != null && updatedFriendGroup.mGroupId.equals(mGroupId) && mIsReadOnly) {
-            show();
-        }
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        setIntent(intent);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        mIsNewGroup = true;
-        if (getIntent() != null &&
-            getIntent().getExtras() != null &&
-            getIntent().getExtras().containsKey(EXTRA_GROUP_ID)) {
-            mIsNewGroup = false;
-            mGroupId = getIntent().getExtras().getString(EXTRA_GROUP_ID);
-            if (mGroupId == null) {
-                finish();
-                return;
+        if (savedInstanceState != null) {
+            mGroupId = savedInstanceState.getString(SAVED_INSTANCE_BUNDLE_KEY_GROUP_ID);
+            String restoreName = savedInstanceState.getString(SAVED_INSTANCE_BUNDLE_KEY_GROUP_NAME);
+            List<String> restoreMembers = savedInstanceState.getStringArrayList(SAVED_INSTANCE_BUNDLE_KEY_GROUP_MEMBERS);
+            show(restoreName, restoreMembers);
+        } else {
+            mGroupId = null;
+            if (getIntent() != null &&
+                getIntent().getExtras() != null &&
+                getIntent().getExtras().containsKey(EXTRA_GROUP_ID)) {
+                mGroupId = getIntent().getExtras().getString(EXTRA_GROUP_ID);
+                if (mGroupId == null) {
+                    finish();
+                    return;
+                }
             }
+            show(null, null);
         }
-
-        show();
-
-        // Don't show the keyboard until edit selected
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
 
     @Override
-    protected void onPause() {
-        // Don't leave toast dangling if e.g., Home button pressed
-        if (mBackPressedToast != null) {
-            View view = mBackPressedToast.getView();
-            if (view != null && view.isShown()) {
-                    mBackPressedToast.cancel();
-            }
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(SAVED_INSTANCE_BUNDLE_KEY_GROUP_ID, mGroupId);
+        outState.putString(SAVED_INSTANCE_BUNDLE_KEY_GROUP_NAME, mNameEdit.getText().toString());
+        ArrayList<String> members = new ArrayList<String>();
+        for (int i = 0; i < mMemberAdapter.getCount(); i++) {
+            members.add(Json.toJson(mMemberAdapter.getItem(i)));
         }
-        super.onPause();
+        outState.putStringArrayList(SAVED_INSTANCE_BUNDLE_KEY_GROUP_MEMBERS, members);
     }
 
-    private void show() {
+    private void show(String restoreName, List<String> restoreMembers) {
+        boolean restoreEdits = (restoreName != null && restoreMembers != null);
         try {
             Data data = Data.getInstance();
-            if (mIsNewGroup) {
-                mNameEdit.setText("");
-                mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
-                mMemberAdapter.add(data.getSelfOrThrow().mPublicIdentity);
-                mMemberList.setAdapter(mMemberAdapter);
+            mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
+            if (restoreEdits) {
+                mNameEdit.setText(restoreName);
+                for (String restoreMember : restoreMembers) {
+                    // *TODO* when friend is removed, then activity restored, this will result in "failed to show group"...?
+                    mMemberAdapter.add(Json.fromJson(restoreMember, Identity.PublicIdentity.class));
+                }
                 mIsReadOnly = false;
-            } else {
+            } else if (mGroupId != null) {
                 Data.Group group = data.getGroupOrThrow(mGroupId);
                 mNameEdit.setText(group.mGroup.mName);
-                mMemberAdapter = new Adapters.GroupMemberArrayAdapter(this);
                 mMemberAdapter.addAll(group.mGroup.mMembers);
-                mMemberAdapter.sort(new Identity.PublicIdentityComparator());
-                mMemberList.setAdapter(mMemberAdapter);
-
                 // Disable editing when not self published group
                 boolean isSelfPublished = group.mGroup.mPublisherId.equals(data.getSelfId());
                 mIsReadOnly = !isSelfPublished;
+            } else {
+                mNameEdit.setText("");
+                mMemberAdapter.add(data.getSelfOrThrow().mPublicIdentity);
+                mIsReadOnly = false;
             }
+            mMemberAdapter.sort(new Identity.PublicIdentityComparator());
+            mMemberList.setAdapter(mMemberAdapter);
             showAvatar();
         } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to show group");
         }
         mNameEdit.setEnabled(!mIsReadOnly);
-        setHasEdits(false);
+        setHasEdits(restoreEdits);
     }
 
     private void showAvatar() {
@@ -195,6 +177,43 @@ public class ActivityEditGroup extends ActivityPloggyBase
         mSaveButton.setEnabled(hasEdits);
         mHasEdits = hasEdits;
     }
+
+    @Subscribe
+    public void onUpdatedFriendGroup(Events.UpdatedFriendGroup updatedFriendGroup) {
+        // When displaying a friend's group, show updates received in the background
+        if (mGroupId != null && updatedFriendGroup.mGroupId.equals(mGroupId) && mIsReadOnly) {
+            show(null, null);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // Don't show the keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+    }
+
+    @Override
+    protected void onPause() {
+        // Don't leave toast dangling if e.g., Home button pressed
+        if (mBackPressedToast != null) {
+            View view = mBackPressedToast.getView();
+            if (view != null && view.isShown()) {
+                mBackPressedToast.cancel();
+            }
+        }
+        super.onPause();
+    }
+
+    // *TODO* handle Action Bar home button same as back button: confirmation prompt
+    // (requires ActivityPloggyBase to be subclass of android.support.v7.app.ActionBarActivity)
+    /*
+    @Override
+    public Intent getSupportParentActivityIntent() {
+        ...
+    }
+    */
 
     @Override
     public void onBackPressed() {
@@ -347,7 +366,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
                 for (int i = 0; i < mMemberAdapter.getCount(); i++) {
                     members.add(mMemberAdapter.getItem(i));
                 }
-                saveGroup(mIsNewGroup, mGroupId, name, members);
+                saveGroup(mGroupId, name, members);
                 String prompt = getString(R.string.prompt_edit_group_saved, name);
                 Toast.makeText(this, prompt, Toast.LENGTH_LONG).show();
                 finish();
@@ -361,7 +380,6 @@ public class ActivityEditGroup extends ActivityPloggyBase
     }
 
     private void saveGroup(
-            boolean isNewGroup,
             String id,
             String name,
             List<Identity.PublicIdentity> members)
@@ -369,7 +387,7 @@ public class ActivityEditGroup extends ActivityPloggyBase
         Data data = Data.getInstance();
         Protocol.Group saveGroup = null;
         Date now = new Date();
-        if (isNewGroup) {
+        if (id == null) {
             saveGroup = new Protocol.Group(
                     Utils.makeId(),
                     name,

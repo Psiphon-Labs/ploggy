@@ -49,8 +49,7 @@
             android:layout_toRightOf="@+id/edit_group_avatar"
             android:text="@string/label_edit_group_name"
             android:typeface="sans"
-            android:textSize="24dip"
-            android:textStyle="bold" />
+            android:textSize="12dip" />
  
         <EditText
             android:id="@+id/edit_group_name_edit"

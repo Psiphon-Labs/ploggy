@@ -28,8 +28,7 @@
         android:layout_alignTop="@+id/friend_list_avatar"
         android:layout_toRightOf="@+id/friend_list_avatar"
         android:typeface="sans"
-        android:textSize="24dip"
-        android:textStyle="bold" />
+        android:textSize="24dip" />
  
     <TextView
         android:id="@+id/friend_list_last_timestamp_text"

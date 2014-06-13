@@ -83,6 +83,19 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
         mProgressDialog.setMessage(getText(R.string.prompt_generate_self_progress));
         mProgressDialog.setCancelable(false);
         mAvatarTimer = new Timer();
+
+        Data.Self self = getSelf(this);
+        if (self == null) {
+            startGenerating();
+        } else {
+            showAvatarAndFingerprint(self.mPublicIdentity);
+            mNicknameEdit.setText(self.mPublicIdentity.mNickname);
+            mRegenerateButton.setEnabled(true);
+            mRegenerateButton.setVisibility(View.VISIBLE);
+            mSaveButton.setEnabled(false);
+            mSaveButton.setVisibility(View.GONE);
+
+        }
     }
 
     private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
@@ -99,27 +112,6 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
         }
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-
-        Data.Self self = getSelf(this);
-        if (self == null) {
-            startGenerating();
-        } else {
-            showAvatarAndFingerprint(self.mPublicIdentity);
-            mNicknameEdit.setText(self.mPublicIdentity.mNickname);
-            mRegenerateButton.setEnabled(true);
-            mRegenerateButton.setVisibility(View.VISIBLE);
-            mSaveButton.setEnabled(false);
-            mSaveButton.setVisibility(View.GONE);
-
-        }
-
-        // Don't show the keyboard until edit selected
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
-    }
-
     private void startGenerating() {
         Avatar.setAvatarImage(this, mAvatarImage);
         mNicknameEdit.setText("");
@@ -130,6 +122,14 @@ public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnC
         mSaveButton.setVisibility(View.VISIBLE);
         mGenerateTask = new GenerateTask();
         mGenerateTask.execute();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // Don't show the keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
 
     @Override
