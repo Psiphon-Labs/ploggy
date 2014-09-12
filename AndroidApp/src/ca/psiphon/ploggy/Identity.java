@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@ package ca.psiphon.ploggy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Comparator;
 
 /**
  * Representation of Ploggy public Identity.
@@ -37,6 +38,7 @@ public class Identity {
     // TODO: distinct root cert and server/client (transport) certs?
 
     public static class PublicIdentity {
+        public final String mId;
         public final String mNickname;
         public final String mX509Certificate;
         public final String mHiddenServiceHostname;
@@ -52,18 +54,30 @@ public class Identity {
                 String x509Certificate,
                 String hiddenServiceHostname,
                 String hiddenServicAuthCookie,
-                String signature) {
+                String signature) throws PloggyError {
             mNickname = nickname;
             mX509Certificate = x509Certificate;
             mHiddenServiceHostname = hiddenServiceHostname;
             mHiddenServiceAuthCookie = hiddenServicAuthCookie;
             mSignature = signature;
+            mId = Utils.encodeBase64(getFingerprint());
         }
 
-        public byte[] getFingerprint() throws Utils.ApplicationError {
+        public byte[] getFingerprint() throws PloggyError {
             // Note: Fingerprint excludes hidden service auth cookies, since those may change.
             // (Those values *are* included in signatures to ensure a false value isn't swapped in, denying service.)
             return X509.getFingerprint(mNickname, mX509Certificate, mHiddenServiceHostname);
+        }
+    }
+
+    public static class PublicIdentityComparator implements Comparator<PublicIdentity> {
+        @Override
+        public int compare(PublicIdentity a, PublicIdentity b) {
+            int result = a.mNickname.compareToIgnoreCase(b.mNickname);
+            if (result == 0) {
+                result = a.mId.compareTo(b.mId);
+            }
+            return result;
         }
     }
 
@@ -81,7 +95,7 @@ public class Identity {
             String nickname,
             String rootCertificate,
             String hiddenServiceHostname,
-            String hiddenServiceAuthCookie) throws Utils.ApplicationError {
+            String hiddenServiceAuthCookie) throws PloggyError {
         try {
             ByteArrayOutputStream byteArray = new ByteArrayOutputStream();
             byteArray.write(nickname.getBytes("UTF-8"));
@@ -90,14 +104,14 @@ public class Identity {
             byteArray.write(hiddenServiceAuthCookie.getBytes("UTF-8"));
             return byteArray.toByteArray();
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     public static PublicIdentity makeSignedPublicIdentity(
             String nickname,
             X509.KeyMaterial x509KeyMaterial,
-            HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws Utils.ApplicationError {
+            HiddenService.KeyMaterial hiddenServiceKeyMaterial) throws PloggyError {
         String signature = X509.sign(
                 x509KeyMaterial,
                 getPublicSigningData(

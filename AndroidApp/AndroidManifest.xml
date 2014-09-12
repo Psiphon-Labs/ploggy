@@ -5,7 +5,7 @@
     android:versionName="prototype-v1 release 13" >
 
     <uses-sdk
-        android:minSdkVersion="16"
+        android:minSdkVersion="17"
         android:targetSdkVersion="19" />
 
     <uses-permission android:name="android.permission.INTERNET"></uses-permission>
@@ -38,10 +38,6 @@
         </activity>
         <activity
             android:name="ca.psiphon.ploggy.ActivityGenerateSelf"
-            android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
-        </activity>
-        <activity
-            android:name="ca.psiphon.ploggy.ActivityFriendStatusDetails"
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
@@ -99,11 +95,11 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityShowPicture" 
+            android:name="ca.psiphon.ploggy.ActivityEditGroup" 
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity
-            android:name="ca.psiphon.ploggy.ActivityLogEntries"
+            android:name="ca.psiphon.ploggy.ActivityShowPicture" 
             android:parentActivityName="ca.psiphon.ploggy.ActivityMain" >
         </activity>
         <activity

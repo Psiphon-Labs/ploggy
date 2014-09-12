@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.NumberFormat;
@@ -36,11 +38,13 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Resources;
@@ -60,27 +64,6 @@ import de.schildbach.wallet.util.LinuxSecureRandom;
 public class Utils {
 
     private static final String LOG_TAG = "Utils";
-
-    public static class ApplicationError extends Exception {
-        private static final long serialVersionUID = -3656367025650685613L;
-
-        public ApplicationError(String tag, String message) {
-            if (tag != null) {
-                Log.addEntry(tag, message);
-            }
-        }
-
-        public ApplicationError(String tag, Exception e) {
-            // TODO: require message param as well?
-            super(e);
-            String message = e.getLocalizedMessage();
-            if (message == null) {
-                message = "(null)";
-            }
-            Log.addEntry(tag, String.format("%s: %s", e.getClass().toString(), message));
-            // TODO: log stack trace?
-        }
-    }
 
     public static void writeStringToFile(String data, File file) throws IOException {
         FileOutputStream fileOutputStream = new FileOutputStream(file);
@@ -149,7 +132,7 @@ public class Utils {
 
     public static class NullOutputStream extends OutputStream {
         @Override
-        public void write(int arg0) throws IOException {
+        public void write(int b) throws IOException {
         }
 
         @Override
@@ -163,6 +146,14 @@ public class Utils {
 
     public static void discardStream(InputStream inputStream) throws IOException {
         copyStream(inputStream, new NullOutputStream());
+    }
+
+    public static InputStream makeInputStream(String input) throws PloggyError {
+        try {
+            return new ByteArrayInputStream(input.getBytes("UTF-8"));
+        } catch (UnsupportedEncodingException e) {
+            throw new PloggyError(LOG_TAG, e);
+        }
     }
 
     public static class FileInitializedObserver extends FileObserver {
@@ -204,26 +195,47 @@ public class Utils {
         new LinuxSecureRandom();
     }
 
+    @SuppressLint("TrulyRandom") // use of initSecureRandom() addresses this issue
     public static byte[] getRandomBytes(int byteCount) {
         byte[] buffer = new byte[byteCount];
         new SecureRandom().nextBytes(buffer);
         return buffer;
     }
 
+    @SuppressLint("TrulyRandom") // use of initSecureRandom() addresses this issue
+    public static int getRandomInt(int n) {
+        return new SecureRandom().nextInt(n);
+    }
+
     public static String encodeBase64(byte[] data) {
         return Base64.encodeToString(data, Base64.NO_WRAP);
     }
 
-    public static byte[] decodeBase64(String data) throws Utils.ApplicationError {
+    public static byte[] decodeBase64(String data) throws PloggyError {
         try {
             return Base64.decode(data, Base64.DEFAULT);
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
+    public static String makeId() {
+        return encodeBase64(getRandomBytes(Protocol.ID_LENGTH));
+    }
+
+    // from:
+    // http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
+    public static String encodeHex(byte[] data)  {
+        char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+        char[] chars = new char[data.length * 2];
+        for (int i = 0; i < data.length; i++)  {
+            chars[i*2] = hexArray[(data[i] & 0xFF)/16];
+            chars[i*2 + 1] = hexArray[(data[i] & 0xFF)%16];
+        }
+        return new String(chars);
+    }
+
     public static String formatFingerprint(byte[] fingerprintBytes) {
-        // Adapted from: http://stackoverflow.com/questions/332079/in-java-how-do-i-convert-a-byte-array-to-a-string-of-hex-digits-while-keeping-l
         char[] hexArray = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
         char[] chars = new char[fingerprintBytes.length * 3 - 1];
         for (int i = 0; i < fingerprintBytes.length; i++)  {
@@ -257,6 +269,17 @@ public class Utils {
                     R.string.format_distance_kilometers,
                     NumberFormat.getInstance().format(distanceInKilometers));
         }
+    }
+
+    public static String byteCountToDisplaySize(long bytes, boolean si) {
+        // http://stackoverflow.com/questions/3758606/how-to-convert-byte-size-into-human-readable-format-in-java/3758880#3758880
+        int unit = si ? 1000 : 1024;
+        if (bytes < unit) {
+            return bytes + " B";
+        }
+        int exp = (int) (Math.log(bytes) / Math.log(unit));
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
 
     public static class DateFormatter {
@@ -373,9 +396,9 @@ public class Utils {
         private final Handler mHandler;
         private Runnable mExecutorTask;
         private final Runnable mTask;
-        private final int mDelayInMilliseconds;
+        private final long mDelayInMilliseconds;
 
-        public FixedDelayExecutor(Runnable task, int delayInMilliseconds) {
+        public FixedDelayExecutor(Runnable task, long delayInMilliseconds) {
             mHandler = new Handler();
             mTask = task;
             mDelayInMilliseconds = delayInMilliseconds;
@@ -398,6 +421,36 @@ public class Utils {
                 mHandler.removeCallbacks(mExecutorTask);
                 mExecutorTask = null;
             }
+        }
+    }
+
+    // Converts a Iterator<String> to an InputStream
+    public static class StringIteratorInputStream extends InputStream {
+
+        Iterator<String> mStringIterator;
+        String mCurrentString;
+        int mIndex;
+
+        StringIteratorInputStream(Iterator<String> stringIterator) {
+            mStringIterator = stringIterator;
+            mCurrentString = null;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (mCurrentString == null) {
+                if (!mStringIterator.hasNext()) {
+                    return -1;
+                }
+                mCurrentString = mStringIterator.next();
+                mIndex = 0;
+            }
+            int result = mCurrentString.charAt(mIndex);
+            mIndex++;
+            if (mIndex >= mCurrentString.length()) {
+                mCurrentString = null;
+            }
+            return result;
         }
     }
 

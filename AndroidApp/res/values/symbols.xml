@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="foregroundServiceNotificationId">ploggyService</string>
+    <string name="unreadPostsNotificationId">unreadPosts</string>
     <string-array name="weekdays">
         <item>SUNDAY</item>
         <item>MONDAY</item>
@@ -24,7 +25,5 @@
     <string name="preferenceExchangeFilesWifiOnly">preferenceExchangeFilesWifiOnly</string>
     <string name="preferenceEnableBatterySaver">preferenceEnableBatterySaver</string>
     <string name="preferenceBatterySaverLevel">preferenceBatterySaverLevel</string>
-    <string name="preferenceLocationFixFrequencyInMinutes">preferenceLocationFixFrequencyInMinutes</string>
     <string name="preferenceLocationFixPeriodInSeconds">preferenceLocationFixPeriodInSeconds</string>
-    <string name="preferenceLocationPullFrequencyInMinutes">preferenceLocationPullFrequencyInMinutes</string>
 </resources>

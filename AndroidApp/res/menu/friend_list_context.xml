@@ -1,5 +1,6 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
     <item
         android:id="@+id/action_friend_list_delete_friend"
+        android:icon="@drawable/ic_action_delete"
         android:title="@string/action_friend_list_delete_friend"/>
 </menu>

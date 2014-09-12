@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -55,7 +55,11 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipInputStream;
 
 import net.freehaven.tor.control.TorControlConnection;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.os.Build;
 
 /**
@@ -108,33 +112,27 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     private final File mHiddenServiceClientKeysFile;
 
     private Thread mStartupThread = null;
-    private Utils.ApplicationError mStartupError = null;
+    private PloggyError mStartupError = null;
     private Process mProcess = null;
     private int mPid = -1;
     private int mControlPort = -1;
     private int mSocksProxyPort = -1;
     private Socket mControlSocket = null;
     private TorControlConnection mControlConnection = null;
+    private NetworkStateReceiver mNetworkStateReceiver = null;
     private CountDownLatch mCircuitEstablishedLatch = null;
-    private static final int CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
-    private static final int HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS = 90000;
-    private static final int CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS = 90000;
 
-    public TorWrapper(Mode mode) {
-        this(mode, null, null, -1);
+    private static final long CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
+    private static final long HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
+    private static final long CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(90, TimeUnit.SECONDS);
+
+    public TorWrapper(String instanceName, Mode mode) {
+        this(instanceName, mode, null, null, -1);
     }
 
     public TorWrapper(
-            Mode mode,
-            List<HiddenServiceAuth> hiddenServiceAuth,
-            HiddenService.KeyMaterial keyMaterial,
-            int webServerPort) {
-        this(mode, null, hiddenServiceAuth, keyMaterial, webServerPort);
-    }
-
-    public TorWrapper(
-            Mode mode,
             String instanceName,
+            Mode mode,
             List<HiddenServiceAuth> hiddenServiceAuth,
             HiddenService.KeyMaterial keyMaterial,
             int webServerPort) {
@@ -147,7 +145,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mKeyMaterial = keyMaterial;
         mWebServerPort = webServerPort;
         Context context = Utils.getApplicationContext();
-        String rootDirectory = String.format((Locale)null, "tor-%s", mInstanceName);
+        String rootDirectory = String.format((Locale)null, "tor-%s-%s", mInstanceName, mMode.toString());
         mRootDirectory = context.getDir(rootDirectory, Context.MODE_PRIVATE);
         mDataDirectory = new File(mRootDirectory, "data");
         mHiddenServiceDirectory = new File(mRootDirectory, "hidden_service");
@@ -167,11 +165,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
 
     private String logTag() {
-        return String.format("%s [%s]", LOG_TAG, mInstanceName);
+        return String.format("%s [%s][%s]", LOG_TAG, mInstanceName, mMode.toString());
     }
 
     public void start() {
         stop();
+        mStartupError = null;
         // Performs start sequence asynchronously, in a background thread
         Runnable startTask = new Runnable() {
             @Override
@@ -182,7 +181,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                     } else if (mMode == Mode.MODE_RUN_SERVICES) {
                         startRunServices();
                     }
-                } catch (Utils.ApplicationError e) {
+                } catch (PloggyError e) {
                     Log.addEntry(logTag(), "failed to start Tor");
                     // Save this to throw from awaitStarted
                     mStartupError = e;
@@ -193,7 +192,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         mStartupThread.start();
     }
 
-    public void awaitStarted() throws Utils.ApplicationError {
+    public void awaitStarted() throws PloggyError {
         if (mStartupThread != null) {
             try {
                 mStartupThread.join();
@@ -206,20 +205,20 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         }
     }
 
-    private void startGenerateKeyMaterial() throws Utils.ApplicationError {
+    private void startGenerateKeyMaterial() throws PloggyError {
         try {
             // TODO: don't need two copies of the executable
             writeExecutableFile();
             writeGenerateKeyMaterialConfigFile();
             mHiddenServiceDirectory.mkdirs();
             if (mHiddenServiceHostnameFile.exists() && !mHiddenServiceHostnameFile.delete()) {
-                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service hostname file");
+                throw new PloggyError(logTag(), "failed to delete existing hidden service hostname file");
             }
             if (mHiddenServicePrivateKeyFile.exists() && !mHiddenServicePrivateKeyFile.delete()) {
-                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service private key file");
+                throw new PloggyError(logTag(), "failed to delete existing hidden service private key file");
             }
             if (mHiddenServiceClientKeysFile.exists() && !mHiddenServiceClientKeysFile.delete()) {
-                throw new Utils.ApplicationError(logTag(), "failed to delete existing hidden service client keys file");
+                throw new PloggyError(logTag(), "failed to delete existing hidden service client keys file");
             }
             Utils.FileInitializedObserver hiddenServiceInitializedObserver =
                     new Utils.FileInitializedObserver(
@@ -229,45 +228,44 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                             mHiddenServiceClientKeysFile.getName());
             hiddenServiceInitializedObserver.startWatching();
             startDaemon(false);
-            if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                throw new Utils.ApplicationError(logTag(), "timeout waiting for Tor hidden service initialization");
+            if (!hiddenServiceInitializedObserver.await(HIDDEN_SERVICE_INITIALIZED_TIMEOUT_IN_MILLISECONDS)) {
+                throw new PloggyError(logTag(), "timeout waiting for Tor hidden service initialization");
             }
             mKeyMaterial = parseHiddenServiceFiles();
         } catch (IOException e) {
             Log.addEntry(logTag(), "failed to start Tor");
-            throw new Utils.ApplicationError(logTag(), e);
+            throw new PloggyError(logTag(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
             // This mode stops its Tor process
-            stop();
+            stop(true);
             mHiddenServiceHostnameFile.delete();
             mHiddenServicePrivateKeyFile.delete();
         }
     }
 
-    private void startRunServices() throws Utils.ApplicationError {
+    private void startRunServices() throws PloggyError {
         boolean startCompleted = false;
         try {
             writeExecutableFile();
             writeRunServicesConfigFile();
             writeHiddenServiceFiles();
             startDaemon(true);
-            mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
             startCompleted = true;
         } catch (IOException e) {
             Log.addEntry(logTag(), "failed to start Tor");
-            throw new Utils.ApplicationError(logTag(), e);
+            throw new PloggyError(logTag(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } finally {
             if (!startCompleted) {
-                stop();
+                stop(true);
             }
         }
     }
 
-    private void startDaemon(boolean awaitFirstCircuit) throws Utils.ApplicationError, IOException, InterruptedException {
+    private void startDaemon(boolean runServices) throws PloggyError, IOException, InterruptedException {
         try {
             mDataDirectory.mkdirs();
             mCircuitEstablishedLatch = new CountDownLatch(1);
@@ -298,11 +296,11 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             // TODO: i18n errors (string resources); combine logging with throwing Utils.ApplicationError
             int exit = mProcess.waitFor();
             if (exit != 0) {
-                throw new Utils.ApplicationError(logTag(), String.format("Tor exited with error %d", exit));
+                throw new PloggyError(logTag(), String.format("Tor exited with error %d", exit));
             }
 
-            if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_MILLISECONDS)) {
-                throw new Utils.ApplicationError(logTag(), "timeout waiting for Tor control initialization");
+            if (!controlInitializedObserver.await(CONTROL_INITIALIZED_TIMEOUT_IN_MILLISECONDS)) {
+                throw new PloggyError(logTag(), "timeout waiting for Tor control initialization");
             }
 
             mPid = Utils.readFileToInt(mPidFile);
@@ -313,8 +311,17 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             mControlConnection.setEventHandler(this);
             mControlConnection.setEvents(Arrays.asList("STATUS_CLIENT", "WARN", "ERR"));
 
-            if (awaitFirstCircuit) {
-                mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS);
+            if (runServices) {
+                mSocksProxyPort = getPortValue(mControlConnection.getInfo("net/listeners/socks").replaceAll("\"", ""));
+
+                // TODO: NetworkStateReceiver.onReceive will run on the main app thread and
+                // will send a command using mControlConnection. Do we need synchronization?
+                mNetworkStateReceiver = new NetworkStateReceiver();
+                Utils.getApplicationContext().registerReceiver(
+                        mNetworkStateReceiver,
+                        new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
+                mCircuitEstablishedLatch.await(CIRCUIT_ESTABLISHED_TIMEOUT_IN_MILLISECONDS, TimeUnit.MILLISECONDS);
             }
         } finally {
             if (mProcess != null) {
@@ -329,18 +336,31 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
     }
 
     public void stop() {
-        if (mStartupThread != null) {
-            mStartupThread.interrupt();
-            try {
-                awaitStarted();
-            } catch (Utils.ApplicationError e) {
-                Log.addEntry(logTag(), "failed to stop gracefully");
+        stop(false);
+    }
+
+    public void stop(boolean isStartThread) {
+        if (!isStartThread) {
+            if (mStartupThread != null) {
+                mStartupThread.interrupt();
+                try {
+                    awaitStarted();
+                } catch (PloggyError e) {
+                    Log.addEntry(logTag(), "failed to stop gracefully");
+                }
             }
-            mStartupThread = null;
-            mStartupError = null;
+        }
+        if (mNetworkStateReceiver != null) {
+            try {
+                Utils.getApplicationContext().unregisterReceiver(mNetworkStateReceiver);
+            } catch (IllegalArgumentException e) {
+                // ignore "java.lang.IllegalArgumentException: Receiver not registered"
+            }
+            mNetworkStateReceiver = null;
         }
         try {
             if (mControlConnection != null) {
+                mControlConnection.setConf("DisableNetwork", "1");
                 mControlConnection.shutdownTor("TERM");
             }
             if (mControlSocket != null) {
@@ -366,6 +386,8 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
             android.os.Process.killProcess(mPid);
         }
 
+        mStartupThread = null;
+        mStartupError = null;
         mSocksProxyPort = -1;
         mControlPort = -1;
         mControlConnection = null;
@@ -379,7 +401,10 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         return mKeyMaterial;
     }
 
-    public int getSocksProxyPort() {
+    public int getSocksProxyPort() throws PloggyError {
+        if (mSocksProxyPort == -1) {
+            throw new PloggyError(logTag(), "Tor SOCKS proxy port not available");
+        }
         return mSocksProxyPort;
     }
 
@@ -389,6 +414,25 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
+        }
+    }
+
+    private class NetworkStateReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // from http://sourceforge.net/p/briar/prototype/ci/c779d7b95a0af06f0b1977f2e5daee886bcfe42e
+            // Note: Some devices fail to set this extra
+            boolean isOnline = !intent.getBooleanExtra(ConnectivityManager.EXTRA_NO_CONNECTIVITY, false);
+            // The purpose of this is to notify Tor when there's no network
+            // connectivity so that it doesn't waste resources (battery) trying
+            // to connect when it can't connect.
+            if (mControlConnection != null) {
+                try {
+                    mControlConnection.setConf("DisableNetwork", isOnline ? "0" : "1");
+                } catch (IOException e) {
+                    Log.addEntry(logTag(), "enableNetwork failed: " + e.toString());
+                }
+            }
         }
     }
 
@@ -416,6 +460,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        //"DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
@@ -453,6 +498,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                         "DataDirectory %s\n" +
                         "RunAsDaemon 1\n" +
                         "PidFile %s\n" +
+                        //"DisableNetwork 1\n" +
                         "ControlPort auto\n" +
                         "ControlPortWriteToFile %s\n" +
                         "CookieAuthentication 1\n" +
@@ -475,12 +521,12 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 new FileOutputStream(mConfigFile));
     }
 
-    private HiddenService.KeyMaterial parseHiddenServiceFiles() throws Utils.ApplicationError, IOException {
+    private HiddenService.KeyMaterial parseHiddenServiceFiles() throws PloggyError, IOException {
         String hostnameFileContent = Utils.readFileToString(mHiddenServiceHostnameFile);
         // Expected format: "gv69mnyyrwinum7l.onion WSdmfwVn8ewrCLKAwVyhCT # client: friend\n"
         String[] hostnameFileFields = hostnameFileContent.split(" ");
         if (hostnameFileFields.length < 2) {
-            throw new Utils.ApplicationError(logTag(), "unexpected fields in hidden service hostname file");
+            throw new PloggyError(logTag(), "unexpected fields in hidden service hostname file");
         }
         String hostname = hostnameFileFields[0];
         String authCookie = hostnameFileFields[1];
@@ -491,7 +537,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 Utils.encodeBase64(privateKey.getBytes()));
     }
 
-    private void writeHiddenServiceFiles() throws Utils.ApplicationError, IOException {
+    private void writeHiddenServiceFiles() throws PloggyError, IOException {
         mHiddenServiceDirectory.mkdirs();
         String hostnameFileContent = mKeyMaterial.mHostname + " " + mKeyMaterial.mAuthCookie + "\n";
         Utils.writeStringToFile(
@@ -509,16 +555,16 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 mHiddenServiceClientKeysFile);
     }
 
-    private int getPortValue(String data) throws Utils.ApplicationError {
+    private int getPortValue(String data) throws PloggyError {
         try {
             // Expected format is "PORT=127.0.0.1:<port>\n"
             String[] tokens = data.trim().split(":");
             if (tokens.length != 2) {
-                throw new Utils.ApplicationError(logTag(), "unexpected port value format");
+                throw new PloggyError(logTag(), "unexpected port value format");
             }
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
-            throw new Utils.ApplicationError(logTag(), e);
+            throw new PloggyError(logTag(), e);
         }
     }
 
@@ -554,7 +600,7 @@ public class TorWrapper implements net.freehaven.tor.control.EventHandler {
                 mCircuitEstablishedLatch.countDown();
             }
             Log.addEntry(logTag(), "circuit established");
-            Events.post(new Events.TorCircuitEstablished());
+            Events.getInstance(mInstanceName).post(new Events.TorCircuitEstablished());
         }
         if (type.equals("STATUS_CLIENT") && message.startsWith("NOTICE BOOTSTRAP")) {
             Pattern pattern = Pattern.compile(".*PROGRESS=(\\d+).*SUMMARY=\"(.+)\"");

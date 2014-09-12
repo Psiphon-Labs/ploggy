@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -51,16 +51,17 @@ public class FragmentLogEntries extends ListFragment implements Log.Observer {
     }
 
     @Override
-    public void onStart() {
-        super.onStart();
+    public void onResume() {
+        super.onResume();
+        Log.registerObserver(this);
+        getActivity().setTitle(R.string.navigation_drawer_item_log_entries);
         getListView().setSelection(mLogAdapter.getCount() - 1);
         getListView().setTranscriptMode(ListView.TRANSCRIPT_MODE_ALWAYS_SCROLL);
-        Log.registerObserver(this);
     }
 
     @Override
-    public void onStop() {
-        super.onStop();
+    public void onPause() {
+        super.onPause();
         Log.unregisterObserver(this);
     }
 

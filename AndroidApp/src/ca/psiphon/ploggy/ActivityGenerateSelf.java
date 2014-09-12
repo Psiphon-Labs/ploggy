@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -45,7 +45,7 @@ import android.widget.TextView;
  * nickname. The resulting identity fingerprint and Robohash avatar is updated
  * after brief pauses in typing.
  */
-public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements View.OnClickListener {
+public class ActivityGenerateSelf extends ActivityPloggyBase implements View.OnClickListener {
 
     private static final String LOG_TAG = "Generate Self";
 
@@ -83,26 +83,8 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         mProgressDialog.setMessage(getText(R.string.prompt_generate_self_progress));
         mProgressDialog.setCancelable(false);
         mAvatarTimer = new Timer();
-    }
 
-    private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
-        try {
-            if (publicIdentity.mNickname.length() > 0) {
-                Robohash.setRobohashImage(this, mAvatarImage, false, publicIdentity);
-            } else {
-                Robohash.setRobohashImage(this, mAvatarImage, false, null);
-            }
-            mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to show self");
-        }
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-
-        Data.Self self = getSelf();
+        Data.Self self = getSelf(this);
         if (self == null) {
             startGenerating();
         } else {
@@ -114,13 +96,24 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             mSaveButton.setVisibility(View.GONE);
 
         }
+    }
 
-        // Don't show the keyboard until edit selected
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+    private void showAvatarAndFingerprint(Identity.PublicIdentity publicIdentity) {
+        try {
+            if (publicIdentity.mNickname.length() > 0) {
+                // Temporary, uncached avatar -- since nickname may be changing
+                Avatar.setTemporaryAvatarImage(this, mAvatarImage, publicIdentity);
+            } else {
+                Avatar.setAvatarImage(this, mAvatarImage);
+            }
+            mFingerprintText.setText(Utils.formatFingerprint(publicIdentity.getFingerprint()));
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to show self");
+        }
     }
 
     private void startGenerating() {
-        Robohash.setRobohashImage(this, mAvatarImage, false, null);
+        Avatar.setAvatarImage(this, mAvatarImage);
         mNicknameEdit.setText("");
         mFingerprintText.setText("");
         mRegenerateButton.setEnabled(false);
@@ -129,6 +122,14 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         mSaveButton.setVisibility(View.VISIBLE);
         mGenerateTask = new GenerateTask();
         mGenerateTask.execute();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // Don't show the keyboard until edit selected
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
     }
 
     @Override
@@ -143,7 +144,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
 
     @Override
     public void onBackPressed() {
-        if (getSelf() != null) {
+        if (getSelf(this) != null) {
             super.onBackPressed();
         }
     }
@@ -158,7 +159,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 return;
             }
             try {
-                Data.getInstance().updateSelf(
+                Data.getInstance().putSelf(
                         new Data.Self(
                                 Identity.makeSignedPublicIdentity(
                                         nickname,
@@ -172,7 +173,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 Utils.hideKeyboard(this);
 
                 finish();
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to update self");
             }
         }
@@ -203,7 +204,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                 X509.KeyMaterial x509KeyMaterial = X509.generateKeyMaterial(hiddenServiceKeyMaterial.mHostname);
                 Log.addEntry(LOG_TAG, "generated X.509 key material");
                 return new GenerateResult(x509KeyMaterial, hiddenServiceKeyMaterial);
-            } catch (Utils.ApplicationError e) {
+            } catch (PloggyError e) {
                 Log.addEntry(LOG_TAG, "failed to generate key material");
                 return null;
             }
@@ -226,13 +227,16 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
             } else {
                 mGenerateResult = result;
                 // Display fingerprint/avatar for blank nickname
-                showAvatarAndFingerprint(
-                        new Identity.PublicIdentity(
-                                mNicknameEdit.getText().toString(),
-                                mGenerateResult.mX509KeyMaterial.mCertificate,
-                                mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
-                                mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
-                                null));
+                try {
+                    showAvatarAndFingerprint(
+                            new Identity.PublicIdentity(
+                                    mNicknameEdit.getText().toString(),
+                                    mGenerateResult.mX509KeyMaterial.mCertificate,
+                                    mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                    mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
+                                    null));
+                } catch (PloggyError e) {
+                }
                 mNicknameEdit.setEnabled(true);
             }
         }
@@ -267,13 +271,16 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
                             public void run() {
                                 if (mGenerateResult != null) {
                                     // Display fingerprint/avatar for updated nickname
-                                    showAvatarAndFingerprint(
-                                            new Identity.PublicIdentity(
-                                                    nickname,
-                                                    mGenerateResult.mX509KeyMaterial.mCertificate,
-                                                    mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
-                                                    mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
-                                                    null));
+                                    try {
+                                        showAvatarAndFingerprint(
+                                                new Identity.PublicIdentity(
+                                                        nickname,
+                                                        mGenerateResult.mX509KeyMaterial.mCertificate,
+                                                        mGenerateResult.mHiddenServiceKeyMaterial.mHostname,
+                                                        mGenerateResult.mHiddenServiceKeyMaterial.mAuthCookie,
+                                                        null));
+                                    } catch (PloggyError e) {
+                                    }
                                 }
                             }
                         });
@@ -284,12 +291,11 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
         };
     }
 
-    static private Data.Self getSelf() {
+    static private Data.Self getSelf(Context context) {
         Data.Self self = null;
         try {
-            self = Data.getInstance().getSelf();
-        } catch (Utils.ApplicationError e) {
-            // Treat as no self
+            self = Data.getInstance().getSelfOrThrow();
+        } catch (PloggyError e) {
         }
         return self;
     }
@@ -297,7 +303,7 @@ public class ActivityGenerateSelf extends ActivitySendIdentityByNfc implements V
     static public void checkLaunchGenerateSelf(Context context) {
         // Helper to ensure Self is generated. Called from other Activities to jump to this one first.
         // When Self is generated, ensure the background Service is started.
-        if (getSelf() == null) {
+        if (getSelf(context) == null) {
             context.startActivity(new Intent(context, ActivityGenerateSelf.class));
         } else {
             context.startService(new Intent(context, PloggyService.class));

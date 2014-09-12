@@ -71,7 +71,7 @@ public class X509 {
         Security.insertProviderAt(new org.spongycastle.jce.provider.BouncyCastleProvider(), 1);
     }
 
-    public static KeyMaterial generateKeyMaterial(String commonName) throws Utils.ApplicationError {
+    public static KeyMaterial generateKeyMaterial(String commonName) throws PloggyError {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(KEY_TYPE, "SC");
             keyPairGenerator.initialize(KEY_SPEC, new SecureRandom());
@@ -101,39 +101,39 @@ public class X509 {
                     Utils.encodeBase64(x509certificate.getEncoded()),
                     Utils.encodeBase64(keyPair.getPrivate().getEncoded()));
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public static String sign(KeyMaterial keyMaterial, byte[] data) throws Utils.ApplicationError {
+    public static String sign(KeyMaterial keyMaterial, byte[] data) throws PloggyError {
         return sign(keyMaterial.mPrivateKey, data);
     }
 
-    public static String sign(String privateKey, byte[] data) throws Utils.ApplicationError {
+    public static String sign(String privateKey, byte[] data) throws PloggyError {
         try {
             Signature signer = java.security.Signature.getInstance(SIGNATURE_TYPE);
             signer.initSign(decodePrivateKey(privateKey));
             signer.update(data);
             return Utils.encodeBase64(signer.sign());
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public static boolean verify(String certificate, byte[] data, String signature) throws Utils.ApplicationError {
+    public static boolean verify(String certificate, byte[] data, String signature) throws PloggyError {
         try {
             Signature verifier = java.security.Signature.getInstance(SIGNATURE_TYPE);
             verifier.initVerify(decodeCertificate(certificate));
             verifier.update(data);
             return verifier.verify(Utils.decodeBase64(signature));
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public static byte[] getFingerprint(String ...params) throws Utils.ApplicationError {
+    public static byte[] getFingerprint(String ...params) throws PloggyError {
         try {
             MessageDigest hash = MessageDigest.getInstance(FINGERPRINT_ALGORITHM);
             for (int i = 0; i < params.length; i++) {
@@ -141,32 +141,32 @@ public class X509 {
             }
             return hash.digest();
         } catch (UnsupportedEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
-    public static KeyStore makeKeyStore() throws Utils.ApplicationError {
+    public static KeyStore makeKeyStore() throws PloggyError {
         try {
             KeyStore keyStore;
             keyStore = KeyStore.getInstance("BKS");
             keyStore.load(null);
             return keyStore;
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     public static void loadKeyMaterial(
-            KeyStore keyStore, KeyMaterial keyMaterial) throws Utils.ApplicationError {
+            KeyStore keyStore, KeyMaterial keyMaterial) throws PloggyError {
         loadKeyMaterial(keyStore, keyMaterial.mCertificate, keyMaterial.mPrivateKey);
     }
 
     public static void loadKeyMaterial(
-            KeyStore keyStore, String certificate, String privateKey) throws Utils.ApplicationError {
+            KeyStore keyStore, String certificate, String privateKey) throws PloggyError {
         try {
             X509Certificate x509certificate = decodeCertificate(certificate);
             String alias = x509certificate.getSubjectDN().getName();
@@ -177,23 +177,23 @@ public class X509 {
             }
         } catch (IllegalArgumentException e) {
             // TODO: ... malformed public key (generatePrivate) or invalid Base64
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (NullPointerException e) {
             // TODO: ...getSubjectDN returns null and/or throws NPE on invalid input
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     private static X509Certificate decodeCertificate(String certificate)
-            throws Utils.ApplicationError, CertificateException {
+            throws PloggyError, CertificateException {
         CertificateFactory certificateFactory = CertificateFactory.getInstance(CERTIFICATE_TYPE);
         return (X509Certificate)certificateFactory.generateCertificate(new ByteArrayInputStream(Utils.decodeBase64(certificate)));
     }
 
     private static PrivateKey decodePrivateKey(String privateKey)
-            throws Utils.ApplicationError, NoSuchAlgorithmException, InvalidKeySpecException {
+            throws PloggyError, NoSuchAlgorithmException, InvalidKeySpecException {
         KeyFactory privateKeyFactory = KeyFactory.getInstance(KEY_TYPE);
         return privateKeyFactory.generatePrivate(new PKCS8EncodedKeySpec(Utils.decodeBase64(privateKey)));
     }

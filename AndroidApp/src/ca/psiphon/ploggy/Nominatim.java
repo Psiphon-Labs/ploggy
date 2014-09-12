@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2014, Psiphon Inc.
+ * All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 package ca.psiphon.ploggy;
 
 import java.util.ArrayList;
@@ -60,19 +79,28 @@ public class Nominatim {
         requestParameters.add(new Pair<String, String>("accept-language", locale.getLanguage()));
 
         String response;
+        WebClientConnectionPool connectionPool = null;
         try {
-            response = WebClient.makeGetRequest(
-                null,
-                SERVER_CERT,
-                torSocksProxyPort,
-                SERVER_ADDRESS,
-                SERVER_PORT,
-                REQUEST_PATH,
-                requestParameters);
-        }
-        catch (Utils.ApplicationError e) {
+            // TODO: reuse this pool (for as long as the current Tor connection is up)
+            connectionPool = new WebClientConnectionPool(SERVER_CERT, torSocksProxyPort);
+
+            WebClientRequest webClientRequest =
+                    new WebClientRequest(
+                            connectionPool,
+                        SERVER_ADDRESS,
+                        SERVER_PORT,
+                        WebClientRequest.RequestType.GET,
+                        REQUEST_PATH).
+                            requestParameters(requestParameters);
+
+            response = webClientRequest.makeRequestAndLoadResponse();
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "reverse geocode failed: " + e.getMessage());
             return address;
+        } finally {
+            if (connectionPool != null) {
+                connectionPool.shutdown();
+            }
         }
 
         JsonParser parser = new JsonParser();
@@ -147,5 +175,4 @@ public class Nominatim {
 
         return address;
     }
-
 }

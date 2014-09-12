@@ -35,7 +35,7 @@ import ca.psiphon.ploggy.widgets.TimePickerPreference;
  * TimePicker- and SeekBar-based preferences are implemented with custom widgets, and this
  * Activity provides support for updating the summaries for TimePicker preferences.
  */
-public class ActivitySettings extends ActivitySendIdentityByNfc {
+public class ActivitySettings extends ActivityPloggyBase {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

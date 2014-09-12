@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Notification;
@@ -29,6 +30,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
 import android.text.Html;
+import android.util.Pair;
 
 import com.squareup.otto.Subscribe;
 
@@ -40,7 +42,6 @@ public class PloggyService extends Service {
     private static final String LOG_TAG = "Service";
 
     private Engine mEngine;
-    private Notification mNotification = null;
 
     public PloggyService() {
     }
@@ -53,10 +54,10 @@ public class PloggyService extends Service {
     @Override
     public void onCreate() {
         try {
-            Events.register(this);
-            mEngine = new Engine(this);
+            Events.getInstance().register(this);
+            mEngine = new Engine();
             mEngine.start();
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to start Engine");
             stopSelf();
             return;
@@ -66,7 +67,7 @@ public class PloggyService extends Service {
 
     @Override
     public void onDestroy() {
-        Events.unregister(this);
+        Events.getInstance().unregister(this);
         if (mEngine != null) {
             mEngine.stop();
             mEngine = null;
@@ -74,97 +75,130 @@ public class PloggyService extends Service {
     }
 
     private void doForeground() {
-        updateNotification(null);
-        startForeground(R.string.foregroundServiceNotificationId, mNotification);
+        startForeground(R.string.foregroundServiceNotificationId, makeForegroundNotification());
+        updateUnreadPostsNotifications();
     }
 
-    private void updateNotification(List<Data.AnnotatedMessage> newMessages) {
+    @Subscribe
+    public void UpdatedFriendPost(Events.UpdatedFriendPost updatedFriendPost) {
+        // *TODO* don't update notification if group post list currently displayed?
+        updateUnreadPostsNotification(updatedFriendPost.mGroupId);
+    }
+
+    @Subscribe
+    public void markedAsReadPosts(Events.MarkedAsReadPosts markedAsReadPosts) {
+        updateUnreadPostsNotification(markedAsReadPosts.mGroupId);
+    }
+
+    private Notification makeForegroundNotification() {
+        Intent intent = new Intent(this, ActivityMain.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setAction("android.intent.action.MAIN");
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Notification.Builder notificationBuilder =
+                new Notification.Builder(this)
+                    .setContentIntent(pendingIntent)
+                    .setContentTitle(getString(R.string.foreground_service_notification_content_title))
+                    .setSmallIcon(R.drawable.ic_notification_without_new_messages);
+
+        return notificationBuilder.build();
+    }
+
+    private void updateUnreadPostsNotifications() {
+        Data data = Data.getInstance();
+        Data.ObjectCursor<Data.Group> unreadPostsGroups = null;
+        try {
+            for (Data.Group group : data.getVisibleGroupsWithUnreadPostsIterator()) {
+                updateUnreadPostsNotification(group.mGroup.mId);
+            }
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to update unread posts notifications");
+        }
+    }
+
+    private void updateUnreadPostsNotification(String groupId) {
         // Max, as per documentation: http://developer.android.com/reference/android/app/Notification.InboxStyle.html
         final int MAX_LINES = 5;
 
-        // Invoke main Activity when notification is clicked
-        Intent intent = new Intent(this, ActivityMain.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        int iconResourceId;
-        String contentTitle;
-        if (newMessages != null && newMessages.size() > 0) {
-            intent.setAction(ActivityMain.ACTION_DISPLAY_MESSAGES);
-            iconResourceId = R.drawable.ic_notification_with_new_messages;
-            contentTitle =
-                    getResources().getQuantityString(
-                        R.plurals.foreground_service_notification_content_title_with_new_messages,
-                        newMessages.size(),
-                        newMessages.size());
-        } else {
-            intent.setAction("android.intent.action.MAIN");
-            iconResourceId = R.drawable.ic_notification_without_new_messages;
-            contentTitle = getString(R.string.foreground_service_notification_content_title_without_new_messages);
+        Data data = Data.getInstance();
+        Data.Group group = null;
+        Data.ObjectCursor<Data.Post> unreadPostsCursor = null;
+        List<Pair<String, String>> unreadPosts = new ArrayList<Pair<String, String>>();
+        int additionalLines = 0;
+        try {
+            // *TODO* not using background thread? use AsyncTask?
+            group = data.getGroupOrThrow(groupId);
+            unreadPostsCursor = data.getUnreadPosts(groupId);
+            additionalLines = unreadPostsCursor.getCount() - MAX_LINES;
+            for (int i = 0; i < MAX_LINES && unreadPostsCursor.hasNext(); i++) {
+                Data.Post post = unreadPostsCursor.next();
+                unreadPosts.add(
+                    new Pair<String, String>(
+                        post.mPost.mContent,
+                        data.getFriendByIdOrThrow(post.mPost.mPublisherId).mPublicIdentity.mNickname));
+            }
+        } catch (PloggyError e) {
+            Log.addEntry(LOG_TAG, "failed to update unread posts notification");
+            return;
+        } finally {
+            if (unreadPostsCursor != null) {
+                unreadPostsCursor.close();
+            }
         }
 
-        PendingIntent pendingIntent =
-            PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        NotificationManager notificationManager =
+                (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager == null) {
+            Log.addEntry(LOG_TAG, "failed to update unread posts notification");
+            return;
+        }
 
-        Notification.Builder notificationBuilder =
-            new Notification.Builder(this)
-                .setContentIntent(pendingIntent)
-                .setContentTitle(contentTitle)
-                .setSmallIcon(iconResourceId);
+        if (unreadPosts.size() == 0) {
+            // Clear any existing notification
+            notificationManager.cancel(groupId, R.string.unreadPostsNotificationId);
+        } else {
+            // Create or update notification
+            Intent intent = ActivityMain.makeDisplayViewIntent(
+                    this, new ActivityMain.ViewTag(ActivityMain.ViewType.GROUP_POSTS, groupId));
+            PendingIntent pendingIntent =
+                PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-        Notification notification;
-        if (newMessages != null && newMessages.size() > 0) {
-            // Use default (system) sound, lights, and vibrate
-            notificationBuilder.setDefaults(Notification.DEFAULT_ALL);
+            Notification.Builder notificationBuilder =
+                new Notification.Builder(this)
+                    .setContentIntent(pendingIntent)
+                    .setContentTitle(
+                            getResources().getQuantityString(
+                                R.plurals.unread_posts_notification_content_title,
+                                unreadPosts.size(),
+                                unreadPosts.size()))
+                    .setContentInfo(group.mGroup.mName)
+                    .setSmallIcon(R.drawable.ic_notification_with_new_messages)
+                    // Use default (system) sound, lights, and vibrate
+                    .setDefaults(Notification.DEFAULT_ALL);
 
             // Build email-style big view with summary of new messages
             Notification.InboxStyle inboxStyleBuilder =
                 new Notification.InboxStyle(notificationBuilder);
-            for (int i = 0; i < MAX_LINES && i < newMessages.size(); i++) {
+            for (Pair<String, String> unreadPost : unreadPosts) {
                 inboxStyleBuilder.addLine(
                     Html.fromHtml(
                         getString(
-                            R.string.foreground_service_notification_inbox_line,
-                            newMessages.get(i).mPublicIdentity.mNickname,
-                            newMessages.get(i).mMessage.mContent)));
+                            R.string.unread_posts_notification_inbox_line,
+                            unreadPost.first,
+                            unreadPost.second)));
             }
-            if (newMessages.size() > MAX_LINES) {
+            if (additionalLines > 0) {
                 inboxStyleBuilder.setSummaryText(
                     getString(
-                        R.string.foreground_service_notification_inbox_summary,
-                        newMessages.size() - MAX_LINES));
+                        R.string.unread_posts_notification_inbox_summary,
+                        additionalLines));
             }
-            notification = inboxStyleBuilder.build();
-        } else {
-            notification = notificationBuilder.build();
-        }
 
-        if (mNotification == null) {
-            mNotification = notification;
-        }
-        else {
-            // TODO: if other notification attributes are added (ie ticker), copy them here
-            mNotification.contentIntent = notification.contentIntent;
-            mNotification.bigContentView = notification.bigContentView;
-            mNotification.contentView = notification.contentView;
-            mNotification.icon = notification.icon;
-            mNotification.largeIcon = notification.largeIcon;
-            mNotification.defaults = notification.defaults;
-        }
-    }
+            Notification notification = inboxStyleBuilder.build();
 
-    @Subscribe
-    public synchronized void onUpdatedNewMessages(Events.UpdatedNewMessages updatedNewMessages) {
-        try {
-            // Update the service notification with new messages
-            updateNotification(Data.getInstance().getNewMessages());
-
-            NotificationManager notificationManager =
-                    (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
-            if (notificationManager != null) {
-                notificationManager.notify(R.string.foregroundServiceNotificationId, mNotification);
-            }
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to create new messages notification");
+            notificationManager.notify(groupId, R.string.unreadPostsNotificationId, notification);
         }
     }
 }

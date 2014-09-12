@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,20 +21,30 @@ package ca.psiphon.ploggy;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
 import ch.boye.httpclientandroidlib.conn.ssl.SSLSocketFactory;
+import ch.boye.httpclientandroidlib.conn.ssl.X509HostnameVerifier;
+import ch.boye.httpclientandroidlib.params.HttpParams;
 
 /**
  * Helpers for building custom TLS connections.
@@ -50,29 +60,122 @@ public class TransportSecurity {
     private static final String LOG_TAG = "Transport Security";
 
     public static ServerSocket makeServerSocket(
+            Data data,
             X509.KeyMaterial transportKeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
+        // TODO: construct transportKeyMaterial and friendCertificates from data parameter...?
         try {
             SSLContext sslContext = TransportSecurity.getSSLContext(transportKeyMaterial, friendCertificates);
             SSLServerSocket sslServerSocket = (SSLServerSocket)(sslContext.getServerSocketFactory().createServerSocket());
             sslServerSocket.setNeedClientAuth(true);
             sslServerSocket.setEnabledCipherSuites(TLS_REQUIRED_CIPHER_SUITES);
             sslServerSocket.setEnabledProtocols(TLS_REQUIRED_PROTOCOLS);
-            return sslServerSocket;
+            // Wrap friend sockets in sent/received stats counter
+            return new DataTransferStats.SSLServerSocketWrapper(data, sslServerSocket);
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
+        }
+    }
+
+    // Checks that server hostname (.onion domain) and presented certificate matches friend record
+    private static class PloggyHiddenServiceHostnameVerifier implements X509HostnameVerifier {
+
+        private final Data mData;
+
+        PloggyHiddenServiceHostnameVerifier(Data data) {
+            mData = data;
+        }
+
+        @Override
+        public boolean verify(String hostname, SSLSession sslSession) {
+            try {
+                Certificate[] certificates = sslSession.getPeerCertificates();
+                if (certificates.length != 1) {
+                    return false;
+                }
+                return verify(hostname, Utils.encodeBase64(certificates[0].getEncoded()));
+            } catch (SSLPeerUnverifiedException e) {
+            } catch (CertificateEncodingException e) {
+            }
+            return false;
+        }
+
+        @Override
+        public void verify(String hostname, SSLSocket sslSocket) throws IOException {
+            if (!verify(hostname, sslSocket.getSession())) {
+                throw new IOException("verify certificate failed");
+            }
+        }
+
+        @Override
+        public void verify(String hostname, X509Certificate certificate) throws SSLException {
+            try {
+                if (verify(hostname, Utils.encodeBase64(certificate.getEncoded()))) {
+                    return;
+                }
+            } catch (CertificateEncodingException e) {
+            }
+            throw new SSLException("verify certificate failed");
+        }
+
+        @Override
+        public void verify(String hostname, String[] commonNames, String[] subjectAlts) throws SSLException {
+            if (commonNames.length < 1 || !hostname.equals(commonNames[0])) {
+                throw new SSLException("unexpected hostname in certificate");
+            }
+        }
+
+        private boolean verify(String hostname, String certificate) {
+            try {
+                Data.Friend friend = mData.getFriendByCertificateOrThrow(certificate);
+                return hostname.equals(friend.mPublicIdentity.mHiddenServiceHostname);
+            } catch (PloggyError e) {
+            }
+            return false;
         }
     }
 
     private static class ClientSSLSocketFactory extends SSLSocketFactory {
+        private Data mData;
 
+        // This mode expects all friend certificates to be loaded and uses a custom
+        // verifier that checks the presented server certificate matches the friend's hidden
+        // service hostname
+        public ClientSSLSocketFactory(SSLContext sslContext, Data data) {
+            super(sslContext, new PloggyHiddenServiceHostnameVerifier(data));
+            mData = data;
+        }
+
+        // This mode should be used only when a single expected server certificate is loaded
         public ClientSSLSocketFactory(SSLContext sslContext) {
-            // Using ALLOW_ALL effectively disables hostname verification. Ploggy
-            // simply checks that the peer is authenticating with the sole friend
-            // certificate expected for this connection.
             super(sslContext, SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+        }
+
+        // Wrap friend sockets in sent/received stats counter
+        // TODO: need to override other createSocket/createLayeredSocket overloads/functions?
+        @Override
+        public Socket createSocket(HttpParams params) throws IOException {
+            SSLSocket socket = (SSLSocket) super.createSocket(params);
+            if (mData == null) {
+                return socket;
+            }
+            return new DataTransferStats.SSLSocketWrapper(mData, socket);
+        }
+
+        @Override
+        public Socket createLayeredSocket(
+                Socket socket,
+                String host,
+                int port,
+                HttpParams params) throws IOException, UnknownHostException {
+            SSLSocket layeredSocket =
+                    (SSLSocket) super.createLayeredSocket(socket, host, port, params);
+            if (mData == null) {
+                return layeredSocket;
+            }
+            return new DataTransferStats.SSLSocketWrapper(mData, layeredSocket);
         }
 
         @Override
@@ -82,13 +185,17 @@ public class TransportSecurity {
         }
     }
 
+    public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext, Data data) {
+        return new ClientSSLSocketFactory(sslContext, data);
+    }
+
     public static ClientSSLSocketFactory getClientSSLSocketFactory(SSLContext sslContext) {
         return new ClientSSLSocketFactory(sslContext);
     }
 
     public static SSLContext getSSLContext(
             X509.KeyMaterial x509KeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
         try {
             KeyManager[] keyManagers = null;
             if (x509KeyMaterial != null) {
@@ -111,9 +218,26 @@ public class TransportSecurity {
             sslContext.init(keyManagers, trustManagers, new SecureRandom());
             return sslContext;
         } catch (IllegalArgumentException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         } catch (GeneralSecurityException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
+        }
+    }
+
+    public static String getPeerCertificate(Socket socket) throws PloggyError {
+        // Determine friend id by peer TLS certificate
+        try {
+            SSLSocket sslSocket = (SSLSocket)socket;
+            SSLSession sslSession = sslSocket.getSession();
+            Certificate[] certificates = sslSession.getPeerCertificates();
+            if (certificates.length != 1) {
+                throw new PloggyError(LOG_TAG, "unexpected peer certificate count");
+            }
+            return Utils.encodeBase64(certificates[0].getEncoded());
+        } catch (SSLPeerUnverifiedException e) {
+            throw new PloggyError(LOG_TAG, e);
+        } catch (CertificateEncodingException e) {
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 

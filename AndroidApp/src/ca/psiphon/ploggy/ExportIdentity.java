@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -70,10 +70,11 @@ public class ExportIdentity {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             try {
-                                String json = Json.toJson(Data.getInstance().getSelf().mPublicIdentity);
+                                String json =
+                                        Json.toJson(Data.getInstance().getSelfOrThrow().mPublicIdentity);
                                 String payload = URLEncoder.encode(json, "UTF-8");
 
-                                String link = ActivityAddFriend.IDENTITY_LINK_PREFIX + payload;
+                                String link = ActivityAddFriend.ADD_FRIEND_IDENTITY_LINK_PREFIX + payload;
 
                                 String body = finalContext.getString(R.string.identity_email_body)
                                                           .replace("href=\"\"", "href=\""+link+"\"");
@@ -88,7 +89,7 @@ public class ExportIdentity {
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
                                 Log.addEntry(LOG_TAG, "failed to compose email with identity link");
-                            } catch (Utils.ApplicationError e) {
+                            } catch (PloggyError e) {
                                 Log.addEntry(LOG_TAG, "failed to compose email with identity link");
                             }
                         }
@@ -111,7 +112,10 @@ public class ExportIdentity {
                                 directory.mkdirs();
                                 File attachmentFile = new File(directory, IDENTITY_FILENAME);
 
-                                Utils.writeStringToFile(Json.toJson(Data.getInstance().getSelf().mPublicIdentity), attachmentFile);
+                                Utils.writeStringToFile(
+                                        Json.toJson(
+                                                Data.getInstance().getSelfOrThrow().mPublicIdentity),
+                                        attachmentFile);
 
                                 String toast = finalContext.getString(
                                                     R.string.toast_identity_saved_to_file,
@@ -124,7 +128,7 @@ public class ExportIdentity {
                             } catch (ActivityNotFoundException e) {
                                 Log.addEntry(LOG_TAG, e.getMessage());
                                 Log.addEntry(LOG_TAG, "failed to save identity to file");
-                            } catch (Utils.ApplicationError e) {
+                            } catch (PloggyError e) {
                                 Log.addEntry(LOG_TAG, "failed to save identity to file");
                             }
                         }

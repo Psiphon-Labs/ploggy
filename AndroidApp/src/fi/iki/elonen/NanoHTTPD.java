@@ -168,7 +168,7 @@ public abstract class NanoHTTPD {
      * block the socket reading thread forever (or as long the browser is open).
      */
     // ==== ploggy ====
-    protected int getReadTimeout() {
+    protected int getReadTimeoutInMilliseconds() {
         return 5000;
     }
     // ================
@@ -191,7 +191,7 @@ public abstract class NanoHTTPD {
                     try {
                         final Socket finalAccept = myServerSocket.accept();
                         registerConnection(finalAccept);
-                        finalAccept.setSoTimeout(getReadTimeout());
+                        finalAccept.setSoTimeout(getReadTimeoutInMilliseconds());
                         final InputStream inputStream = finalAccept.getInputStream();
                         if (inputStream == null) {
                             safeClose(finalAccept);

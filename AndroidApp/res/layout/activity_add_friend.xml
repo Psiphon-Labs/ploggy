@@ -23,6 +23,14 @@
         android:textColor="#F0F0F0"
         android:background="#687C97" />
 
+    <TextView
+        android:id="@+id/add_friend_hint_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/label_add_friend_hint"
+        android:typeface="sans"
+        android:textSize="12dip" />
+
     <RelativeLayout
     	android:id="@+id/add_friend_friend_section"
     	android:layout_width="match_parent"

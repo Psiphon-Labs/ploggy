@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,15 +22,9 @@ package ca.psiphon.ploggy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateEncodingException;
+import java.util.Date;
 import java.util.List;
-
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocket;
+import java.util.concurrent.TimeUnit;
 
 import android.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
@@ -46,39 +40,54 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
 
     private static final String LOG_TAG = "Web Server";
 
-    private static final int READ_TIMEOUT_MILLISECONDS = 60000;
+    private static final int READ_TIMEOUT_IN_MILLISECONDS = (int)TimeUnit.MILLISECONDS.convert(60, TimeUnit.SECONDS);
 
     public interface RequestHandler {
+
+        public static class SyncResponse {
+            public final InputStream mInputStream;
+
+            public SyncResponse(InputStream inputStream) {
+                mInputStream = inputStream;
+            }
+        }
 
         public static class DownloadResponse {
             public final boolean mAvailable;
             public final String mMimeType;
-            public final InputStream mData;
+            public final InputStream mInputStream;
 
-            public DownloadResponse(boolean available, String mimeType, InputStream data) {
+            public DownloadResponse(boolean available, String mimeType, InputStream inputStream) {
                 mAvailable = available;
                 mMimeType = mimeType;
-                mData = data;
+                mInputStream = inputStream;
             }
         }
 
         public void submitWebRequestTask(Runnable task);
-        public Data.Status handlePullStatusRequest(String friendId) throws Utils.ApplicationError;
-        public void handlePushStatusRequest(String friendId, Data.Status status) throws Utils.ApplicationError;
-        public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError;
+        public String getFriendNicknameByCertificate(String friendCertificate) throws PloggyError;
+        public void updateFriendSent(String friendCertificate, Date lastSentToTimestamp, long additionalBytesSentTo) throws PloggyError;
+        public void updateFriendReceived(String friendCertificate, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom) throws PloggyError;
+        public void handleAskLocationRequest(String friendCertificate) throws PloggyError;
+        public void handleReportLocationRequest(String friendCertificate, String requestBody) throws PloggyError;
+        public SyncResponse handleSyncRequest(String friendCertificate, String requestBody) throws PloggyError;
+        public DownloadResponse handleDownloadRequest(String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError;
     }
 
+    private final Data mData;
     private final RequestHandler mRequestHandler;
     private final X509.KeyMaterial mX509KeyMaterial;
     private final List<String> mFriendCertificates;
 
     public WebServer(
+            Data data,
             RequestHandler requestHandler,
             X509.KeyMaterial x509KeyMaterial,
-            List<String> friendCertificates) throws Utils.ApplicationError {
+            List<String> friendCertificates) throws PloggyError {
         // Bind to loopback only -- not a public web server. Also, specify port 0 to let
         // the system pick any available port for listening.
         super("127.0.0.1", 0);
+        mData = data;
         mRequestHandler = requestHandler;
         mX509KeyMaterial = x509KeyMaterial;
         mFriendCertificates = friendCertificates;
@@ -89,16 +98,15 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
     @Override
     public ServerSocket createServerSocket() throws IOException {
         try {
-            SSLServerSocket sslServerSocket = (SSLServerSocket)TransportSecurity.makeServerSocket(mX509KeyMaterial, mFriendCertificates);
-            return sslServerSocket;
-        } catch (Utils.ApplicationError e) {
+            return TransportSecurity.makeServerSocket(mData, mX509KeyMaterial, mFriendCertificates);
+        } catch (PloggyError e) {
             throw new IOException(e);
         }
     }
 
     @Override
-    protected int getReadTimeout() {
-        return READ_TIMEOUT_MILLISECONDS;
+    protected int getReadTimeoutInMilliseconds() {
+        return READ_TIMEOUT_IN_MILLISECONDS;
     }
 
     @Override
@@ -108,29 +116,12 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         mRequestHandler.submitWebRequestTask(webRequestTask);
     }
 
-    private String getPeerCertificate(Socket socket) throws Utils.ApplicationError {
-        // Determine friend id by peer TLS certificate
-        try {
-            SSLSocket sslSocket = (SSLSocket)socket;
-            SSLSession sslSession = sslSocket.getSession();
-            Certificate[] certificates = sslSession.getPeerCertificates();
-            if (certificates.length != 1) {
-                throw new Utils.ApplicationError(LOG_TAG, "unexpected peer certificate count");
-            }
-            return Utils.encodeBase64(certificates[0].getEncoded());
-        } catch (SSLPeerUnverifiedException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        } catch (CertificateEncodingException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
-    }
-
     @Override
     public Response serve(IHTTPSession session) {
         String certificate = null;
         try {
-            certificate = getPeerCertificate(session.getSocket());
-        } catch (Utils.ApplicationError e) {
+            certificate = TransportSecurity.getPeerCertificate(session.getSocket());
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to get peer certificate");
             return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
         }
@@ -138,50 +129,74 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
             String uri = session.getUri();
             Method method = session.getMethod();
 
-            if (Method.GET.equals(method) && uri.equals(Protocol.PULL_STATUS_REQUEST_PATH)) {
-                Data.Status status = mRequestHandler.handlePullStatusRequest(certificate);
-                if (status == null) {
-                    // TODO: not currently sharing; serve old status?
-                    return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
-                }
-                return new Response(NanoHTTPD.Response.Status.OK, Protocol.PULL_STATUS_RESPONSE_MIME_TYPE, Json.toJson(status));
-
-            } else if (Method.GET.equals(method) && uri.equals(Protocol.DOWNLOAD_REQUEST_PATH)) {
-                String resourceId = session.getParms().get(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER);
-                if (resourceId == null) {
-                    throw new Utils.ApplicationError(LOG_TAG, "download request missing resource id parameter");
-                }
-                Pair<Long, Long> range = readRangeHeaderHelper(session);
-                RequestHandler.DownloadResponse downloadResponse = mRequestHandler.handleDownloadRequest(certificate, resourceId, range);
-                Response response;
-                if (downloadResponse.mAvailable) {
-                    response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mData);
-                    response.setChunkedTransfer(true);
-                } else {
-                    response = new Response(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, null, "");
-                }
-                return response;
-
-            } else if (Method.POST.equals(method) && uri.equals(Protocol.PUSH_STATUS_REQUEST_PATH)) {
-                // TODO: PUT more RESTful?
-                Data.Status status = Json.fromJson(new String(readRequestBodyHelper(session)), Data.Status.class);
-                mRequestHandler.handlePushStatusRequest(certificate, status);
-                return new Response(NanoHTTPD.Response.Status.OK, null, "");
+            if (method.equals(Method.valueOf(Protocol.ASK_LOCATION_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.ASK_LOCATION_REQUEST_PATH)) {
+                return serveAskLocationRequest(certificate, session);
+            } else if (method.equals(Method.valueOf(Protocol.REPORT_LOCATION_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.REPORT_LOCATION_REQUEST_PATH)) {
+                return serveReportLocationRequest(certificate, session);
+            } else if (method.equals(Method.valueOf(Protocol.SYNC_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.SYNC_REQUEST_PATH)) {
+                return serveSyncRequest(certificate, session);
+            } else if (method.equals(Method.valueOf(Protocol.DOWNLOAD_REQUEST_TYPE)) &&
+                    uri.equals(Protocol.DOWNLOAD_REQUEST_PATH)) {
+                return serveDownloadRequest(certificate, session);
             }
-        } catch (IOException e) {
-            Log.addEntry(LOG_TAG, e.getMessage());
-        } catch (Utils.ApplicationError e) {
+        } catch (PloggyError e) {
         }
         try {
-            Data.Friend friend = Data.getInstance().getFriendByCertificate(certificate);
-            Log.addEntry(LOG_TAG, "failed to serve request: " + friend.mPublicIdentity.mNickname);
-        } catch (Utils.ApplicationError e) {
+            Log.addEntry(LOG_TAG, "failed to serve request: " + mRequestHandler.getFriendNicknameByCertificate(certificate));
+        } catch (PloggyError e) {
             Log.addEntry(LOG_TAG, "failed to serve request: unrecognized certificate " + certificate.substring(0, 20) + "...");
         }
         return new Response(NanoHTTPD.Response.Status.FORBIDDEN, null, "");
     }
 
-    private Pair<Long, Long> readRangeHeaderHelper(IHTTPSession session) throws Utils.ApplicationError {
+    private Response serveAskLocationRequest(String certificate, IHTTPSession session) throws PloggyError {
+        mRequestHandler.handleAskLocationRequest(certificate);
+        return new Response(NanoHTTPD.Response.Status.OK, null, "");
+    }
+
+    private Response serveReportLocationRequest(String certificate, IHTTPSession session) throws PloggyError {
+        try {
+            mRequestHandler.handleReportLocationRequest(certificate, new String(readRequestBodyHelper(session)));
+            return new Response(NanoHTTPD.Response.Status.OK, null, "");
+        } catch (IOException e) {
+            throw new PloggyError(LOG_TAG, e);
+        }
+    }
+
+    private Response serveSyncRequest(String certificate, IHTTPSession session) throws PloggyError {
+        try {
+            RequestHandler.SyncResponse syncResponse =
+                    mRequestHandler.handleSyncRequest(certificate, new String(readRequestBodyHelper(session)));
+            Response response =
+                    new Response(NanoHTTPD.Response.Status.OK, Protocol.SYNC_RESPONSE_MIME_TYPE, syncResponse.mInputStream);
+            response.setChunkedTransfer(true);
+            return response;
+        } catch (IOException e) {
+            throw new PloggyError(LOG_TAG, e);
+        }
+    }
+
+    private Response serveDownloadRequest(String certificate, IHTTPSession session) throws PloggyError {
+        String resourceId = session.getParms().get(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER);
+        if (resourceId == null) {
+            throw new PloggyError(LOG_TAG, "download request missing resource id parameter");
+        }
+        Pair<Long, Long> range = readRangeHeaderHelper(session);
+        RequestHandler.DownloadResponse downloadResponse = mRequestHandler.handleDownloadRequest(certificate, resourceId, range);
+        Response response;
+        if (downloadResponse.mAvailable) {
+            response = new Response(NanoHTTPD.Response.Status.OK, downloadResponse.mMimeType, downloadResponse.mInputStream);
+            response.setChunkedTransfer(true);
+        } else {
+            response = new Response(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE, null, "");
+        }
+        return response;
+    }
+
+    private Pair<Long, Long> readRangeHeaderHelper(IHTTPSession session) throws PloggyError {
         // From NanoHTTP: https://github.com/NanoHttpd/nanohttpd/blob/master/webserver/src/main/java/fi/iki/elonen/SimpleWebServer.java
         long startFrom = 0;
         long endAt = -1;
@@ -197,25 +212,25 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
                     }
                 }
             } catch (NumberFormatException ignored) {
-                throw new Utils.ApplicationError(LOG_TAG, "invalid range header");
+                throw new PloggyError(LOG_TAG, "invalid range header");
             }
         }
         return new Pair<Long, Long>(startFrom, endAt);
     }
 
-    private byte[] readRequestBodyHelper(IHTTPSession session) throws IOException, Utils.ApplicationError {
+    private byte[] readRequestBodyHelper(IHTTPSession session) throws IOException, PloggyError {
         String contentLengthValue = session.getHeaders().get("content-length");
         if (contentLengthValue == null) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to get request content length");
+            throw new PloggyError(LOG_TAG, "failed to get request content length");
         }
         int contentLength = 0;
         try {
             contentLength = Integer.parseInt(contentLengthValue);
         } catch (NumberFormatException e) {
-            throw new Utils.ApplicationError(LOG_TAG, "invalid request content length");
+            throw new PloggyError(LOG_TAG, "invalid request content length");
         }
-        if (contentLength > Protocol.MAX_POST_REQUEST_BODY_SIZE) {
-            throw new Utils.ApplicationError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));
+        if (contentLength > Protocol.MAX_MESSAGE_SIZE) {
+            throw new PloggyError(LOG_TAG, "content length too large: " + Integer.toString(contentLength));
         }
         byte[] buffer = new byte[contentLength];
         int offset = 0;
@@ -223,7 +238,7 @@ public class WebServer extends NanoHTTPD implements NanoHTTPD.ServerSocketFactor
         while (remainingLength > 0) {
             int readLength = session.getInputStream().read(buffer, offset, remainingLength);
             if (readLength == -1 || readLength > remainingLength) {
-                throw new Utils.ApplicationError(LOG_TAG,
+                throw new PloggyError(LOG_TAG,
                             String.format(
                                 "failed to read POST content: read %d of %d expected bytes",
                                 contentLength - remainingLength,

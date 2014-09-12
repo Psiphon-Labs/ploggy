@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 import android.content.Context;
-import ca.psiphon.ploggy.Utils.ApplicationError;
 
 /**
  * Helpers for managing download files
@@ -41,18 +40,18 @@ public class Downloads {
         return getDownloadFile(download).length();
     }
 
-    public static OutputStream openDownloadResourceForAppending(Data.Download download) throws ApplicationError {
+    public static OutputStream openDownloadResourceForAppending(Data.Download download) throws PloggyError {
         try {
             OutputStream outputStream = new FileOutputStream(getDownloadFile(download), true);
             return outputStream;
         } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
+            throw new PloggyError(LOG_TAG, e);
         }
     }
 
     public static File getDownloadFile(Data.Download download) {
         File directory = Utils.getApplicationContext().getDir(DOWNLOADS_DIRECTORY, Context.MODE_PRIVATE);
         directory.mkdirs();
-        return new File(directory, String.format(DOWNLOAD_FILENAME_FORMAT_STRING, download.mFriendId, download.mResourceId));
+        return new File(directory, String.format(DOWNLOAD_FILENAME_FORMAT_STRING, download.mPublisherId, download.mResourceId));
     }
 }

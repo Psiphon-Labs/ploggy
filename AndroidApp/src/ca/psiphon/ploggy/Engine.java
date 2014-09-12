@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -25,14 +25,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -59,86 +62,133 @@ import com.squareup.otto.Subscribe;
  * An Engine instance is intended to be run via an Android Service set to
  * foreground mode (i.e., long running).
  */
+
+/*
+
+*IN PROGRESS*
+
+- double-check Protocol.validate() called where required in Engine
+- pull more fixes from NanoHttpd upstream
+- Review all "*TODO*" comments
+
+*/
+
 public class Engine implements OnSharedPreferenceChangeListener, WebServer.RequestHandler {
 
     private static final String LOG_TAG = "Engine";
 
+    public static final String DEFAULT_PLOGGY_INSTANCE_NAME = "ploggy";
+
+    private final String mInstanceName;
     private final Context mContext;
-    private final SharedPreferences mSharedPreferences;
+    private final Data mData;
     private final Handler mHandler;
-    private Runnable mRestartTask;
-    private Runnable mPollFriendsTask;
-    private ExecutorService mTaskThreadPool;
-    private ExecutorService mPeerRequestThreadPool;
-    enum FriendTaskType {PUSH_TO, PULL_FROM, DOWNLOAD_FROM};
-    private EnumMap<FriendTaskType, HashMap<String, Runnable>> mFriendTasks;
-    private EnumMap<FriendTaskType, HashMap<String, Future<?>>> mFriendTaskFutures;
-    private LocationMonitor mLocationMonitor;
+    private final SharedPreferences mSharedPreferences;
+    private boolean mStopped;
+    private Runnable mPreferencesRestartTask;
+    private Runnable mTorTimeoutRestartTask;
+    private ScheduledExecutorService mTaskThreadPool;
+    private ExecutorService mWebServerRequestThreadPool;
+    private Map<Pair<String, FriendTaskType>, FriendTaskState> mFriendTaskStates;
+    private Set<String> mLocationRecipients;
+    private LocationFixer mLocationFixer;
     private WebServer mWebServer;
     private TorWrapper mTorWrapper;
+    private long mTorCircuitEstablishedTime;
+    private WebClientConnectionPool mWebClientConnectionPool;
 
-    private static final int PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = 5*1000;
+    private enum FriendTaskType {ASK_LOCATION, REPORT_LOCATION, SYNC, DOWNLOAD};
+    private static class FriendTaskState {
+        public Runnable mTaskInstance = null;
+        public Future<?> mScheduledTask = null;
+        public long mDueTimeInMilliseconds = 0;
+        public long mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
+    }
+
+    private static final long TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES);
+    private static final long TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(2, TimeUnit.HOURS);
+
+    private static final long PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(5, TimeUnit.SECONDS);
+
+    private static final long REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS = TimeUnit.MILLISECONDS.convert(30, TimeUnit.SECONDS);
+    private static final long REQUEST_RETRY_BACKOFF_FACTOR = 2;
 
     private static final int THREAD_POOL_SIZE = 30;
 
-    // FRIEND_REQUEST_DELAY_IN_SECONDS is intended to compensate for
+    // POST_CIRCUIT_REQUEST_DELAY is intended to compensate for
     // peer hidden service publish latency. Use this when scheduling requests
     // unless in response to a received peer communication (so, use it on
     // start up, or when a friend is added, for example).
-    private static final int FRIEND_REQUEST_DELAY_IN_MILLISECONDS = 30*1000;
+    private static final long POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS = TimeUnit.NANOSECONDS.convert(30, TimeUnit.SECONDS);
+    private static final long UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME = -1;
 
-    public Engine(Context context) {
+    public Engine() {
+        this(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    }
+
+    public Engine(String instanceName) {
         Utils.initSecureRandom();
-        mContext = context;
+        mContext = Utils.getApplicationContext();
+        mInstanceName = instanceName;
+        mData = Data.getInstance(mInstanceName);
         mHandler = new Handler();
         // TODO: distinct instance of preferences for each persona
         // e.g., getSharedPreferencesName("persona1");
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(mContext);
+        mStopped = true;
+        mTorCircuitEstablishedTime = UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
     }
 
-    public synchronized void start() throws Utils.ApplicationError {
-        Log.addEntry(LOG_TAG, "starting...");
-        Events.register(this);
-        mTaskThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+    private String logTag() {
+        return String.format("%s [%s]", LOG_TAG, mInstanceName);
+    }
+
+    public synchronized void start() throws PloggyError {
+        if (!mStopped) {
+            stop();
+        }
+        mStopped = false;
+        Log.addEntry(logTag(), "starting...");
+        Events.getInstance(mInstanceName).register(this);
+        mTaskThreadPool = Executors.newScheduledThreadPool(THREAD_POOL_SIZE);
         // Using a distinct worker thread pool and queue to manage peer
         // requests, so local tasks are not blocked by peer actions.
-        mPeerRequestThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-        mFriendTasks = new EnumMap<FriendTaskType, HashMap<String, Runnable>>(FriendTaskType.class);
-        mFriendTaskFutures = new EnumMap<FriendTaskType, HashMap<String, Future<?>>>(FriendTaskType.class);
-        mLocationMonitor = new LocationMonitor(this);
-        mLocationMonitor.start();
+        mWebServerRequestThreadPool = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        mFriendTaskStates = new HashMap<Pair<String, FriendTaskType>, FriendTaskState>();
+        mLocationRecipients = new HashSet<String>();
+        mLocationFixer = new LocationFixer(this);
+        mLocationFixer.start();
         startHiddenService();
         mSharedPreferences.registerOnSharedPreferenceChangeListener(this);
-        Log.addEntry(LOG_TAG, "started");
+        setTorTimeout(TOR_TIMEOUT_RESTART_IF_NOT_CONNECTED_IN_MILLISECONDS);
+        Log.addEntry(logTag(), "started");
     }
 
     public synchronized void stop() {
-        Log.addEntry(LOG_TAG, "stopping...");
+        Log.addEntry(logTag(), "stopping...");
         mSharedPreferences.unregisterOnSharedPreferenceChangeListener(this);
-        Events.unregister(this);
-        stopFriendPoll();
-        stopHiddenService();
-        if (mLocationMonitor != null) {
-            mLocationMonitor.stop();
-            mLocationMonitor = null;
+        Events.getInstance(mInstanceName).unregister(this);
+        cancelTorTimeout();
+        if (mLocationFixer != null) {
+            mLocationFixer.stop();
+            mLocationFixer = null;
         }
-        if (mFriendTasks != null) {
-            mFriendTasks.clear();
-            mFriendTasks = null;
-        }
-        if (mFriendTaskFutures != null) {
-            mFriendTaskFutures.clear();
-            mFriendTaskFutures = null;
+        if (mFriendTaskStates != null) {
+            mFriendTaskStates.clear();
+            mFriendTaskStates = null;
         }
         if (mTaskThreadPool != null) {
             Utils.shutdownExecutorService(mTaskThreadPool);
             mTaskThreadPool = null;
         }
-        if (mPeerRequestThreadPool != null) {
-            Utils.shutdownExecutorService(mPeerRequestThreadPool);
-            mPeerRequestThreadPool = null;
+        if (mWebServerRequestThreadPool != null) {
+            Utils.shutdownExecutorService(mWebServerRequestThreadPool);
+            mWebServerRequestThreadPool = null;
         }
-        Log.addEntry(LOG_TAG, "stopped");
+        stopWebClientConnectionPool();
+        stopHiddenService();
+        mStopped = true;
+        Log.addEntry(logTag(), "stopped");
     }
 
     @Override
@@ -146,381 +196,86 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // Restart engine to apply changed preferences. Delay restart until user inputs are idle.
         // (This idle delay is important due to how SeekBarPreferences trigger onSharedPreferenceChanged
         // continuously as the user slides the seek bar). Delayed restart runs on main thread.
-        if (mRestartTask == null) {
-            mRestartTask = new Runnable() {
+        if (mPreferencesRestartTask == null) {
+            mPreferencesRestartTask = new Runnable() {
                 @Override
                 public void run() {
                     try {
                         stop();
                         start();
-                    } catch (Utils.ApplicationError e) {
-                        Log.addEntry(LOG_TAG, "failed to restart engine after preference change");
+                    } catch (PloggyError e) {
+                        Log.addEntry(logTag(), "failed to restart engine after preference change");
                     }
                 }
             };
         } else {
-            mHandler.removeCallbacks(mRestartTask);
+            mHandler.removeCallbacks(mPreferencesRestartTask);
         }
-        mHandler.postDelayed(mRestartTask, PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS);
+        mHandler.postDelayed(mPreferencesRestartTask, PREFERENCE_CHANGE_RESTART_DELAY_IN_MILLISECONDS);
     }
 
-    public synchronized Future<?> submitTask(Runnable task) {
-        if (mTaskThreadPool != null) {
-            return mTaskThreadPool.submit(task);
-        }
-        return null;
-    }
-
-    @Override
-    public synchronized void submitWebRequestTask(Runnable task) {
-        if (mPeerRequestThreadPool != null) {
-            mPeerRequestThreadPool.submit(task);
-        }
-    }
-
-    private void startHiddenService() throws Utils.ApplicationError {
-        stopHiddenService();
-
-        Data.Self self = Data.getInstance().getSelf();
-        List<String> friendCertificates = new ArrayList<String>();
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
-        }
-        mWebServer = new WebServer(
-                this,
-                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                friendCertificates);
-        try {
-            mWebServer.start();
-        } catch (IOException e) {
-            throw new Utils.ApplicationError(LOG_TAG, e);
-        }
-
-        List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            hiddenServiceAuths.add(
-                    new TorWrapper.HiddenServiceAuth(
-                            friend.mPublicIdentity.mHiddenServiceHostname,
-                            friend.mPublicIdentity.mHiddenServiceAuthCookie));
-        }
-        mTorWrapper = new TorWrapper(
-                TorWrapper.Mode.MODE_RUN_SERVICES,
-                hiddenServiceAuths,
-                new HiddenService.KeyMaterial(
-                        self.mPublicIdentity.mHiddenServiceHostname,
-                        self.mPublicIdentity.mHiddenServiceAuthCookie,
-                        self.mPrivateIdentity.mHiddenServicePrivateKey),
-                mWebServer.getListeningPort());
-        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry...
-        mTorWrapper.start();
-        // Note: startFriendPoll is deferred until onTorCircuitEstablished
-    }
-
-    private void stopHiddenService() {
-        // Friend poll depends on Tor wrapper, so stop it first
-        stopFriendPoll();
-        if (mTorWrapper != null) {
-            mTorWrapper.stop();
-        }
-        if (mWebServer != null) {
-            mWebServer.stop();
-        }
-    }
-
-    public synchronized int getTorSocksProxyPort() throws Utils.ApplicationError {
-        if (mTorWrapper != null) {
-            return mTorWrapper.getSocksProxyPort();
-        }
-        throw new Utils.ApplicationError(LOG_TAG, "no Tor socks proxy");
-    }
-
-    private void startFriendPoll() throws Utils.ApplicationError {
-        stopFriendPoll();
-        // Start a recurring timer with initial delay
-        // FRIEND_REQUEST_DELAY_IN_MILLISECONDS and subsequent delay
-        // preferenceLocationPullFrequencyInMinutes. The timer triggers
-        // friend pulls and downloads.
-        final int finalDelay = getIntPreference(R.string.preferenceLocationPullFrequencyInMinutes)*60*1000;
-        if (mPollFriendsTask == null) {
-            mPollFriendsTask = new Runnable() {
+    private void setTorTimeout(long milliseconds) {
+        if (mTorTimeoutRestartTask == null) {
+            mTorTimeoutRestartTask = new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        pollFriends();
-                    } catch (Utils.ApplicationError e) {
-                        Log.addEntry(LOG_TAG, "failed to poll friends");
-                    } finally {
-                        mHandler.postDelayed(this, finalDelay);
+                        stop();
+                        start();
+                    } catch (PloggyError e) {
+                        Log.addEntry(logTag(), "failed to restart engine after Tor timeout");
                     }
                 }
             };
         } else {
-            mHandler.removeCallbacks(mPollFriendsTask);
+            mHandler.removeCallbacks(mTorTimeoutRestartTask);
         }
-        mHandler.postDelayed(mPollFriendsTask, FRIEND_REQUEST_DELAY_IN_MILLISECONDS);
+        mHandler.postDelayed(mTorTimeoutRestartTask, milliseconds);
     }
 
-    private void stopFriendPoll() {
-        if (mPollFriendsTask != null) {
-            mHandler.removeCallbacks(mPollFriendsTask);
+    private void cancelTorTimeout() {
+        if (mTorTimeoutRestartTask != null) {
+            mHandler.removeCallbacks(mTorTimeoutRestartTask);
+            mTorTimeoutRestartTask = null;
         }
-    }
-
-    private void pollFriends() throws Utils.ApplicationError {
-        // Reuses pull frequency as a retry frequency for downloads in case of failure
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            submitFriendTask(FriendTaskType.PULL_FROM, friend.mId);
-            submitFriendTask(FriendTaskType.DOWNLOAD_FROM, friend.mId);
-        }
-    }
-
-    private void pushToFriends() throws Utils.ApplicationError {
-        for (Data.Friend friend : Data.getInstance().getFriends()) {
-            submitFriendTask(FriendTaskType.PUSH_TO, friend.mId);
-        }
-    }
-
-    private synchronized void submitFriendTask(FriendTaskType taskType, String friendId) {
-        // Schedules one push/pull/download per friend at a time.
-        if (mFriendTasks.get(taskType) == null) {
-            mFriendTasks.put(taskType, new HashMap<String, Runnable>());
-        }
-        Runnable task = mFriendTasks.get(taskType).get(friendId);
-        if (task == null) {
-            switch (taskType) {
-            case PUSH_TO:
-                task = makePushToFriendTask(friendId);
-                break;
-            case PULL_FROM:
-                task = makePullFromFriendTask(friendId);
-                break;
-            case DOWNLOAD_FROM:
-                task = makeDownloadFromFriendTask(friendId);
-                break;
-            }
-            mFriendTasks.get(taskType).put(friendId, task);
-        }
-        if (mFriendTaskFutures.get(taskType) == null) {
-            mFriendTaskFutures.put(taskType, new HashMap<String, Future<?>>());
-        }
-        // If a Future is present, the task is in progress.
-        // On completion, tasks remove their Futures from mFriendTaskFutures.
-        if (mFriendTaskFutures.get(taskType).get(friendId) != null) {
-            return;
-        }
-        Future<?> future = submitTask(task);
-        mFriendTaskFutures.get(taskType).put(friendId, future);
-    }
-
-    private synchronized void cancelPendingFriendTask(FriendTaskType taskType, String friendId) {
-        // Remove pending (not running) task, if present in queue
-        Future<?> future = mFriendTaskFutures.get(taskType).get(friendId);
-        if (future != null) {
-            if (future.cancel(false)) {
-                mFriendTaskFutures.get(taskType).remove(friendId);
-            }
-        }
-    }
-
-    private synchronized void completedFriendTask(FriendTaskType taskType, String friendId) {
-        mFriendTaskFutures.get(taskType).remove(friendId);
-    }
-
-    private Runnable makePushToFriendTask(String friendId) {
-        final String finalFriendId = friendId;
-        return new Runnable() {
-            @Override
-            public void run() {
-                Data data = Data.getInstance();
-                try {
-                    if (!mTorWrapper.isCircuitEstablished()) {
-                        return;
-                    }
-                    Data.Self self = data.getSelf();
-                    Data.Status selfStatus = data.getSelfStatus();
-                    Data.Friend friend = data.getFriendById(finalFriendId);
-                    Log.addEntry(LOG_TAG, "push status to: " + friend.mPublicIdentity.mNickname);
-                    WebClient.makeJsonPostRequest(
-                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                            friend.mPublicIdentity.mX509Certificate,
-                            getTorSocksProxyPort(),
-                            friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.PUSH_STATUS_REQUEST_PATH,
-                            Json.toJson(selfStatus));
-                    data.updateFriendLastSentStatusTimestamp(finalFriendId);
-                } catch (Data.DataNotFoundError e) {
-                    // Friend was deleted while push was enqueued. Ignore error.
-                } catch (Utils.ApplicationError e) {
-                    try {
-                        Log.addEntry(LOG_TAG, "failed to push status to: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
-                        Log.addEntry(LOG_TAG, "failed to push status");
-                    }
-                } finally {
-                    completedFriendTask(FriendTaskType.PUSH_TO, finalFriendId);
-                }
-            }
-        };
-    }
-
-    private Runnable makePullFromFriendTask(String friendId) {
-        final String finalFriendId = friendId;
-        return new Runnable() {
-            @Override
-            public void run() {
-                Data data = Data.getInstance();
-                try {
-                    if (!mTorWrapper.isCircuitEstablished()) {
-                        return;
-                    }
-                    Data.Self self = data.getSelf();
-                    Data.Friend friend = data.getFriendById(finalFriendId);
-                    Log.addEntry(LOG_TAG, "pull status from: " + friend.mPublicIdentity.mNickname);
-                    String response = WebClient.makeGetRequest(
-                            new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                            friend.mPublicIdentity.mX509Certificate,
-                            getTorSocksProxyPort(),
-                            friend.mPublicIdentity.mHiddenServiceHostname,
-                            Protocol.WEB_SERVER_VIRTUAL_PORT,
-                            Protocol.PULL_STATUS_REQUEST_PATH);
-                    Data.Status friendStatus = Json.fromJson(response, Data.Status.class);
-                    data.updateFriendStatus(finalFriendId, friendStatus);
-                    data.updateFriendLastReceivedStatusTimestamp(finalFriendId);
-                } catch (Data.DataNotFoundError e) {
-                    // Friend was deleted while pull was enqueued. Ignore error.
-                    // RemovedFriend should eventually cancel schedule.
-                } catch (Utils.ApplicationError e) {
-                    try {
-                        Log.addEntry(LOG_TAG, "failed to pull status from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
-                        Log.addEntry(LOG_TAG, "failed to pull status");
-                    }
-                } finally {
-                    completedFriendTask(FriendTaskType.PULL_FROM, finalFriendId);
-                }
-            }
-        };
-    }
-
-    private Runnable makeDownloadFromFriendTask(String friendId) {
-        final String finalFriendId = friendId;
-        return new Runnable() {
-            @Override
-            public void run() {
-                Data data = Data.getInstance();
-                try {
-                    if (!mTorWrapper.isCircuitEstablished()) {
-                        return;
-                    }
-                    if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
-                            && !Utils.isConnectedNetworkWifi(mContext)) {
-                        // Will retry after next delay period
-                        return;
-                    }
-                    Data.Self self = data.getSelf();
-                    Data.Friend friend = data.getFriendById(finalFriendId);
-                    while (true) {
-                        Data.Download download = null;
-                        try {
-                            download = data.getNextInProgressDownload(finalFriendId);
-                        } catch (Data.DataNotFoundError e) {
-                            break;
-                        }
-                        // TODO: there's a potential race condition between getDownloadedSize and
-                        // openDownloadResourceForAppending; we may want to lock the file first.
-                        // However: currently only one thread downloads files for a given friend.
-                        long downloadedSize = Downloads.getDownloadedSize(download);
-                        if (downloadedSize == download.mSize) {
-                            // Already downloaded complete file, but may have failed to commit
-                            // the COMPLETED state change. Skip the download.
-                        } else {
-                            Log.addEntry(LOG_TAG, "download from: " + friend.mPublicIdentity.mNickname);
-                            Pair<Long, Long> range = new Pair<Long, Long>(downloadedSize, (long)-1);
-                            WebClient.makeGetRequest(
-                                    new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
-                                    friend.mPublicIdentity.mX509Certificate,
-                                    getTorSocksProxyPort(),
-                                    friend.mPublicIdentity.mHiddenServiceHostname,
-                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
-                                    Protocol.DOWNLOAD_REQUEST_PATH,
-                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId)),
-                                    range,
-                                    Downloads.openDownloadResourceForAppending(download));
-                        }
-                        data.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
-                        // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)
-                        // TODO: 404/403: denied by peer? -- change Download state to reflect this and don't retry (e.g., new state: CANCELLED)
-                        // TODO: update some last received timestamp?
-                    }
-                } catch (Data.DataNotFoundError e) {
-                    // Friend was deleted while pull was enqueued. Ignore error.
-                    // RemovedFriend should eventually cancel schedule.
-                } catch (Utils.ApplicationError e) {
-                    try {
-                        Log.addEntry(LOG_TAG, "failed to download from: " + data.getFriendById(finalFriendId).mPublicIdentity.mNickname);
-                    } catch (Utils.ApplicationError e2) {
-                        Log.addEntry(LOG_TAG, "failed to download status");
-                    }
-                } finally {
-                    completedFriendTask(FriendTaskType.DOWNLOAD_FROM, finalFriendId);
-                }
-            }
-        };
     }
 
     @Subscribe
     public synchronized void onTorCircuitEstablished(Events.TorCircuitEstablished torCircuitEstablished) {
         try {
-            startFriendPoll();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to start friend poll after Tor circuit established");
+            setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS);
+            mTorCircuitEstablishedTime = System.nanoTime();
+            startWebClientConnectionPool();
+            syncWithFriends();
+            downloadFromFriends();
+            // *TODO* askLocationFromFriends(); -- if there isn't state to record pending requests
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed to start friend poll after Tor circuit established");
         }
+    }
+
+    private boolean isTorCircuitEstablished() {
+        return mTorCircuitEstablishedTime != UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
+    }
+
+    private long getPostCircuitDelayInMilliseconds() {
+        if (!isTorCircuitEstablished()) {
+            return 0;
+        }
+        long delay = POST_CIRCUIT_REQUEST_DELAY_IN_NANOSECONDS - (System.nanoTime() - mTorCircuitEstablishedTime);
+        if (delay < 0) {
+            return 0;
+        }
+        return TimeUnit.MILLISECONDS.convert(delay, TimeUnit.NANOSECONDS);
     }
 
     @Subscribe
     public synchronized void onUpdatedSelf(Events.UpdatedSelf updatedSelf) {
         // Apply new transport and hidden service credentials
         try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to restart hidden service after self updated");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onNewSelfLocation(Events.NewSelfLocation newSelfLocation) {
-        // TODO: location fix timestamp vs. status update timestamp?
-        // TODO: apply precision factor to long/lat/address
-        // TODO: factor Location.getAccuracy() into precision?
-        try {
-            String streetAddress;
-            if (newSelfLocation.mAddress != null) {
-                streetAddress = newSelfLocation.mAddress.toString();
-            } else {
-                streetAddress = "";
-            }
-            Data.getInstance().updateSelfStatusLocation(
-                    new Data.Location(
-                            new Date(),
-                            newSelfLocation.mLocation.getLatitude(),
-                            newSelfLocation.mLocation.getLongitude(),
-                            getIntPreference(R.string.preferenceLocationPrecisionInMeters),
-                            streetAddress),
-                    currentlySharingLocation());
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to update self status with new location");
-        }
-    }
-
-    @Subscribe
-    public synchronized void onUpdatedSelfStatus(Events.UpdatedSelfStatus updatedSelfStatus) {
-        try {
-            // Immediately push new status to all friends. If this fails for any reason,
-            // implicitly fall back to friends pulling status.
-            pushToFriends();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed push to friends after self status updated");
+            start();
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed to restart hidden service after self updated");
         }
     }
 
@@ -531,100 +286,645 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         // TODO: don't need to restart Tor, just web server
         // (now need to restart Tor due to Hidden Service auth; but could use control interface instead?)
         try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed restart sharing service after added friend");
+            start();
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed restart sharing service after added friend");
         }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedFriend(Events.UpdatedFriend updatedFriend) {
+        // Update implies communication sent/received, so extend the restart the timeout
+        setTorTimeout(TOR_TIMEOUT_RESTART_IF_NO_COMMUNICATION_IN_MILLISECONDS);
     }
 
     @Subscribe
     public synchronized void onRemovedFriend(Events.RemovedFriend removedFriend) {
+        // Full stop/start to clear friend task cache
         try {
-            startHiddenService();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed restart sharing service after removed friend");
+            start();
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed restart sharing service after removed friend");
         }
     }
 
     @Subscribe
-    public synchronized void onDisplayedMessages(Events.DisplayedMessages displayedMessages) {
+    public synchronized void onRefreshSelfLocationFix(Events.RefreshSelfLocationFix refreshSelfLocationFix) {
         try {
-            Data.getInstance().resetNewMessages();
-        } catch (Utils.ApplicationError e) {
-            Log.addEntry(LOG_TAG, "failed to reset new messages");
+            if (mLocationFixer != null) {
+                mLocationFixer.start();
+            }
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed to start refresh self location fix");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onNewSelfLocationFix(Events.NewSelfLocationFix newSelfLocation) {
+        try {
+            String streetAddress;
+            if (newSelfLocation.mAddress != null) {
+                streetAddress = newSelfLocation.mAddress.toString();
+            } else {
+                streetAddress = "";
+            }
+            mData.putSelfLocation(
+                    new Protocol.Location(
+                            new Date(),
+                            newSelfLocation.mLocation.getLatitude(),
+                            newSelfLocation.mLocation.getLongitude(),
+                            streetAddress));
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed to update self status with new location");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfGroup(Events.UpdatedSelfGroup updatedSelfGroup) {
+        try {
+            syncWithMembers(mData.getGroupOrThrow(updatedSelfGroup.mGroupId).mGroup);
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed push to friends after self group update");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfLocation(Events.UpdatedSelfLocation updatedSelfLocation) {
+        try {
+            reportLocationToFriends();
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed push to friends after self location update");
+        }
+    }
+
+    @Subscribe
+    public synchronized void onUpdatedSelfPost(Events.UpdatedSelfPost updatedSelfPost) {
+        try {
+            syncWithMembers(mData.getPostOrThrow(updatedSelfPost.mPostId).mPost);
+        } catch (PloggyError e) {
+            Log.addEntry(logTag(), "failed push to friends after self post update");
         }
     }
 
     @Subscribe
     public synchronized void onAddedDownload(Events.AddedDownload addedDownload) {
         // Schedule immediate download, if not already downloading from friend
-        submitFriendTask(FriendTaskType.DOWNLOAD_FROM, addedDownload.mFriendId);
+        scheduleFriendTask(addedDownload.mFriendId, FriendTaskType.DOWNLOAD, 0);
     }
 
-    // Note: not synchronized
-    @Override
-    public Data.Status handlePullStatusRequest(String friendCertificate) throws Utils.ApplicationError {
-        // Friend is requesting (pulling) self status
-        // TODO: cancel any pending push to this friend?
+    private void startHiddenService() throws PloggyError {
+        stopHiddenService();
+
+        Data.Self self = mData.getSelfOrThrow();
+        List<String> friendCertificates = new ArrayList<String>();
+        for (Data.Friend friend : mData.getFriendsIterator()) {
+            friendCertificates.add(friend.mPublicIdentity.mX509Certificate);
+        }
+        mWebServer = new WebServer(
+                mData,
+                this,
+                new X509.KeyMaterial(self.mPublicIdentity.mX509Certificate, self.mPrivateIdentity.mX509PrivateKey),
+                friendCertificates);
         try {
-            Data data = Data.getInstance();
-            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            Data.Status status = data.getSelfStatus();
-            // TODO: we don't yet know the friend really received the response bytes
-            data.updateFriendLastSentStatusTimestamp(friend.mId);
-            Log.addEntry(LOG_TAG, "served pull status request for " + friend.mPublicIdentity.mNickname);
-            return status;
-        } catch (Data.DataNotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle pull status request: friend not found");
+            mWebServer.start();
+        } catch (IOException e) {
+            throw new PloggyError(logTag(), e);
+        }
+
+        List<TorWrapper.HiddenServiceAuth> hiddenServiceAuths = new ArrayList<TorWrapper.HiddenServiceAuth>();
+        for (Data.Friend friend : mData.getFriendsIterator()) {
+            hiddenServiceAuths.add(
+                    new TorWrapper.HiddenServiceAuth(
+                            friend.mPublicIdentity.mHiddenServiceHostname,
+                            friend.mPublicIdentity.mHiddenServiceAuthCookie));
+        }
+        mTorWrapper = new TorWrapper(
+                mInstanceName,
+                TorWrapper.Mode.MODE_RUN_SERVICES,
+                hiddenServiceAuths,
+                new HiddenService.KeyMaterial(
+                        self.mPublicIdentity.mHiddenServiceHostname,
+                        self.mPublicIdentity.mHiddenServiceAuthCookie,
+                        self.mPrivateIdentity.mHiddenServicePrivateKey),
+                mWebServer.getListeningPort());
+        // TODO: in a background thread, monitor mTorWrapper.awaitStarted() to check for errors and retry?
+        mTorWrapper.start();
+        // Note: startFriendPoll is deferred until onTorCircuitEstablished
+    }
+
+    private void stopHiddenService() {
+        mTorCircuitEstablishedTime = UNINITIALIZED_TOR_CIRCUIT_ESTABLISHED_TIME;
+        if (mTorWrapper != null) {
+            mTorWrapper.stop();
+        }
+        if (mWebServer != null) {
+            mWebServer.stop();
         }
     }
 
-    // Note: not synchronized
-    @Override
-    public void handlePushStatusRequest(String friendCertificate, Data.Status status) throws Utils.ApplicationError  {
-        // Friend is pushing their own status
-        try {
-            Data data = Data.getInstance();
-            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            data.updateFriendStatus(friend.mId, status);
-            // TODO: we don't yet know the friend really received the response bytes
-            data.updateFriendLastReceivedStatusTimestamp(friend.mId);
-            // TODO: Reschedule (delay) any outstanding pull from this friend
-            cancelPendingFriendTask(FriendTaskType.PULL_FROM, friend.mId);
-            Log.addEntry(LOG_TAG, "served push status request for " + friend.mPublicIdentity.mNickname);
-        } catch (Data.DataNotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle push status request: friend not found");
+    public synchronized int getTorSocksProxyPort() throws PloggyError {
+        if (mTorWrapper != null) {
+            return mTorWrapper.getSocksProxyPort();
+        }
+        throw new PloggyError(logTag(), "no Tor socks proxy");
+    }
+
+    private void startWebClientConnectionPool() throws PloggyError {
+        stopWebClientConnectionPool();
+        mWebClientConnectionPool = new WebClientConnectionPool(mData, getTorSocksProxyPort());
+    }
+
+    private void stopWebClientConnectionPool() {
+        if (mWebClientConnectionPool != null) {
+            mWebClientConnectionPool.shutdown();
+            mWebClientConnectionPool = null;
         }
     }
 
-    // Note: not synchronized
+    public synchronized Future<?> submitTask(Runnable task, long delayInMilliseconds) {
+        if (mTaskThreadPool != null) {
+            return mTaskThreadPool.schedule(task, delayInMilliseconds, TimeUnit.MILLISECONDS);
+        }
+        return null;
+    }
+
+    @Override
+    public synchronized void submitWebRequestTask(Runnable task) {
+        if (mWebServerRequestThreadPool != null) {
+            mWebServerRequestThreadPool.submit(task);
+        }
+    }
+
+    private synchronized void addFriendToReceiveLocation(String friendId) throws PloggyError {
+        mLocationRecipients.add(friendId);
+        mLocationFixer.start();
+    }
+
+    public void askLocationFromFriend(String friendId) throws PloggyError {
+        scheduleFriendTask(friendId, FriendTaskType.ASK_LOCATION, 0);
+    }
+
+    public void reportLocationToFriends() throws PloggyError {
+        for (String friendId : mLocationRecipients) {
+            scheduleFriendTask(friendId, FriendTaskType.REPORT_LOCATION, 0);
+            mLocationRecipients.clear();
+        }
+    }
+
+    private void syncWithFriends() throws PloggyError {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
+            scheduleFriendTask(friend.mId, FriendTaskType.SYNC, 0);
+        }
+    }
+
+    private void downloadFromFriends() throws PloggyError {
+        for (Data.Friend friend : mData.getFriendsIterator()) {
+            scheduleFriendTask(friend.mId, FriendTaskType.DOWNLOAD, 0);
+        }
+    }
+
+    private void syncWithMembers(Protocol.Post post) throws PloggyError {
+        syncWithMembers(mData.getGroupOrThrow(post.mGroupId).mGroup);
+    }
+
+    private void syncWithMembers(Protocol.Group group) throws PloggyError {
+        for (Identity.PublicIdentity member : group.mMembers) {
+            if (!member.mId.equals(mData.getSelfId())) {
+                scheduleFriendTask(member.mId, FriendTaskType.SYNC, 0);
+            }
+        }
+    }
+
+    // Note: should be called from synchronized member function -- for mFriendTaskStates manipulation
+    private FriendTaskState getFriendTaskState(String friendId, FriendTaskType taskType) {
+        Pair<String, FriendTaskType> stateKey = new Pair<String, FriendTaskType>(friendId, taskType);
+        FriendTaskState state = mFriendTaskStates.get(stateKey);
+        if (state == null) {
+            state = new FriendTaskState();
+            mFriendTaskStates.put(stateKey, state);
+        }
+        return state;
+    }
+
+    private synchronized void scheduleFriendTask(
+            String friendId, FriendTaskType taskType, long delayInMilliseconds) {
+        // Schedules one sync/download/etc. per friend at a time.
+        FriendTaskState state = getFriendTaskState(friendId, taskType);
+
+        // Cache instantiated task functions
+        if (state.mTaskInstance == null) {
+            switch (taskType) {
+            case ASK_LOCATION:
+                state.mTaskInstance = makeAskLocationToFriendTask(friendId);
+                break;
+            case REPORT_LOCATION:
+                state.mTaskInstance = makeReportLocationToFriendTask(friendId);
+                break;
+            case SYNC:
+                state.mTaskInstance = makeSyncWithFriendTask(friendId);
+                break;
+            case DOWNLOAD:
+                state.mTaskInstance = makeDownloadFromFriendTask(friendId);
+                break;
+            }
+        }
+
+        // *TODO* assumes all taskTypes are Hidden Service requests
+        long postCircuitDelay = getPostCircuitDelayInMilliseconds();
+        if (delayInMilliseconds < postCircuitDelay) {
+            delayInMilliseconds = postCircuitDelay;
+        }
+
+        // If a Future is present, the task is in progress or in queue.
+        // Try to cancel it and reschedule. When cancel fails, task is
+        // running and not rescheduled.
+
+        long nowInMilliseconds = TimeUnit.MILLISECONDS.convert(System.nanoTime(), TimeUnit.NANOSECONDS);
+
+        if (state.mScheduledTask != null) {
+            if (nowInMilliseconds + delayInMilliseconds < state.mDueTimeInMilliseconds) {
+                state.mScheduledTask.cancel(false);
+            }
+        }
+
+        if (state.mScheduledTask == null || state.mScheduledTask.isDone()) {
+            String nickname = "";
+            try {
+                nickname = mData.getFriendByIdOrThrow(friendId).mPublicIdentity.mNickname;
+            } catch (PloggyError e) {
+            }
+
+            if (isTorCircuitEstablished()) {
+                // *TODO* log level DEBUG
+                Log.addEntry(
+                        logTag(),
+                        "[DEBUG] scheduled " + taskType.name() + " for " + nickname +
+                        " in " + Long.toString(delayInMilliseconds) + "ms.");
+
+                state.mScheduledTask = submitTask(state.mTaskInstance, delayInMilliseconds);
+                state.mDueTimeInMilliseconds = nowInMilliseconds + delayInMilliseconds;
+            }
+        }
+    }
+
+   private synchronized long getFriendBackoffInMilliseconds(
+           String friendId, FriendTaskType taskType, boolean lastRunGotData) {
+       FriendTaskState state = getFriendTaskState(friendId, taskType);
+       long backoff = state.mBackoff;
+       if (!lastRunGotData) {
+           state.mBackoff *= REQUEST_RETRY_BACKOFF_FACTOR;
+       } else {
+           state.mBackoff = REQUEST_RETRY_BASE_FREQUENCY_IN_MILLISECONDS;
+       }
+       return backoff;
+    }
+
+    // TODO: refactor common code in makeTask functions?
+
+    private Runnable makeAskLocationToFriendTask(String friendId) {
+        final String finalFriendId = friendId;
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!mTorWrapper.isCircuitEstablished()) {
+                        return;
+                    }
+                    Data.Friend friend = mData.getFriendById(finalFriendId);
+                    Log.addEntry(logTag(), "ask location to: " + friend.mPublicIdentity.mNickname);
+                    WebClientRequest webClientRequest =
+                            new WebClientRequest(
+                                mWebClientConnectionPool,
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                WebClientRequest.RequestType.valueOf(Protocol.ASK_LOCATION_REQUEST_TYPE),
+                                Protocol.ASK_LOCATION_REQUEST_PATH);
+                    webClientRequest.makeRequest();
+                } catch (Data.NotFoundError e) {
+                    // Friend was deleted while task was enqueued. Ignore error.
+                } catch (PloggyError e) {
+                    try {
+                        Log.addEntry(
+                                logTag(),
+                                "failed to ask location to: " +
+                                    mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (PloggyError e2) {
+                        Log.addEntry(logTag(), "failed to ask location");
+                    }
+                }
+            }
+        };
+    }
+
+    private Runnable makeReportLocationToFriendTask(String friendId) {
+        final String finalFriendId = friendId;
+        return new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (!mTorWrapper.isCircuitEstablished()) {
+                        return;
+                    }
+                    Data.Friend friend = mData.getFriendById(finalFriendId);
+                    Protocol.Location location = mData.getSelfLocation();
+                    Log.addEntry(logTag(), "report location to: " + friend.mPublicIdentity.mNickname);
+                    WebClientRequest webClientRequest =
+                            new WebClientRequest(
+                                mWebClientConnectionPool,
+                                friend.mPublicIdentity.mHiddenServiceHostname,
+                                Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                WebClientRequest.RequestType.valueOf(Protocol.REPORT_LOCATION_REQUEST_TYPE),
+                                Protocol.REPORT_LOCATION_REQUEST_PATH).
+                                    requestBody(Json.toJson(location));
+                    webClientRequest.makeRequest();
+                } catch (Data.NotFoundError e) {
+                    // Friend was deleted while task was enqueued, or no location to report. Ignore error.
+                } catch (PloggyError e) {
+                    try {
+                        Log.addEntry(
+                                logTag(),
+                                "failed to report location to: " +
+                                    mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (PloggyError e2) {
+                        Log.addEntry(logTag(), "failed to report location");
+                    }
+                }
+            }
+        };
+    }
+
+    private Runnable makeSyncWithFriendTask(String friendId) {
+        final String finalFriendId = friendId;
+        return new Runnable() {
+            @Override
+            public void run() {
+                boolean gotData = false;
+                try {
+                    // Pull until no payload data is received. Each subsequent pull
+                    // explicitly acknowledges the received data via the last received
+                    // sequence numbers passed in the previous pull request. So typically,
+                    // two pull requests are executed.
+                    while (true) {
+                        if (!mTorWrapper.isCircuitEstablished()) {
+                            // No reschedule
+                            return;
+                        }
+                        Data.Friend friend = mData.getFriendById(finalFriendId);
+                        Log.addEntry(logTag(), "sync with: " + friend.mPublicIdentity.mNickname);
+
+                        final Protocol.SyncState finalSyncState = mData.getSyncState(finalFriendId);
+                        final AtomicBoolean responseContainsNewData = new AtomicBoolean(false);
+                        WebClientRequest.ResponseBodyHandler responseBodyHandler = new WebClientRequest.ResponseBodyHandler() {
+                            @Override
+                            public void consume(InputStream responseBodyInputStream) throws PloggyError {
+                                Protocol.SyncState syncState = finalSyncState;
+                                Set<String> needSyncFriendIds = new HashSet<String>();
+                                List<Protocol.Group> groups = new ArrayList<Protocol.Group>();
+                                List<Protocol.Post> posts = new ArrayList<Protocol.Post>();
+                                Json.PayloadIterator payloadIterator = new Json.PayloadIterator(responseBodyInputStream);
+                                // TODO: polymorphism instead of cases-for-types?
+                                for (Protocol.Payload payload : payloadIterator) {
+                                    switch(payload.mType) {
+                                    case GROUP:
+                                        Protocol.Group group = (Protocol.Group)payload.mObject;
+                                        Protocol.validateGroup(group);
+                                        groups.add(group);
+                                        responseContainsNewData.set(true);
+                                        // *TODO* log level DEBUG
+                                        Log.addEntry(logTag(), "[DEBUG] SyncWithFriendTask: got group " + Long.toString(group.mSequenceNumber));
+                                        break;
+                                    case POST:
+                                        Protocol.Post post = (Protocol.Post)payload.mObject;
+                                        Protocol.validatePost(post);
+                                        posts.add(post);
+                                        responseContainsNewData.set(true);
+                                        // *TODO* log level DEBUG
+                                        Log.addEntry(logTag(), "[DEBUG] SyncWithFriendTask: got post " + Long.toString(post.mSequenceNumber));
+                                        break;
+                                    default:
+                                        break;
+                                    }
+                                    if (groups.size() + posts.size() >= Data.MAX_SYNC_RESPONSE_TRANSACTION_OBJECT_COUNT) {
+                                        mData.putSyncResponse(finalFriendId, syncState, groups, posts, needSyncFriendIds);
+                                        syncState = null;
+                                        groups.clear();
+                                        posts.clear();
+                                    }
+                                }
+                                mData.putSyncResponse(finalFriendId, syncState, groups, posts, needSyncFriendIds);
+                                // Trigger sync for set of friends determined by syncResponse content. This potentially
+                                // includes the request peer, based on offered sequence numbers; as well as group members
+                                // for newly discovered groups.
+                                for (String friendId : needSyncFriendIds) {
+                                    scheduleFriendTask(friendId, FriendTaskType.SYNC, 0);
+                                }
+                            }
+                        };
+
+                        WebClientRequest webClientRequest =
+                                new WebClientRequest(
+                                    mWebClientConnectionPool,
+                                    friend.mPublicIdentity.mHiddenServiceHostname,
+                                    Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                    WebClientRequest.RequestType.valueOf(Protocol.SYNC_REQUEST_TYPE),
+                                    Protocol.SYNC_REQUEST_PATH).
+                                        requestBody(Json.toJson(finalSyncState)).
+                                        responseBodyHandler(responseBodyHandler);
+                        webClientRequest.makeRequest();
+
+                        // Keep going if sync returned data. This ensures the peer will
+                        // receive a confirmation of all data synced so far.
+                        if (!responseContainsNewData.get()) {
+                            break;
+                        }
+                        gotData = true;
+                    }
+                } catch (Data.NotFoundError e) {
+                    // Friend was deleted while task was enqueued. Ignore error.
+                    // RemovedFriend should eventually cancel schedule.
+                } catch (PloggyError e) {
+                    try {
+                        Log.addEntry(
+                                logTag(),
+                                "failed to sync with: " +
+                                    mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (PloggyError e2) {
+                        Log.addEntry(logTag(), "failed to sync");
+                    }
+                }
+
+                final long finalDelay = getFriendBackoffInMilliseconds(finalFriendId, FriendTaskType.SYNC, gotData);
+                submitTask(
+                    new Runnable() {@Override public void run() {scheduleFriendTask(finalFriendId, FriendTaskType.SYNC, finalDelay);}},
+                    0);
+            }
+        };
+    }
+
+    private Runnable makeDownloadFromFriendTask(String friendId) {
+        final String finalFriendId = friendId;
+        return new Runnable() {
+            @Override
+            public void run() {
+                boolean gotData = false;
+                try {
+                    while (true) {
+                        if (!mTorWrapper.isCircuitEstablished()) {
+                            // No reschedule
+                            return;
+                        }
+                        if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
+                                && !Utils.isConnectedNetworkWifi(mContext)) {
+                            // *TODO* no reschedule?
+                            // Will retry after next delay period
+                            break;
+                        }
+                        Data.Friend friend = mData.getFriendById(finalFriendId);
+                        Data.Download download = null;
+                        try {
+                            download = mData.getNextInProgressDownload(finalFriendId);
+                        } catch (Data.NotFoundError e) {
+                            // No reschedule
+                            return;
+                        }
+                        // TODO: there's a potential race condition between getDownloadedSize and
+                        // openDownloadResourceForAppending; we may want to lock the file first.
+                        // However: currently only one thread downloads files for a given friend.
+                        long downloadedSize = Downloads.getDownloadedSize(download);
+                        if (downloadedSize == download.mSize) {
+                            // Already downloaded complete file, but may have failed to commit
+                            // the COMPLETED state change. Skip the download.
+                        } else {
+                            Log.addEntry(logTag(), "download from: " + friend.mPublicIdentity.mNickname);
+                            List<Pair<String, String>> requestParameters =
+                                    Arrays.asList(new Pair<String, String>(Protocol.DOWNLOAD_REQUEST_RESOURCE_ID_PARAMETER, download.mResourceId));
+                            Pair<Long, Long> range = new Pair<Long, Long>(downloadedSize, (long)-1);
+                            WebClientRequest webClientRequest =
+                                    new WebClientRequest(
+                                        mWebClientConnectionPool,
+                                        friend.mPublicIdentity.mHiddenServiceHostname,
+                                        Protocol.WEB_SERVER_VIRTUAL_PORT,
+                                        WebClientRequest.RequestType.valueOf(Protocol.DOWNLOAD_REQUEST_TYPE),
+                                        Protocol.DOWNLOAD_REQUEST_PATH).
+                                            requestParameters(requestParameters).
+                                            rangeHeader(range).
+                                            responseBodyOutputStream(Downloads.openDownloadResourceForAppending(download));
+                            webClientRequest.makeRequest();
+                        }
+                        mData.updateDownloadState(friend.mId, download.mResourceId, Data.Download.State.COMPLETE);
+                        gotData = true;
+                        // TODO: WebClient post to event bus for download progress (replacing timer-based refreshes...)
+                        // TODO: 404/403: denied by peer? -- change Download state to reflect this and don't retry (e.g., new state: CANCELLED)
+                    }
+                } catch (Data.NotFoundError e) {
+                    // Friend was deleted while task was enqueued. Ignore error.
+                    // RemovedFriend should eventually cancel schedule.
+                } catch (PloggyError e) {
+                    try {
+                        Log.addEntry(
+                                logTag(),
+                                "failed to download from: " +
+                                    mData.getFriendByIdOrThrow(finalFriendId).mPublicIdentity.mNickname);
+                    } catch (PloggyError e2) {
+                        Log.addEntry(logTag(), "failed to download");
+                    }
+                }
+
+                final long finalDelay = getFriendBackoffInMilliseconds(finalFriendId, FriendTaskType.DOWNLOAD, gotData);
+                submitTask(
+                    new Runnable() {@Override public void run() {scheduleFriendTask(finalFriendId, FriendTaskType.DOWNLOAD, finalDelay);}},
+                    0);
+            }
+        };
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public String getFriendNicknameByCertificate(String friendCertificate) throws PloggyError {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        return friend.mPublicIdentity.mNickname;
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public void updateFriendSent(String friendCertificate, Date lastSentToTimestamp, long additionalBytesSentTo)
+            throws PloggyError  {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        mData.updateFriendSentOrThrow(friend.mId, lastSentToTimestamp, additionalBytesSentTo);
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public void updateFriendReceived(String friendCertificate, Date lastReceivedFromTimestamp, long additionalBytesReceivedFrom)
+            throws PloggyError {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        mData.updateFriendReceivedOrThrow(friend.mId, lastReceivedFromTimestamp, additionalBytesReceivedFrom);
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public void handleAskLocationRequest(String friendCertificate) throws PloggyError {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        if (!currentlySharingLocation()) {
+            throw new PloggyError(logTag(), "rejected ask location request for " + friend.mPublicIdentity.mNickname);
+        }
+        addFriendToReceiveLocation(friend.mId);
+        Log.addEntry(logTag(), "served ask location request for " + friend.mPublicIdentity.mNickname);
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public void handleReportLocationRequest(String friendCertificate, String requestBody) throws PloggyError  {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        Protocol.Location location = Json.fromJson(requestBody, Protocol.Location.class);
+        Protocol.validateLocation(location);
+        mData.putPushedLocation(friend.mId, location);
+        Log.addEntry(logTag(), "served report location request for " + friend.mPublicIdentity.mNickname);
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
+    @Override
+    public WebServer.RequestHandler.SyncResponse handleSyncRequest(String friendCertificate, String requestBody) throws PloggyError {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        Protocol.SyncState requestSyncState = Json.fromJson(requestBody, Protocol.SyncState.class);
+        Protocol.validateSyncState(requestSyncState);
+        boolean needSync = mData.putSyncRequest(friend.mId, requestSyncState);
+        Data.SyncPayloadIterator syncPayloadIterator = mData.getSyncPayload(friend.mId, requestSyncState);
+        if (needSync) {
+            scheduleFriendTask(friend.mId, FriendTaskType.SYNC, 0);
+        }
+        // *TODO* log too noisy during regular operation?
+        Log.addEntry(logTag(), "served sync request for " + friend.mPublicIdentity.mNickname);
+        return new WebServer.RequestHandler.SyncResponse(new Utils.StringIteratorInputStream(syncPayloadIterator));
+    }
+
+    // Note: WebServer callbacks intentionally not synchronized -- for concurrent processing
     @Override
     public WebServer.RequestHandler.DownloadResponse handleDownloadRequest(
-            String friendCertificate, String resourceId, Pair<Long, Long> range) throws Utils.ApplicationError  {
+            String friendCertificate, String resourceId, Pair<Long, Long> range) throws PloggyError  {
+        Data.Friend friend = mData.getFriendByCertificateOrThrow(friendCertificate);
+        Data.LocalResource localResource = null;
         try {
-            Data data = Data.getInstance();
-            Data.Friend friend = data.getFriendByCertificate(friendCertificate);
-            Data.LocalResource localResource = data.getLocalResource(resourceId);
-            // Note: don't check availability until after input validation
-            if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
-                    && !Utils.isConnectedNetworkWifi(mContext)) {
-                // Download service not available
-                return new DownloadResponse(false, null, null);
-            }
-            InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
-            // TODO: update last some last sent timestamp?
-            Log.addEntry(LOG_TAG, "served download request for " + friend.mPublicIdentity.mNickname);
-            return new DownloadResponse(true, localResource.mMimeType, inputStream);
-        } catch (Data.DataNotFoundError e) {
-            throw new Utils.ApplicationError(LOG_TAG, "failed to handle download request: friend or resource not found");
+            localResource = mData.getLocalResourceForDownload(friend.mId, resourceId);
+        } catch (Data.NotFoundError e) {
+            throw new PloggyError(logTag(), "local resource not found for download request");
         }
+        // Note: don't check availability until after input validation
+        if (getBooleanPreference(R.string.preferenceExchangeFilesWifiOnly)
+                && !Utils.isConnectedNetworkWifi(mContext)) {
+            // Download service not available
+            return new DownloadResponse(false, null, null);
+        }
+        InputStream inputStream = Resources.openLocalResourceForReading(localResource, range);
+        Log.addEntry(logTag(), "served download request for " + friend.mPublicIdentity.mNickname);
+        return new DownloadResponse(true, localResource.mMimeType, inputStream);
     }
 
     public synchronized Context getContext() {
         return mContext;
     }
 
-    public synchronized boolean getBooleanPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized boolean getBooleanPreference(int keyResID) throws PloggyError {
         String key = mContext.getString(keyResID);
         // Defaults which are "false" are not present in the preferences file
         // if (!mSharedPreferences.contains(key)) {...}
@@ -632,15 +932,15 @@ public class Engine implements OnSharedPreferenceChangeListener, WebServer.Reque
         return mSharedPreferences.getBoolean(key, false);
     }
 
-    public synchronized int getIntPreference(int keyResID) throws Utils.ApplicationError {
+    public synchronized int getIntPreference(int keyResID) throws PloggyError {
         String key = mContext.getString(keyResID);
         if (!mSharedPreferences.contains(key)) {
-            throw new Utils.ApplicationError(LOG_TAG, "missing preference default: " + key);
+            throw new PloggyError(logTag(), "missing preference default: " + key);
         }
         return mSharedPreferences.getInt(key, 0);
     }
 
-    public synchronized boolean currentlySharingLocation() throws Utils.ApplicationError {
+    public synchronized boolean currentlySharingLocation() throws PloggyError {
         if (!getBooleanPreference(R.string.preferenceAutomaticLocationSharing)) {
             return false;
         }

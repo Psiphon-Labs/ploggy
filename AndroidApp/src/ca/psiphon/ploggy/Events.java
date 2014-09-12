@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Psiphon Inc.
+ * Copyright (c) 2014, Psiphon Inc.
  * All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,9 @@
 
 package ca.psiphon.ploggy;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import android.location.Address;
@@ -40,13 +42,35 @@ public class Events {
 
     private static final String LOG_TAG = "Events";
 
-    // TODO: final?
-    private static Bus mBus;
-    private static Handler mHandler;
-    private static Set<Object> mRegisteredObjects;
+    private static Map<String, Events> mInstances = new HashMap<String, Events>();
 
-    public static void initialize() {
-        mBus = new Bus(ThreadEnforcer.MAIN);
+    public static synchronized Events getInstance() {
+        return getInstance(Engine.DEFAULT_PLOGGY_INSTANCE_NAME);
+    }
+    public static synchronized Events getInstance(String name) {
+        if (!mInstances.containsKey(name)) {
+            mInstances.put(name, new Events(name));
+        }
+        return mInstances.get(name);
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        throw new CloneNotSupportedException();
+    }
+
+    private final String mInstanceName;
+    private final Bus mBus;
+    private final Handler mHandler;
+    private final Set<Object> mRegisteredObjects;
+
+    private Events(String instanceName) {
+        mInstanceName = instanceName;
+        ThreadEnforcer threadEnforcer = ThreadEnforcer.ANY;
+        if (mInstanceName.equals(Engine.DEFAULT_PLOGGY_INSTANCE_NAME)) {
+            threadEnforcer = ThreadEnforcer.MAIN;
+        }
+        mBus = new Bus(threadEnforcer, mInstanceName);
         mHandler = new Handler();
 
         // Activity and fragment lifecycle events make it difficult to reliably
@@ -56,21 +80,21 @@ public class Events {
         mRegisteredObjects = new HashSet<Object>();
     }
 
-    public static void register(Object object) {
+    public void register(Object object) {
         if (!mRegisteredObjects.contains(object)) {
             mBus.register(object);
             mRegisteredObjects.add(object);
         }
     }
 
-    public static void unregister(Object object) {
+    public void unregister(Object object) {
         if (mRegisteredObjects.contains(object)) {
             mBus.unregister(object);
             mRegisteredObjects.remove(object);
         }
     }
 
-    public static void post(Object object) {
+    public void post(Object object) {
         final Object postObject = object;
         mHandler.post(
             new Runnable() {
@@ -90,64 +114,117 @@ public class Events {
         }
     }
 
-    public static class NewSelfLocation {
+    public static class AddedFriend  {
+        public final String mFriendId;
+
+        public AddedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class UpdatedFriend  {
+        public final String mFriendId;
+
+        public UpdatedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class RemovedFriend  {
+        public final String mFriendId;
+
+        public RemovedFriend(String friendId) {
+            mFriendId = friendId;
+        }
+    }
+
+    public static class UpdatedSelfGroup {
+        public final String mGroupId;
+
+        public UpdatedSelfGroup(String groupId) {
+            mGroupId = groupId;
+        }
+    }
+
+    public static class UpdatedFriendGroup {
+        public final String mFriendId;
+        public final String mGroupId;
+
+        public UpdatedFriendGroup(String friendId, String groupId) {
+            mFriendId = friendId;
+            mGroupId = groupId;
+        }
+    }
+
+    public static class RefreshSelfLocationFix {
+
+        public RefreshSelfLocationFix() {
+        }
+    }
+
+    public static class NewSelfLocationFix {
         public final Location mLocation;
         public final Address mAddress;
 
-        public NewSelfLocation(Location location, Address address) {
+        public NewSelfLocationFix(Location location, Address address) {
             mLocation = location;
             mAddress = address;
         }
     }
 
-    public static class UpdatedSelfStatus {
+    public static class UpdatedSelfLocation {
 
-        public UpdatedSelfStatus() {
+        public UpdatedSelfLocation() {
         }
     }
 
-    public static class AddedFriend  {
-        public final String mId;
 
-        public AddedFriend(String id) {
-            mId = id;
+    public static class UpdatedFriendLocation {
+        public final String mFriendId;
+
+        public UpdatedFriendLocation(String friendId) {
+            mFriendId = friendId;
         }
     }
 
-    public static class UpdatedFriend  {
-        public final String mId;
+    public static class UpdatedSelfPost {
+        public final String mGroupId;
+        public final String mPostId;
 
-        public UpdatedFriend(String id) {
-            mId = id;
+        public UpdatedSelfPost(String groupId, String postId) {
+            mGroupId = groupId;
+            mPostId = postId;
         }
     }
 
-    public static class UpdatedFriendStatus {
-        public final String mId;
+    public static class UpdatedFriendPost {
+        public final String mFriendId;
+        public final String mGroupId;
+        public final String mPostId;
 
-        public UpdatedFriendStatus(String id) {
-            mId = id;
+        public UpdatedFriendPost(String friendId, String groupId, String postId) {
+            mFriendId = friendId;
+            mGroupId = groupId;
+            mPostId = postId;
         }
     }
 
-    public static class RemovedFriend  {
-        public final String mId;
+    public static class UpdatedFriendConfirmedPosts {
+        public final String mFriendId;
+        public final String mGroupId;
 
-        public RemovedFriend(String id) {
-            mId = id;
+        public UpdatedFriendConfirmedPosts(String friendId, String groupId) {
+            mFriendId = friendId;
+            mGroupId = groupId;
         }
     }
 
-    public static class UpdatedNewMessages {
-    }
+    public static class MarkedAsReadPosts {
+        public final String mGroupId;
 
-    public static class UpdatedAllMessages {
-    }
-
-    public static class DisplayedFriends {
-    }
-
-    public static class DisplayedMessages {
+        public MarkedAsReadPosts(String groupId) {
+            mGroupId = groupId;
+        }
     }
 
     public static class AddedDownload {
